@@ -1,0 +1,198 @@
+@font-face {
+  font-family: 'Violense';
+  src: url('/fonts/Violense.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Serif+Text:ital@0;1&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-violense: 'Violense', serif;
+  --font-playfair: 'Playfair Display', Georgia, serif;
+  --color-sombre: #2B1215;
+  --color-fonce: #5F1C25;
+  --color-accent: #AC0C21;
+  --color-clair: #F9E7E9;
+  --color-blanc: #FFFFFF;
+  --color-sable: #E5C0C4;
+  --color-vertbouton: #2D6A4F;
+  --color-gold: #d4af37;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  font-size: 16px;
+}
+
+body {
+  background-color: #FAFAF8;
+  color: var(--color-sombre);
+  font-family: 'Satoshi', var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+/* Display Font Utility */
+.font-display {
+  font-family: var(--font-violense), var(--font-playfair), "Playfair Display", Georgia, serif;
+}
+
+/* Hero Title Headlines */
+.hero-title {
+  font-family: var(--font-violense), var(--font-playfair), "Playfair Display", Georgia, serif;
+  font-size: clamp(28px, 5vw, 56px);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+/* Title Highlight Colors (Gold Accent) */
+.title-highlight, .text-gold {
+  color: #D4AF37;
+}
+
+/* Medium Common Texts & Subtitles */
+.font-medium-serif {
+  font-family: 'Satoshi', 'DM Serif Text', -apple-system, sans-serif;
+  font-weight: 700;
+}
+
+/* Signature UI: Ligne de bâti Haute Couture */
+.baste-border-h {
+  border-bottom: 2px dashed #E5C0C4;
+}
+
+.baste-border-gradient {
+  border-bottom: 2px dashed #AC0C21;
+}
+
+.baste-border-accent {
+  border-bottom: 2px dashed #AC0C21;
+}
+
+/* Photo gallery zoom animation */
+.gallery-zoom {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.gallery-zoom:hover {
+  transform: scale(1.03);
+  box-shadow: 0 10px 25px -5px rgba(43, 18, 21, 0.15);
+}
+
+/* Keyframes & Animations */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+.animate-float {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* Touch targets */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Custom animations for modern premium feel */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+/* Custom luxury scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F9E7E9;
+}
+::-webkit-scrollbar-thumb {
+  background: #E5C0C4;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #AC0C21;
+}
+
+/* iOS Style Switch Component */
+.ios-switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 26px;
+}
+.ios-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.ios-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #E5C0C4;
+  transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 34px;
+}
+.ios-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+input:checked + .ios-slider {
+  background-color: #AC0C21;
+}
+input:checked + .ios-slider:before {
+  transform: translateX(20px);
+}

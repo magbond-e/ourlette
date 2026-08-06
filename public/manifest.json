@@ -1,0 +1,21 @@
+{
+  "name": "Ourlette — Atelier Couture",
+  "short_name": "Ourlette",
+  "description": "Carnet de commandes, fiche mesures et vitrine pour couturiers",
+  "start_url": "/commandes",
+  "display": "standalone",
+  "background_color": "#EDEAE0",
+  "theme_color": "#2A4A66",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
