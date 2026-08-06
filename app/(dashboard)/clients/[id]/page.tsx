@@ -58,7 +58,7 @@ export default function ClientDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAFAF8] pb-24 font-sans">
+      <div className="min-h-screen bg-clair pb-24 font-sans">
         <main className="max-w-4xl mx-auto px-4 pt-12">
           <ThreadSpoolLoader label="Chargement de la fiche client…" size="lg" />
         </main>
@@ -68,7 +68,7 @@ export default function ClientDetailPage() {
 
   if (!client) {
     return (
-      <div className="min-h-screen bg-[#FAFAF8] pb-24 font-sans">
+      <div className="min-h-screen bg-clair pb-24 font-sans">
         <main className="max-w-4xl mx-auto px-4 pt-12 text-center space-y-4">
           <p className="text-base font-bold text-sombre/70">Client non trouvé.</p>
           <Link href="/clients">
@@ -80,7 +80,7 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] pb-24 font-sans">
+    <div className="min-h-screen bg-clair pb-24 font-sans">
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
         <div className="flex items-center justify-between gap-3">

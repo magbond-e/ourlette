@@ -63,7 +63,7 @@ export default function CommandeDetailPage() {
   // CONDITIONAL RENDERS AFTER ALL HOOKS
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAFAF8]">
+      <div className="min-h-screen bg-clair">
         <main className="max-w-xl mx-auto px-4 pt-12">
           <ThreadSpoolLoader label="Chargement de la commande…" size="lg" />
         </main>
@@ -73,7 +73,7 @@ export default function CommandeDetailPage() {
 
   if (!commande) {
     return (
-      <div className="min-h-screen bg-[#FAFAF8] pb-20 font-sans">
+      <div className="min-h-screen bg-clair pb-20 font-sans">
         <main className="max-w-xl mx-auto px-4 pt-12 text-center space-y-3">
           <p className="text-sm font-semibold text-sombre/70">Commande non trouvée.</p>
           <Link href="/commandes" className="inline-block mt-4">
@@ -91,7 +91,7 @@ export default function CommandeDetailPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] pb-24 font-sans">
+    <div className="min-h-screen bg-clair pb-24 font-sans">
 
       <main className="max-w-xl mx-auto px-4 pt-4 space-y-4">
         {/* Navigation */}

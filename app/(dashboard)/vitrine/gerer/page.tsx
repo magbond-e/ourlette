@@ -114,7 +114,7 @@ export default function GererVitrinePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAFAF8] pb-28 font-sans">
+      <div className="min-h-screen bg-clair pb-28 font-sans">
         <main className="max-w-4xl mx-auto px-4 pt-12">
           <ThreadSpoolLoader label="Chargement de votre vitrine d'atelier…" size="lg" />
         </main>
@@ -123,7 +123,7 @@ export default function GererVitrinePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] pb-24 font-sans">
+    <div className="min-h-screen bg-clair pb-24 font-sans">
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
         {/* Header */}

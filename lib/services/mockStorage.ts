@@ -1,4 +1,5 @@
 import { Couturier, Client, Mesure, Commande, Realisation, StatutCommande } from '../types/database';
+import { SupabaseService } from './supabaseService';
 
 const INITIAL_COUTURIER: Couturier = {
   id: 'couturier-1',
@@ -240,6 +241,12 @@ export class MockStorageService {
     };
     const clients = [newClient, ...this.getClients()];
     this.setStore('clients', clients);
+
+    // Async sync to Supabase database if configured
+    SupabaseService.addClient(newClient).catch((err) => {
+      console.log('Supabase sync info:', err);
+    });
+
     return newClient;
   }
 
@@ -266,6 +273,12 @@ export class MockStorageService {
 
     dict[clientId] = updated;
     this.setStore('mesures', dict);
+
+    // Async sync to Supabase database if configured
+    SupabaseService.saveMesures(clientId, updated).catch((err) => {
+      console.log('Supabase sync info:', err);
+    });
+
     return updated;
   }
 
@@ -300,6 +313,12 @@ export class MockStorageService {
     };
     const cmds = [newCmd, ...this.getStore<Commande[]>('commandes', INITIAL_COMMANDES)];
     this.setStore('commandes', cmds);
+
+    // Async sync to Supabase database if configured
+    SupabaseService.addCommande(newCmd).catch((err) => {
+      console.log('Supabase sync info:', err);
+    });
+
     return newCmd;
   }
 

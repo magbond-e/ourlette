@@ -108,7 +108,7 @@ export default function NouvelleCommandePage() {
   const currentSolde = calculSolde(Number(prixTotal) || 0, Number(acompte) || 0);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] pb-24 font-sans">
+    <div className="min-h-screen bg-clair pb-24 font-sans">
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
         {/* Navigation & Header Alignment (Clean & Mobile-First) */}
