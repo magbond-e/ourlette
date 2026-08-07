@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Store, Globe, Check, LogOut, Bell, MessageSquare, Star, Send, MapPin, Mail, Phone, DollarSign } from 'lucide-react';
+import { User, Store, Globe, Check, LogOut, Bell, MessageSquare, Star, Send } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -16,6 +16,7 @@ export default function ParametresPage() {
   const { user, couturier: authCouturier, refreshProfile, signOut } = useAuth();
   const [couturier, setCouturier] = useState<Couturier | null>(null);
 
+  // Profile Edit State (clean default empty strings)
   const [nom, setNom] = useState('');
   const [nomAtelier, setNomAtelier] = useState('');
   const [email, setEmail] = useState('');
@@ -52,8 +53,8 @@ export default function ParametresPage() {
     const c = (await DataService.getCouturier(user.id)) || authCouturier;
     if (c) {
       setCouturier(c);
-      setNom(c.nom || '');
-      setNomAtelier(c.nom_atelier || '');
+      setNom(c.nom && c.nom !== 'Artisan Couturier' ? c.nom : '');
+      setNomAtelier(c.nom_atelier && c.nom_atelier !== 'Mon Atelier' ? c.nom_atelier : '');
       setEmail(c.email || user.email || '');
       setTelephone(c.telephone || '');
       setWhatsappContact(c.whatsapp_contact || c.telephone || '');
@@ -82,6 +83,8 @@ export default function ParametresPage() {
     setSaving(true);
     setSuccessMsg('');
 
+    const slugified = slug ? slug.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') : '';
+
     const updated = await DataService.updateCouturier(user.id, {
       nom: nom.trim(),
       nom_atelier: nomAtelier.trim(),
@@ -92,7 +95,7 @@ export default function ParametresPage() {
       pays: pays.trim(),
       adresse_atelier: adresseAtelier.trim(),
       bio: bio.trim(),
-      slug_vitrine: slug.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
+      ...(slugified ? { slug_vitrine: slugified } : {}),
       langue,
       devise,
       notifications_email: notifEmail,
@@ -161,6 +164,7 @@ export default function ParametresPage() {
               <Input
                 label="Nom complet du couturier"
                 type="text"
+                placeholder="ex: Adia Diop"
                 value={nom}
                 onChange={(e) => setNom(e.target.value)}
                 required
@@ -205,6 +209,7 @@ export default function ParametresPage() {
               <Input
                 label="Nom de l'atelier de couture"
                 type="text"
+                placeholder="ex: Atelier Adia Couture"
                 value={nomAtelier}
                 onChange={(e) => setNomAtelier(e.target.value)}
                 required
@@ -214,12 +219,14 @@ export default function ParametresPage() {
                 <Input
                   label="Ville"
                   type="text"
+                  placeholder="ex: Dakar"
                   value={ville}
                   onChange={(e) => setVille(e.target.value)}
                 />
                 <Input
                   label="Pays"
                   type="text"
+                  placeholder="ex: Sénégal"
                   value={pays}
                   onChange={(e) => setPays(e.target.value)}
                 />
@@ -239,7 +246,7 @@ export default function ParametresPage() {
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="ex: Spécialiste tenue traditionnelle africaine, Bazin, Broderies Haute Couture..."
+                  placeholder="ex: Spécialiste tenue traditionnelle africaine, Bazin, Broderies..."
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   className="w-full p-3.5 bg-white border border-sable/80 rounded-2xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-sans shadow-xs"
@@ -249,6 +256,7 @@ export default function ParametresPage() {
               <Input
                 label="Lien unique de vitrine (Slug)"
                 type="text"
+                placeholder="ex: atelier-adia"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
                 helperText={`ourlette.app/${slug}`}

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Playfair_Display, DM_Serif_Text, Inter } from 'next/font/google';
 import './globals.css';
+import { AuthProvider } from '@/lib/context/AuthContext';
+import { CookieBanner } from '@/components/ui/CookieBanner';
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -113,8 +115,6 @@ const jsonLdData = {
     'SaaS gratuit pour couturiers et ateliers de couture : carnet de commandes d’atelier, gestion des fiches mesures numériques et vitrine publique WhatsApp.',
 };
 
-import { AuthProvider } from '@/lib/context/AuthContext';
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -131,6 +131,7 @@ export default function RootLayout({
       <body className="antialiased bg-clair text-sombre selection:bg-accent selection:text-white min-h-screen font-sans">
         <AuthProvider>
           <main className="min-h-screen pb-12">{children}</main>
+          <CookieBanner />
         </AuthProvider>
       </body>
     </html>

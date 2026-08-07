@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS public.couturiers (
   slug_vitrine TEXT UNIQUE NOT NULL,
   logo_url TEXT,
   cover_url TEXT,
+  vitrine_active BOOLEAN DEFAULT true,
+  cookie_consent_at TIMESTAMPTZ,
   notifications_email BOOLEAN DEFAULT true,
   notif_rappel_livraison BOOLEAN DEFAULT true,
   notif_retard BOOLEAN DEFAULT true,

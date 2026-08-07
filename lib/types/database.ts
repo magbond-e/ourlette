@@ -18,6 +18,8 @@ export interface Couturier {
   slug_vitrine: string;
   logo_url?: string;
   cover_url?: string;
+  vitrine_active?: boolean;
+  cookie_consent_at?: string;
   notifications_email?: boolean;
   notif_rappel_livraison?: boolean;
   notif_retard?: boolean;

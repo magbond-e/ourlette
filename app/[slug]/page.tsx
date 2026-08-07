@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Scissors, MapPin, Share2, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Scissors, MapPin, Share2, Sparkles, Image as ImageIcon, PowerOff } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
@@ -41,6 +41,7 @@ export default function VitrinePubliquePage() {
         nom: 'Couturier',
         nom_atelier: `Atelier ${slugParam.replace('-', ' ')}`,
         slug_vitrine: slugParam,
+        vitrine_active: true,
         langue: 'fr',
         plan: 'free',
         date_creation: new Date().toISOString(),
@@ -64,6 +65,8 @@ export default function VitrinePubliquePage() {
 
   if (!couturier || (slugParam && slugParam.includes('.'))) return null;
 
+  const isVitrineDisabled = couturier.vitrine_active === false;
+
   const whatsappGeneralUrl = generateWhatsAppContactLink(
     couturier.whatsapp_contact || couturier.telephone || '+221771234567',
     couturier.nom_atelier
@@ -71,6 +74,61 @@ export default function VitrinePubliquePage() {
 
   const whatsappShareUrl = generateWhatsAppShareLink(couturier.nom_atelier, couturier.slug_vitrine);
   const featuredImage = couturier.cover_url || (realisations.length > 0 ? realisations[0].photo_url : null);
+
+  // If Vitrine is Deactivated by the Couturier
+  if (isVitrineDisabled) {
+    return (
+      <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-between font-sans">
+        <header className="bg-sombre text-white py-3.5 px-4 shadow-md border-b border-gold/30 w-full">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Scissors className="w-4 h-4 text-gold" />
+              <span className="font-display font-bold text-sm text-white">{couturier.nom_atelier}</span>
+            </div>
+            <span className="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/40 px-3 py-1 rounded-full font-bold">
+              Vitrine Désactivée
+            </span>
+          </div>
+        </header>
+
+        <main className="max-w-md mx-auto px-4 py-16 text-center space-y-6">
+          <div className="w-20 h-20 rounded-full bg-sombre/10 text-sombre flex items-center justify-center mx-auto shadow-inner border border-sable/80">
+            <PowerOff className="w-9 h-9 text-sombre/60" />
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-3xl font-display font-bold text-sombre">{couturier.nom_atelier}</h1>
+            <p className="text-sm text-sombre/70 font-medium leading-relaxed">
+              La vitrine publique de cet atelier est actuellement temporairement en pause.
+            </p>
+          </div>
+
+          {(couturier.telephone || couturier.whatsapp_contact) && (
+            <div className="pt-2">
+              <a href={whatsappGeneralUrl} target="_blank" rel="noopener noreferrer" className="block">
+                <Button
+                  variant="success"
+                  size="md"
+                  fullWidth
+                  className="gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-md text-sm py-3 rounded-full"
+                >
+                  <WhatsAppIcon className="w-5 h-5 fill-current" />
+                  <span>Contacter l'atelier sur WhatsApp</span>
+                </Button>
+              </a>
+            </div>
+          )}
+        </main>
+
+        <footer className="text-center py-6 border-t border-dashed border-sable max-w-4xl mx-auto font-sans">
+          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-sombre/70 font-bold">
+            <Scissors className="w-4 h-4 text-accent" />
+            <span>Propulsé par <strong className="font-display font-extrabold text-accent">Ourlette.</strong></span>
+          </Link>
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] pb-16 font-sans">

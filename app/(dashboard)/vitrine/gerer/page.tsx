@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Store, Plus, Trash2, ExternalLink, Image as ImageIcon, Check, Copy, Upload } from 'lucide-react';
+import { Store, Plus, Trash2, ExternalLink, Image as ImageIcon, Check, Copy, Upload, Power } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -17,7 +17,10 @@ export default function GererVitrinePage() {
   const [couturier, setCouturier] = useState<Couturier | null>(null);
   const [realisations, setRealisations] = useState<Realisation[]>([]);
 
-  // Profile Edit State
+  // Vitrine status state
+  const [vitrineActive, setVitrineActive] = useState<boolean>(true);
+
+  // Profile Edit State (Initial state empty for clean placeholders)
   const [nomAtelier, setNomAtelier] = useState('');
   const [ville, setVille] = useState('');
   const [pays, setPays] = useState('');
@@ -25,6 +28,7 @@ export default function GererVitrinePage() {
   const [slug, setSlug] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [bio, setBio] = useState('');
 
   // Add Realisation State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -32,6 +36,7 @@ export default function GererVitrinePage() {
   const [description, setDescription] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -48,13 +53,15 @@ export default function GererVitrinePage() {
     const activeC = c || authCouturier;
     if (activeC) {
       setCouturier(activeC);
-      setNomAtelier(activeC.nom_atelier);
+      setVitrineActive(activeC.vitrine_active ?? true);
+      setNomAtelier(activeC.nom_atelier && activeC.nom_atelier !== 'Mon Atelier' ? activeC.nom_atelier : '');
       setVille(activeC.ville || '');
       setPays(activeC.pays || '');
-      setTelephone(activeC.telephone || '');
-      setSlug(activeC.slug_vitrine);
+      setTelephone(activeC.telephone || activeC.whatsapp_contact || '');
+      setSlug(activeC.slug_vitrine || '');
       setCoverUrl(activeC.cover_url || '');
       setLogoUrl(activeC.logo_url || '');
+      setBio(activeC.bio || '');
     }
 
     setRealisations(reals);
@@ -64,6 +71,23 @@ export default function GererVitrinePage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleToggleVitrineActive = async () => {
+    if (!user?.id) return;
+    setTogglingStatus(true);
+    const nextStatus = !vitrineActive;
+
+    const updated = await DataService.updateCouturier(user.id, {
+      vitrine_active: nextStatus,
+    });
+
+    if (updated) {
+      setVitrineActive(updated.vitrine_active ?? nextStatus);
+      setCouturier(updated);
+      await refreshProfile();
+    }
+    setTogglingStatus(false);
+  };
 
   const handleImageFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -86,14 +110,19 @@ export default function GererVitrinePage() {
     if (!user?.id) return;
     setSavingProfile(true);
 
+    const slugified = slug ? slug.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') : '';
+
     const updated = await DataService.updateCouturier(user.id, {
       nom_atelier: nomAtelier.trim(),
       ville: ville.trim(),
       pays: pays.trim(),
       telephone: telephone.trim(),
-      slug_vitrine: slug.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
+      whatsapp_contact: telephone.trim(),
+      bio: bio.trim(),
+      ...(slugified ? { slug_vitrine: slugified } : {}),
       cover_url: coverUrl.trim() || undefined,
       logo_url: logoUrl.trim() || undefined,
+      vitrine_active: vitrineActive,
     });
 
     if (updated) {
@@ -164,56 +193,93 @@ export default function GererVitrinePage() {
           </Link>
         </div>
 
-        {/* Share Link Card */}
+        {/* Status Activation Toggle Card */}
         <Card className="p-5 sm:p-6 space-y-4 bg-white border border-sable/80 shadow-xs rounded-3xl">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-accent/10 flex items-center justify-center text-accent shrink-0">
-                <Store className="w-5 h-5" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-sable/40 pb-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-white shadow-xs ${
+                vitrineActive ? 'bg-emerald-600' : 'bg-sombre/40'
+              }`}>
+                <Power className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">Lien Public de votre Atelier</h3>
-                <p className="text-xs text-sombre/70 font-semibold">Partagez ce lien à vos clients pour leur faire consulter votre vitrine</p>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-display font-bold text-sombre">Statut de la Vitrine</h3>
+                  <span className={`text-xs px-3 py-0.5 rounded-full font-extrabold border ${
+                    vitrineActive
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : 'bg-rose-50 text-rose-800 border-rose-300'
+                  }`}>
+                    {vitrineActive ? '✓ Vitrine Active' : '✕ Vitrine Désactivée'}
+                  </span>
+                </div>
+                <p className="text-xs text-sombre/60 font-semibold mt-0.5">
+                  {vitrineActive
+                    ? 'Votre vitrine est accessible publiquement via votre lien unique.'
+                    : 'Votre vitrine est désactivée et masquée pour les visiteurs.'}
+                </p>
               </div>
             </div>
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full font-bold shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Vitrine active</span>
-            </span>
+
+            <Button
+              type="button"
+              onClick={handleToggleVitrineActive}
+              disabled={togglingStatus}
+              variant={vitrineActive ? 'outline' : 'accent'}
+              size="md"
+              className={`rounded-full font-bold text-xs sm:text-sm shadow-xs ${
+                vitrineActive
+                  ? 'border-accent text-accent hover:bg-accent hover:text-white'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              }`}
+            >
+              {togglingStatus
+                ? 'Mise à jour…'
+                : vitrineActive
+                ? 'Désactiver la vitrine'
+                : 'Activer la vitrine'}
+            </Button>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 bg-[#FAFAF8] p-3 rounded-2xl border border-sable/70">
-            <div className="flex-1 px-3.5 py-2.5 bg-white rounded-xl border border-sable/80 flex items-center min-w-0 shadow-inner">
-              <span className="text-xs sm:text-sm font-mono text-sombre font-bold truncate select-all w-full">{publicLink}</span>
+          {/* Share Link */}
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-accent">Lien Public de votre Atelier</span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition-all shadow-xs shrink-0 ${
-                  copiedLink
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-sombre text-white hover:bg-fonce active:scale-95'
-                }`}
-              >
-                {copiedLink ? <Check className="w-4 h-4 text-emerald-200" /> : <Copy className="w-4 h-4 text-gold" />}
-                <span>{copiedLink ? 'Copié !' : 'Copier'}</span>
-              </button>
-              <Link href={`/${activeSlug}`} target="_blank">
-                <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold px-3.5 py-2.5 border-sable text-sombre hover:text-accent gap-1.5">
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Aperçu</span>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 bg-[#FAFAF8] p-3 rounded-2xl border border-sable/70">
+              <div className="flex-1 px-3.5 py-2.5 bg-white rounded-xl border border-sable/80 flex items-center min-w-0 shadow-inner">
+                <span className="text-xs sm:text-sm font-mono text-sombre font-bold truncate select-all w-full">{publicLink}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition-all shadow-xs shrink-0 ${
+                    copiedLink
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-sombre text-white hover:bg-fonce active:scale-95'
+                  }`}
+                >
+                  {copiedLink ? <Check className="w-4 h-4 text-emerald-200" /> : <Copy className="w-4 h-4 text-gold" />}
+                  <span>{copiedLink ? 'Copié !' : 'Copier'}</span>
+                </button>
+                <Link href={`/${activeSlug}`} target="_blank">
+                  <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold px-3.5 py-2.5 border-sable text-sombre hover:text-accent gap-1.5">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Aperçu</span>
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <a href={whatsappShareUrl} target="_blank" rel="noopener noreferrer" className="block">
+                <Button variant="accent" fullWidth size="md" className="gap-2 bg-[#25D366] hover:bg-emerald-600 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-sm">
+                  <span>💬 Partager la vitrine sur WhatsApp</span>
                 </Button>
-              </Link>
+              </a>
             </div>
-          </div>
-
-          <div className="pt-1">
-            <a href={whatsappShareUrl} target="_blank" rel="noopener noreferrer" className="block">
-              <Button variant="accent" fullWidth size="md" className="gap-2 bg-[#25D366] hover:bg-emerald-600 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-sm">
-                <span>💬 Partager la vitrine sur WhatsApp</span>
-              </Button>
-            </a>
           </div>
         </Card>
 
@@ -307,7 +373,7 @@ export default function GererVitrinePage() {
                 <Input
                   label="OU Coller un lien d'image (URL)"
                   type="text"
-                  placeholder="https://..."
+                  placeholder="ex: https://images.unsplash.com/..."
                   value={photoUrl}
                   onChange={(e) => setPhotoUrl(e.target.value)}
                 />
@@ -344,6 +410,7 @@ export default function GererVitrinePage() {
             <Input
               label="Nom de l'atelier de couture"
               type="text"
+              placeholder="ex: Atelier Adia Couture"
               value={nomAtelier}
               onChange={(e) => setNomAtelier(e.target.value)}
               required
@@ -353,12 +420,14 @@ export default function GererVitrinePage() {
               <Input
                 label="Ville"
                 type="text"
+                placeholder="ex: Dakar"
                 value={ville}
                 onChange={(e) => setVille(e.target.value)}
               />
               <Input
                 label="Pays"
                 type="text"
+                placeholder="ex: Sénégal"
                 value={pays}
                 onChange={(e) => setPays(e.target.value)}
               />
@@ -367,9 +436,23 @@ export default function GererVitrinePage() {
             <Input
               label="Téléphone de contact (WhatsApp)"
               type="tel"
+              placeholder="ex: +221 77 123 45 67"
               value={telephone}
               onChange={(e) => setTelephone(e.target.value)}
             />
+
+            <div className="space-y-1.5">
+              <label className="block text-xs sm:text-sm font-bold text-sombre">
+                Présentation / Bio de l'atelier
+              </label>
+              <textarea
+                rows={3}
+                placeholder="ex: Spécialiste tenue traditionnelle africaine, Bazin, Broderies..."
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                className="w-full p-3.5 bg-white border border-sable/80 rounded-2xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-sans shadow-xs"
+              />
+            </div>
 
             {/* Cover Banner Upload */}
             <div className="space-y-2 p-4 bg-[#FAFAF8] rounded-2xl border border-sable/60">
@@ -430,6 +513,7 @@ export default function GererVitrinePage() {
             <Input
               label="Lien unique de vitrine (Slug)"
               type="text"
+              placeholder="ex: atelier-adia"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               helperText={`ourlette.app/${slug}`}
@@ -437,7 +521,7 @@ export default function GererVitrinePage() {
             />
 
             <Button type="submit" variant="accent" size="lg" fullWidth disabled={savingProfile} className="shadow-lg shadow-accent/20 font-bold rounded-full">
-              {savingProfile ? 'Enregistrement…' : 'Enregistrer la vitrine →'}
+              {savingProfile ? 'Enregistrement…' : 'Enregistrer les informations →'}
             </Button>
           </form>
         </Card>
