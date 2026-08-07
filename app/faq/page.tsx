@@ -172,11 +172,10 @@ export default function FaqPage() {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${
-                selectedCategory === cat
+              className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${selectedCategory === cat
                   ? 'bg-accent text-white shadow-md'
                   : 'bg-white text-sombre/70 hover:text-accent border border-sable/60'
-              }`}
+                }`}
             >
               {cat}
             </button>
@@ -209,7 +208,7 @@ export default function FaqPage() {
             Notre équipe est disponible pour répondre directement aux questions de votre atelier.
           </p>
           <div>
-            <a href="mailto:contact@ourlette.app">
+            <a href="mailto:ourlette.app@gmail.com">
               <Button variant="accent" size="md" className="rounded-full px-6 font-bold shadow-md">
                 Nous contacter par email
               </Button>

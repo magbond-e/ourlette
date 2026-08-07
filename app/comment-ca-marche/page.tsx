@@ -155,7 +155,7 @@ export default function CommentCaMarchePage() {
           <div className="pt-4 text-center">
             <Link href="/login">
               <Button variant="accent" size="lg" className="rounded-full px-8 py-4 font-extrabold shadow-lg">
-                Commencer gratuitement →
+                Commencer gratuitement
               </Button>
             </Link>
           </div>

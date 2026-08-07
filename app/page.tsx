@@ -109,7 +109,7 @@ export default function LandingPage() {
               <div className="pt-3 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
                 <Link href="/login" className="w-full sm:w-auto">
                   <Button variant="accent" size="lg" className="w-full sm:w-auto rounded-full font-extrabold px-8 py-4 shadow-xl text-base hover:scale-105 active:scale-95 transition-all">
-                    Commencer gratuitement →
+                    Commencer gratuitement
                   </Button>
                 </Link>
                 <Link href="#apercu" className="w-full sm:w-auto">
@@ -399,7 +399,7 @@ export default function LandingPage() {
       <section className="py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto bg-gradient-to-r from-sombre via-fonce to-sombre text-white rounded-3xl p-8 sm:p-14 shadow-2xl relative overflow-hidden border border-accent/20">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#FFFFFF_1px,transparent_1px)] [background-size:16px_16px]"></div>
-          
+
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8 relative z-10">
             <div className="space-y-3 text-center lg:text-left">
               <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white">
@@ -409,7 +409,7 @@ export default function LandingPage() {
                 Inscription simple en 2 minutes. Lance-toi dès aujourd'hui.
               </p>
             </div>
-            
+
             <div className="shrink-0">
               <Link href="/login">
                 <Button variant="gold" size="lg" className="rounded-full px-10 py-4 font-extrabold text-base shadow-xl hover:scale-105 active:scale-95 transition-all">

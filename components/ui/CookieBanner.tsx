@@ -68,8 +68,7 @@ export const CookieBanner: React.FC<{ isDashboard?: boolean }> = ({ isDashboard 
               size="lg"
               className="rounded-full font-extrabold text-sm py-4 shadow-xl gap-2 hover:scale-105 active:scale-95 transition-all"
             >
-              <Check className="w-5 h-5" />
-              <span>J'accepte les cookies & j'accède à l'atelier →</span>
+              <span>J'accepte les cookies & j'accède à l'atelier</span>
             </Button>
           </div>
 
@@ -105,7 +104,7 @@ export const CookieBanner: React.FC<{ isDashboard?: boolean }> = ({ isDashboard 
             size="sm"
             className="rounded-full text-xs font-bold px-5 py-2 shadow-md hover:scale-105 active:scale-95 transition-transform"
           >
-            Accepter les cookies ✓
+            Accepter les cookies
           </Button>
         </div>
       </div>

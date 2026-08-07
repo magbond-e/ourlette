@@ -5,6 +5,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { createClient } from '../supabase/client';
 import { Couturier } from '../types/database';
 import { SupabaseService } from '../services/supabaseService';
+import { DataService } from '../services/dataService';
 import { MockStorageService } from '../services/mockStorage';
 
 interface AuthContextType {
@@ -48,15 +49,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (profile) {
         setCouturier(profile);
-        MockStorageService.updateCouturier(profile);
+        await DataService.updateCouturier(authUser.id, profile);
       } else {
-        const local = MockStorageService.getCouturier();
+        const local = await DataService.getCouturier(authUser.id);
         setCouturier(local);
       }
     } catch (err) {
       console.error('Error loading user profile:', err);
-      const local = MockStorageService.getCouturier();
-      setCouturier(local);
+      if (authUser?.id) {
+        const local = await DataService.getCouturier(authUser.id);
+        setCouturier(local);
+      }
     }
   };
 

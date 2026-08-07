@@ -111,7 +111,7 @@ export const LandingFooter: React.FC = () => {
             <div className="pt-3 space-y-2 text-xs text-clair/70 border-t border-white/10">
               <div className="flex items-center gap-2 text-clair">
                 <Mail className="w-4 h-4 text-gold shrink-0" />
-                <a href="mailto:contact@ourlette.app" className="hover:underline text-gold font-bold">contact@ourlette.app</a>
+                <a href="mailto:ourlette.app@gmail.com" className="hover:underline text-gold font-bold">ourlette.app@gmail.com</a>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-gold shrink-0" />

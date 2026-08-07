@@ -107,13 +107,14 @@ export const MandatoryOnboardingModal: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4 font-sans text-left">
           <Input
-            label="Votre nom complet"
+            label="Votre nom complet (titulaire de compte)"
             type="text"
             placeholder="ex: Adia Diop"
             value={nom}
             onChange={(e) => setNom(e.target.value)}
+            disabled={Boolean(couturier?.nom && couturier.nom !== 'Artisan Couturier')}
             required
-            autoFocus
+            autoFocus={!nom}
           />
 
           <Input

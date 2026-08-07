@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/context/AuthContext';
 import { SupabaseService } from '@/lib/services/supabaseService';
+import { DataService } from '@/lib/services/dataService';
 import { MockStorageService } from '@/lib/services/mockStorage';
 
 const GoogleIcon = () => (
@@ -39,8 +40,8 @@ export default function SignupPage() {
   const [nomAtelier, setNomAtelier] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [ville, setVille] = useState('Dakar');
-  const [pays, setPays] = useState('Sénégal');
+  const [ville, setVille] = useState('');
+  const [pays, setPays] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -110,14 +111,16 @@ export default function SignupPage() {
     }
 
     if (authData.user) {
-      await SupabaseService.createOrEnsureCouturier(authData.user.id, {
+      const profileInfo = {
         nom: nom.trim(),
         nom_atelier: nomAtelier.trim(),
         email: email.trim(),
         ville: ville.trim(),
         pays: pays.trim(),
         slug_vitrine: slug,
-      });
+      };
+      await SupabaseService.createOrEnsureCouturier(authData.user.id, profileInfo);
+      await DataService.updateCouturier(authData.user.id, profileInfo);
     }
 
     setLoading(false);

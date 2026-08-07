@@ -332,12 +332,37 @@ export class DataService {
 
   // ── Vitrine Publique ──────────────────────────────────────────────
   static async getPublicVitrine(slug: string): Promise<{ couturier: Couturier | null; realisations: Realisation[] }> {
-    const couturier = await SupabaseService.getCouturier(slug);
+    let couturier = await SupabaseService.getCouturier(slug);
+
+    if (!couturier && typeof window !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('ourlette_') && key.endsWith('_couturier')) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const c = JSON.parse(raw) as Couturier;
+              if (c && c.slug_vitrine === slug) {
+                couturier = c;
+                break;
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore storage parse error
+      }
+    }
+
     if (!couturier) {
       return { couturier: null, realisations: [] };
     }
 
-    const realisations = await SupabaseService.getRealisations(couturier.id);
+    let realisations = await SupabaseService.getRealisations(couturier.id);
+    if ((!realisations || realisations.length === 0) && couturier.id) {
+      realisations = this.getStore<Realisation[]>(couturier.id, 'realisations', []);
+    }
+
     return { couturier, realisations };
   }
 }

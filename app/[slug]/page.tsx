@@ -36,16 +36,7 @@ export default function VitrinePubliquePage() {
       setCouturier(c);
       setRealisations(reals);
     } else {
-      setCouturier({
-        id: `mock-${slugParam}`,
-        nom: 'Couturier',
-        nom_atelier: `Atelier ${slugParam.replace('-', ' ')}`,
-        slug_vitrine: slugParam,
-        vitrine_active: true,
-        langue: 'fr',
-        plan: 'free',
-        date_creation: new Date().toISOString(),
-      });
+      setCouturier(null);
       setRealisations([]);
     }
     setLoading(false);
@@ -63,19 +54,21 @@ export default function VitrinePubliquePage() {
     );
   }
 
-  if (!couturier || (slugParam && slugParam.includes('.'))) return null;
+  if (slugParam && slugParam.includes('.')) return null;
 
-  const isVitrineDisabled = couturier.vitrine_active === false;
+  const isVitrineDisabled = !couturier || couturier.vitrine_active === false;
 
-  const whatsappGeneralUrl = generateWhatsAppContactLink(
-    couturier.whatsapp_contact || couturier.telephone || '+221771234567',
+  const nomAtelierDisplay = couturier?.nom_atelier || `Atelier ${slugParam.replace('-', ' ')}`;
+
+  const whatsappGeneralUrl = couturier ? generateWhatsAppContactLink(
+    couturier.whatsapp_contact || couturier.telephone || '',
     couturier.nom_atelier
-  );
+  ) : '#';
 
-  const whatsappShareUrl = generateWhatsAppShareLink(couturier.nom_atelier, couturier.slug_vitrine);
-  const featuredImage = couturier.cover_url || (realisations.length > 0 ? realisations[0].photo_url : null);
+  const whatsappShareUrl = generateWhatsAppShareLink(nomAtelierDisplay, slugParam);
+  const featuredImage = couturier?.cover_url || (realisations.length > 0 ? realisations[0].photo_url : null);
 
-  // If Vitrine is Deactivated by the Couturier
+  // If Vitrine is Deactivated or Not Found
   if (isVitrineDisabled) {
     return (
       <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-between font-sans">
@@ -83,7 +76,7 @@ export default function VitrinePubliquePage() {
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <Scissors className="w-4 h-4 text-gold" />
-              <span className="font-display font-bold text-sm text-white">{couturier.nom_atelier}</span>
+              <span className="font-display font-bold text-sm text-white">{nomAtelierDisplay}</span>
             </div>
             <span className="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/40 px-3 py-1 rounded-full font-bold">
               Vitrine Désactivée
@@ -97,13 +90,13 @@ export default function VitrinePubliquePage() {
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-3xl font-display font-bold text-sombre">{couturier.nom_atelier}</h1>
+            <h1 className="text-3xl font-display font-bold text-sombre">{nomAtelierDisplay}</h1>
             <p className="text-sm text-sombre/70 font-medium leading-relaxed">
-              La vitrine publique de cet atelier est actuellement temporairement en pause.
+              La vitrine publique de cet atelier est actuellement temporairement en pause ou indisponible.
             </p>
           </div>
 
-          {(couturier.telephone || couturier.whatsapp_contact) && (
+          {couturier && (couturier.telephone || couturier.whatsapp_contact) && (
             <div className="pt-2">
               <a href={whatsappGeneralUrl} target="_blank" rel="noopener noreferrer" className="block">
                 <Button

@@ -39,8 +39,9 @@ export default function MentionsLegalesPage() {
             <h2 className="text-xl font-display font-bold text-sombre border-b border-sable/40 pb-2">1. Éditeur du site</h2>
             <ul className="space-y-1 text-sombre/80">
               <li><strong>Nom du service :</strong> Ourlette</li>
+              <li><strong>Propriétaire :</strong> Kadoukpè Ulrich MAGBONDE</li>
               <li><strong>Activité :</strong> Plateforme SaaS de gestion d'atelier de couture</li>
-              <li><strong>Email de contact :</strong> contact@ourlette.app</li>
+              <li><strong>Email de contact :</strong> ourlette.app@gmail.com</li>
             </ul>
           </section>
 

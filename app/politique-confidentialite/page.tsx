@@ -63,7 +63,7 @@ export default function PolitiqueConfidentialitePage() {
           <section className="space-y-2">
             <h2 className="text-xl font-display font-bold text-sombre border-b border-sable/40 pb-2">4. Durée de conservation & Droits</h2>
             <p className="text-sombre/80">
-              Les données sont conservées durant toute la durée d'activité de votre compte atelier. Vous disposez d'un droit d'accès, de rectification, d'exportation et de suppression de vos données sur simple demande par email à <a href="mailto:contact@ourlette.app" className="text-accent font-bold underline">contact@ourlette.app</a>.
+              Les données sont conservées durant toute la durée d'activité de votre compte atelier. Vous disposez d'un droit d'accès, de rectification, d'exportation et de suppression de vos données sur simple demande par email à <a href="mailto:ourlette.app@gmail.com" className="text-accent font-bold underline">ourlette.app@gmail.com</a>.
             </p>
           </section>
 

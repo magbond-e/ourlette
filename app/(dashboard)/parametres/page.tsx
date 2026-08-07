@@ -162,12 +162,12 @@ export default function ParametresPage() {
 
             <div className="space-y-4 font-sans">
               <Input
-                label="Nom complet du couturier"
+                label="Nom du titulaire du compte (non modifiable)"
                 type="text"
-                placeholder="ex: Adia Diop"
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-                required
+                value={nom || 'Artisan Couturier'}
+                onChange={() => {}}
+                disabled
+                helperText="Le nom du titulaire de compte est lié à votre identifiant d'inscription."
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
