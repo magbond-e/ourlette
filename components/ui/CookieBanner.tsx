@@ -83,7 +83,7 @@ export const CookieBanner: React.FC<{ isDashboard?: boolean }> = ({ isDashboard 
               size="lg"
               className="rounded-full font-extrabold text-sm py-4 shadow-xl gap-2 hover:scale-105 active:scale-95 transition-all"
             >
-              <span>J'accepte les cookies & j'accède à l'atelier</span>
+              <span>J'accepte les cookies</span>
             </Button>
           </div>
 

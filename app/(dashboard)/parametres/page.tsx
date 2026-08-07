@@ -16,7 +16,7 @@ export default function ParametresPage() {
   const { user, couturier: authCouturier, refreshProfile, signOut } = useAuth();
   const [couturier, setCouturier] = useState<Couturier | null>(null);
 
-  // Profile Edit State (clean default empty strings)
+  // Profile Edit State
   const [nom, setNom] = useState('');
   const [nomAtelier, setNomAtelier] = useState('');
   const [email, setEmail] = useState('');
@@ -35,7 +35,7 @@ export default function ParametresPage() {
   const [notifRetard, setNotifRetard] = useState(true);
   const [notifRappelLivraison, setNotifRappelLivraison] = useState(true);
 
-  // Feedback / Avis State
+  // Feedback State
   const [feedbackNote, setFeedbackNote] = useState<number>(5);
   const [feedbackTexte, setFeedbackTexte] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -109,7 +109,7 @@ export default function ParametresPage() {
     }
 
     setSaving(false);
-    setSuccessMsg('Paramètres de l’atelier mis à jour !');
+    setSuccessMsg('Paramètres enregistrés avec succès !');
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
@@ -131,7 +131,7 @@ export default function ParametresPage() {
     return (
       <div className="min-h-screen bg-clair pb-24 font-sans">
         <main className="max-w-4xl mx-auto px-4 pt-12">
-          <ThreadSpoolLoader label="Chargement de vos paramètres d'atelier…" size="lg" />
+          <ThreadSpoolLoader label="Chargement de vos paramètres…" size="lg" />
         </main>
       </div>
     );
@@ -141,8 +141,8 @@ export default function ParametresPage() {
     <div className="min-h-screen bg-clair pb-24 font-sans">
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
         <div className="space-y-1">
-          <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">Paramètres d’Atelier</h2>
-          <p className="text-xs sm:text-sm text-sombre/70 font-semibold">Configuration de votre profil, notifications et préférences</p>
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">Paramètres de l’Atelier</h2>
+          <p className="text-xs sm:text-sm text-sombre/70 font-semibold">Gérez vos coordonnées, les informations de votre atelier et vos préférences</p>
         </div>
 
         {successMsg && (
@@ -153,63 +153,64 @@ export default function ParametresPage() {
         )}
 
         <form onSubmit={handleSave} className="space-y-5">
-          {/* SECTION 1: Profil Couturier */}
+          {/* SECTION 1: Profil & Coordonnées */}
           <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2 border-b border-sable/40 pb-3">
               <User className="w-5 h-5 text-accent" />
-              <span>1. Profil Couturier & Contact</span>
+              <span>Profil & Coordonnées</span>
             </h3>
 
             <div className="space-y-4 font-sans">
               <Input
-                label="Nom du titulaire du compte (non modifiable)"
+                label="Nom du titulaire"
                 type="text"
                 value={nom || 'Artisan Couturier'}
                 onChange={() => {}}
                 disabled
-                helperText="Le nom du titulaire de compte est lié à votre identifiant d'inscription."
+                helperText="Identifiant du titulaire de compte (non modifiable)."
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
-                  label="Adresse Email (notifications & compte)"
+                  label="Adresse Email"
                   type="email"
-                  placeholder="ex: atelier@gmail.com"
+                  placeholder="ex: atelier@exemple.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
 
                 <Input
-                  label="Numéro Téléphone d'atelier"
+                  label="Téléphone de l'atelier"
                   type="tel"
-                  placeholder="ex: +221 77 123 45 67"
+                  placeholder="ex: +221 77 000 00 00"
                   value={telephone}
                   onChange={(e) => setTelephone(e.target.value)}
                 />
               </div>
 
               <Input
-                label="Numéro WhatsApp (affiché sur la vitrine)"
+                label="Numéro WhatsApp (Vitrine)"
                 type="tel"
-                placeholder="ex: +221 77 123 45 67"
+                placeholder="ex: +221 77 000 00 00"
                 value={whatsappContact}
                 onChange={(e) => setWhatsappContact(e.target.value)}
+                helperText="Numéro affiché sur votre vitrine pour recevoir les demandes clients directes."
               />
             </div>
           </Card>
 
-          {/* SECTION 2: Atelier & Localisation */}
+          {/* SECTION 2: Identité de l'Atelier */}
           <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2 border-b border-sable/40 pb-3">
               <Store className="w-5 h-5 text-accent" />
-              <span>2. Identité de l'Atelier & Vitrine</span>
+              <span>Identité de l'Atelier</span>
             </h3>
 
             <div className="space-y-4 font-sans">
               <Input
-                label="Nom de l'atelier de couture"
+                label="Nom de l'atelier"
                 type="text"
-                placeholder="ex: Atelier Adia Couture"
+                placeholder="ex: Maison Adia Couture"
                 value={nomAtelier}
                 onChange={(e) => setNomAtelier(e.target.value)}
                 required
@@ -233,9 +234,9 @@ export default function ParametresPage() {
               </div>
 
               <Input
-                label="Adresse complète de l'atelier (optionnel)"
+                label="Adresse physique de l'atelier"
                 type="text"
-                placeholder="ex: Rue 14 x 11, Medina"
+                placeholder="ex: Rue 14 x 11, Médina, Dakar"
                 value={adresseAtelier}
                 onChange={(e) => setAdresseAtelier(e.target.value)}
               />
@@ -246,7 +247,7 @@ export default function ParametresPage() {
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="ex: Spécialiste tenue traditionnelle africaine, Bazin, Broderies..."
+                  placeholder="Présentez votre atelier, vos spécialités et votre savoir-faire en quelques lignes..."
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   className="w-full p-3.5 bg-white border border-sable/80 rounded-2xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-sans shadow-xs"
@@ -254,7 +255,7 @@ export default function ParametresPage() {
               </div>
 
               <Input
-                label="Lien unique de vitrine (Slug)"
+                label="Lien de votre vitrine (Slug)"
                 type="text"
                 placeholder="ex: atelier-adia"
                 value={slug}
@@ -265,21 +266,21 @@ export default function ParametresPage() {
             </div>
           </Card>
 
-          {/* SECTION 3: Notifications & Emails */}
+          {/* SECTION 3: Notifications & Alertes */}
           <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2 border-b border-sable/40 pb-3">
               <Bell className="w-5 h-5 text-accent" />
-              <span>3. Notifications & Alertes par Email / SMS</span>
+              <span>Notifications & Alertes</span>
             </h3>
 
             <div className="space-y-3 font-sans">
               <label className="flex items-center justify-between p-4 bg-[#FAFAF8] rounded-2xl border border-sable/50 cursor-pointer hover:border-accent/30 transition-colors">
                 <div>
                   <span className="text-xs sm:text-sm font-bold text-sombre block">
-                    Recevoir les notifications par Email
+                    Notifications par email
                   </span>
                   <span className="text-[11px] text-sombre/60 font-semibold block mt-0.5">
-                    Rappels d'échéances et résumés de commandes
+                    Recevoir les résumés et alertes importantes par email
                   </span>
                 </div>
                 <span className="ios-switch shrink-0">
@@ -295,10 +296,10 @@ export default function ParametresPage() {
               <label className="flex items-center justify-between p-4 bg-[#FAFAF8] rounded-2xl border border-sable/50 cursor-pointer hover:border-accent/30 transition-colors">
                 <div>
                   <span className="text-xs sm:text-sm font-bold text-sombre block">
-                    Alerter lorsqu'une livraison approche à 24h
+                    Rappel de livraison (24h avant)
                   </span>
                   <span className="text-[11px] text-sombre/60 font-semibold block mt-0.5">
-                    Notification automatique pour préparer la remise de la tenue
+                    Alerte automatique la veille de la date de livraison prévue
                   </span>
                 </div>
                 <span className="ios-switch shrink-0">
@@ -314,10 +315,10 @@ export default function ParametresPage() {
               <label className="flex items-center justify-between p-4 bg-[#FAFAF8] rounded-2xl border border-sable/50 cursor-pointer hover:border-accent/30 transition-colors">
                 <div>
                   <span className="text-xs sm:text-sm font-bold text-sombre block">
-                    Afficher l'alerte pour les commandes en retard
+                    Alerte de retard
                   </span>
                   <span className="text-[11px] text-sombre/60 font-semibold block mt-0.5">
-                    Signalement visuel rouge dans le carnet de commandes
+                    Signaler visuellement les commandes ayant dépassé leur date d'échéance
                   </span>
                 </div>
                 <span className="ios-switch shrink-0">
@@ -332,17 +333,17 @@ export default function ParametresPage() {
             </div>
           </Card>
 
-          {/* SECTION 4: Langue & Monnaie */}
+          {/* SECTION 4: Préférences d'affichage */}
           <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2 border-b border-sable/40 pb-3">
               <Globe className="w-5 h-5 text-accent" />
-              <span>4. Langue & Devise de Facturation</span>
+              <span>Préférences d'affichage</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
               <div className="space-y-2">
                 <label className="block text-xs sm:text-sm font-bold text-sombre/90">
-                  Langue de l'interface
+                  Langue d'affichage
                 </label>
                 <select
                   value={langue}
@@ -356,7 +357,7 @@ export default function ParametresPage() {
 
               <div className="space-y-2">
                 <label className="block text-xs sm:text-sm font-bold text-sombre/90">
-                  Devise Monétaire
+                  Devise de facturation
                 </label>
                 <select
                   value={devise}
@@ -375,25 +376,25 @@ export default function ParametresPage() {
 
           <Button type="submit" variant="accent" fullWidth size="lg" disabled={saving} className="gap-2 shadow-lg shadow-accent/20 font-bold rounded-full">
             <Check className="w-5 h-5" />
-            <span>{saving ? 'Enregistrement…' : 'Enregistrer les paramètres →'}</span>
+            <span>{saving ? 'Enregistrement…' : 'Enregistrer les modifications'}</span>
           </Button>
         </form>
 
-        {/* SECTION 5: Donner un Avis */}
+        {/* SECTION 5: Votre avis */}
         <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
           <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2 border-b border-sable/40 pb-3">
             <MessageSquare className="w-5 h-5 text-accent" />
-            <span>Donner un avis / Témoigner sur Ourlette</span>
+            <span>Votre avis sur Ourlette</span>
           </h3>
 
           <p className="text-xs sm:text-sm text-sombre/70 font-medium leading-relaxed font-sans">
-            Votre expérience en atelier compte énormément pour nous. Laissez-nous votre avis ou vos suggestions d'amélioration.
+            Partagez votre expérience ou vos suggestions pour nous aider à améliorer l'application pour tous les artisans couturiers.
           </p>
 
           {feedbackSent ? (
             <div className="p-4 bg-emerald-100 text-emerald-800 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 border border-emerald-300">
               <Check className="w-5 h-5" />
-              <span>Merci pour votre témoignage ! Votre avis aide la communauté des artisans couturiers.</span>
+              <span>Merci pour votre témoignage ! Votre retour aide toute la communauté des couturiers.</span>
             </div>
           ) : (
             <form onSubmit={handleSendFeedback} className="space-y-3 font-sans">
@@ -427,15 +428,15 @@ export default function ParametresPage() {
           )}
         </Card>
 
-        {/* Logout Section */}
+        {/* SECTION 6: Session & Déconnexion */}
         <Card className="p-5 flex flex-col sm:flex-row items-center justify-between gap-3 border-dashed border-2 border-sable/80 bg-white rounded-3xl">
           <div>
-            <h4 className="text-sm sm:text-base font-bold text-sombre">Session d'atelier</h4>
-            <p className="text-xs sm:text-sm text-sombre/70 font-medium">Connecté en tant que {couturier?.nom || 'Couturier'}</p>
+            <h4 className="text-sm sm:text-base font-bold text-sombre">Compte & Déconnexion</h4>
+            <p className="text-xs sm:text-sm text-sombre/70 font-medium">Connecté : {couturier?.nom || 'Artisan Couturier'}</p>
           </div>
           <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2 text-accent border-accent hover:bg-accent hover:text-white rounded-full">
             <LogOut className="w-4 h-4" />
-            <span>Déconnexion</span>
+            <span>Se déconnecter</span>
           </Button>
         </Card>
       </main>
