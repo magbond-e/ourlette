@@ -1,15 +1,24 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Cookie, ShieldCheck, Check, Lock } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Cookie, ShieldCheck, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/context/AuthContext';
 import { DataService } from '@/lib/services/dataService';
 
 export const CookieBanner: React.FC<{ isDashboard?: boolean }> = ({ isDashboard = false }) => {
+  const pathname = usePathname();
   const { user, couturier, refreshProfile } = useAuth();
   const [accepted, setAccepted] = useState<boolean>(true); // default true until checked
   const [mounted, setMounted] = useState<boolean>(false);
+
+  const isDashboardRoute = pathname ? (
+    pathname.startsWith('/commandes') ||
+    pathname.startsWith('/clients') ||
+    pathname.startsWith('/vitrine/gerer') ||
+    pathname.startsWith('/parametres')
+  ) : false;
 
   useEffect(() => {
     setMounted(true);
@@ -38,13 +47,19 @@ export const CookieBanner: React.FC<{ isDashboard?: boolean }> = ({ isDashboard 
 
   if (!mounted || accepted) return null;
 
+  // Prevent public floating banner on dashboard routes
+  if (!isDashboard && isDashboardRoute) return null;
+
+  // Prevent dashboard modal on public non-dashboard routes
+  if (isDashboard && !isDashboardRoute) return null;
+
   // On dashboard: Forced mandatory modal overlay
   if (isDashboard) {
     return (
       <div className="fixed inset-0 z-50 bg-sombre/80 backdrop-blur-md flex items-center justify-center p-4">
         <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border-2 border-accent text-center space-y-5 animate-slide-up">
           <div className="w-16 h-16 rounded-3xl bg-accent/10 text-accent flex items-center justify-center mx-auto shadow-sm">
-            <Cookie className="w-8 h-8" />
+            <Cookie className="w-8 h-8 font-bold" />
           </div>
 
           <div className="space-y-2">
@@ -74,7 +89,7 @@ export const CookieBanner: React.FC<{ isDashboard?: boolean }> = ({ isDashboard 
 
           <p className="text-[11px] text-sombre/50 font-semibold flex items-center justify-center gap-1">
             <Lock className="w-3 h-3 text-gold" />
-            <span>Vos données d'atelier sont strictement confidentielles</span>
+            <span>Vos données d'atelier sont strictly confidentielles</span>
           </p>
         </div>
       </div>
