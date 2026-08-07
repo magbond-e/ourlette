@@ -30,33 +30,30 @@ export const AppMockupPreview: React.FC = () => {
         <div className="bg-clair/50 px-6 py-3 border-b border-sable/60 flex items-center justify-start gap-3">
           <button
             onClick={() => setActiveTab('commandes')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeTab === 'commandes'
-                ? 'bg-accent text-white shadow-md'
-                : 'bg-white text-sombre/80 hover:bg-white/80 hover:text-accent border border-sable/40'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'commandes'
+              ? 'bg-accent text-white shadow-md'
+              : 'bg-white text-sombre/80 hover:bg-white/80 hover:text-accent border border-sable/40'
+              }`}
           >
             <ClipboardList className="w-4 h-4" />
             <span>Carnet de Commandes</span>
           </button>
           <button
             onClick={() => setActiveTab('mesures')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeTab === 'mesures'
-                ? 'bg-accent text-white shadow-md'
-                : 'bg-white text-sombre/80 hover:bg-white/80 hover:text-accent border border-sable/40'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'mesures'
+              ? 'bg-accent text-white shadow-md'
+              : 'bg-white text-sombre/80 hover:bg-white/80 hover:text-accent border border-sable/40'
+              }`}
           >
             <Ruler className="w-4 h-4" />
             <span>Fiches Mesures</span>
           </button>
           <button
             onClick={() => setActiveTab('vitrine')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeTab === 'vitrine'
-                ? 'bg-accent text-white shadow-md'
-                : 'bg-white text-sombre/80 hover:bg-white/80 hover:text-accent border border-sable/40'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'vitrine'
+              ? 'bg-accent text-white shadow-md'
+              : 'bg-white text-sombre/80 hover:bg-white/80 hover:text-accent border border-sable/40'
+              }`}
           >
             <Store className="w-4 h-4" />
             <span>Vitrine Publique</span>
@@ -115,7 +112,7 @@ export const AppMockupPreview: React.FC = () => {
 
                 <div className="bg-white p-4 rounded-2xl border border-sable/60 shadow-xs space-y-2">
                   <div className="flex items-center justify-between">
-                    <h5 className="font-display font-bold text-base text-sombre">Mamadou Bamba</h5>
+                    <h5 className="font-display font-bold text-base text-sombre">Ulrich Magbonde</h5>
                     <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
                       Prête
                     </span>
@@ -227,25 +224,22 @@ export const AppMockupPreview: React.FC = () => {
             <div className="bg-white/80 px-2 py-2 border-b border-sable/40 flex items-center justify-around text-xs">
               <button
                 onClick={() => setActiveTab('commandes')}
-                className={`px-3 py-1 rounded-full font-bold transition-all text-[11px] ${
-                  activeTab === 'commandes' ? 'bg-accent text-white' : 'text-sombre/70'
-                }`}
+                className={`px-3 py-1 rounded-full font-bold transition-all text-[11px] ${activeTab === 'commandes' ? 'bg-accent text-white' : 'text-sombre/70'
+                  }`}
               >
                 Commandes
               </button>
               <button
                 onClick={() => setActiveTab('mesures')}
-                className={`px-3 py-1 rounded-full font-bold transition-all text-[11px] ${
-                  activeTab === 'mesures' ? 'bg-accent text-white' : 'text-sombre/70'
-                }`}
+                className={`px-3 py-1 rounded-full font-bold transition-all text-[11px] ${activeTab === 'mesures' ? 'bg-accent text-white' : 'text-sombre/70'
+                  }`}
               >
                 Mesures
               </button>
               <button
                 onClick={() => setActiveTab('vitrine')}
-                className={`px-3 py-1 rounded-full font-bold transition-all text-[11px] ${
-                  activeTab === 'vitrine' ? 'bg-accent text-white' : 'text-sombre/70'
-                }`}
+                className={`px-3 py-1 rounded-full font-bold transition-all text-[11px] ${activeTab === 'vitrine' ? 'bg-accent text-white' : 'text-sombre/70'
+                  }`}
               >
                 Vitrine
               </button>
@@ -285,7 +279,7 @@ export const AppMockupPreview: React.FC = () => {
 
                     <div className="bg-white p-3 rounded-2xl border border-sable/60 shadow-xs space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <h6 className="font-bold text-xs text-sombre">Mamadou Bamba</h6>
+                        <h6 className="font-bold text-xs text-sombre">Ulrich Magbonde</h6>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                           Prête
                         </span>

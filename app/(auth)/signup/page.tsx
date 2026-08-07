@@ -154,7 +154,7 @@ export default function SignupPage() {
                 <Scissors className="w-6 h-6 text-gold" />
               </div>
               <h1 className="text-3xl sm:text-4xl font-display font-bold text-white leading-tight">
-                Créer votre Atelier <span className="text-gold title-highlight font-normal">.</span>
+                Créer votre Atelier<span className="text-gold title-highlight font-normal">.</span>
               </h1>
               <p className="text-sm sm:text-base text-clair/80 font-medium max-w-md leading-relaxed">
                 Inscrivez votre atelier en 2 minutes et commencez immédiatement à gérer vos commandes et clients.

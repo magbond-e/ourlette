@@ -165,7 +165,7 @@ export const MandatoryOnboardingModal: React.FC = () => {
               className="rounded-full font-extrabold shadow-xl py-4 gap-2 hover:scale-105 active:scale-95 transition-all"
             >
               <Check className="w-5 h-5" />
-              <span>{saving ? 'Enregistrement…' : 'Accéder à mon carnet d’atelier →'}</span>
+              <span>{saving ? 'Enregistrement…' : 'Accéder à mon carnet d’atelier'}</span>
             </Button>
           </div>
         </form>
