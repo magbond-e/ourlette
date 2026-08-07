@@ -234,7 +234,7 @@ export default function LoginPage() {
             </div>
 
             <Button type="submit" variant="accent" fullWidth size="lg" disabled={loading} className="shadow-lg shadow-accent/20 font-bold rounded-full">
-              {loading ? 'Connexion en cours…' : 'Se connecter →'}
+              {loading ? 'Connexion en cours…' : 'Se connecter'}
             </Button>
           </form>
 

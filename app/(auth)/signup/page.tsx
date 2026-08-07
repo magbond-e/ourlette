@@ -217,7 +217,7 @@ export default function SignupPage() {
 
           <form onSubmit={handleSignup} className="space-y-4">
             <Input
-              label="Votre Nom complet"
+              label="Nom complet"
               type="text"
               placeholder="ex: Adia Sylla"
               value={nom}
