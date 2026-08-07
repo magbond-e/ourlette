@@ -7,13 +7,14 @@ import { ArrowLeft, UserPlus, Scissors, Check, Sparkles } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { MockStorageService } from '@/lib/services/mockStorage';
+import { DataService } from '@/lib/services/dataService';
 import { Client, TypeCommande } from '@/lib/types/database';
 import { calculSolde, formatFCFA } from '@/lib/utils/formatters';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function NouvelleCommandePage() {
   const router = useRouter();
-  const couturier = MockStorageService.getCouturier();
+  const { user, couturier } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
 
   // Form State
@@ -28,41 +29,54 @@ export default function NouvelleCommandePage() {
   const [prixTotal, setPrixTotal] = useState<number | ''>('');
   const [acompte, setAcompte] = useState<number | ''>('');
   const [dateLivraison, setDateLivraison] = useState('');
-  const [responsable, setResponsable] = useState(couturier.nom || 'Adia');
+  const [responsable, setResponsable] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const list = MockStorageService.getClients();
-    setClients(list);
-    if (list.length > 0) {
-      setSelectedClientId(list[0].id);
+    if (couturier?.nom) {
+      setResponsable(couturier.nom);
     }
+  }, [couturier]);
+
+  useEffect(() => {
+    async function init() {
+      if (!user?.id) return;
+      const list = await DataService.getClients(user.id);
+      setClients(list);
+      if (list.length > 0) {
+        setSelectedClientId(list[0].id);
+      }
+    }
+    init();
+
     // Default delivery date: 7 days from today
     const in7days = new Date();
     in7days.setDate(in7days.getDate() + 7);
     setDateLivraison(in7days.toISOString().split('T')[0]);
-  }, []);
+  }, [user?.id]);
 
-  const handleCreateClientOnTheFly = (e: React.MouseEvent) => {
+  const handleCreateClientOnTheFly = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!newClientNom.trim()) return;
+    if (!newClientNom.trim() || !user?.id) return;
 
-    const created = MockStorageService.addClient({
+    const created = await DataService.addClient(user.id, {
       nom: newClientNom.trim(),
       telephone: newClientTelephone.trim(),
     });
 
-    const updatedList = MockStorageService.getClients();
+    const updatedList = await DataService.getClients(user.id);
     setClients(updatedList);
-    setSelectedClientId(created.id);
+    if (created) {
+      setSelectedClientId(created.id);
+    }
     setShowNewClientForm(false);
     setNewClientNom('');
     setNewClientTelephone('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!selectedClientId) {
@@ -81,10 +95,11 @@ export default function NouvelleCommandePage() {
       setError('La date de livraison prévue est obligatoire.');
       return;
     }
+    if (!user?.id) return;
 
     setLoading(true);
 
-    const newCmd = MockStorageService.addCommande({
+    const newCmd = await DataService.addCommande(user.id, {
       client_id: selectedClientId,
       type_commande: typeCommande,
       description: description.trim(),
@@ -95,23 +110,19 @@ export default function NouvelleCommandePage() {
       date_livraison_prevue: dateLivraison,
     });
 
-    setTimeout(() => {
-      setLoading(false);
-      if (newCmd && newCmd.id) {
-        router.push(`/commandes/${newCmd.id}`);
-      } else {
-        router.push('/commandes');
-      }
-    }, 300);
+    setLoading(false);
+    if (newCmd && newCmd.id) {
+      router.push(`/commandes/${newCmd.id}`);
+    } else {
+      router.push('/commandes');
+    }
   };
 
   const currentSolde = calculSolde(Number(prixTotal) || 0, Number(acompte) || 0);
 
   return (
     <div className="min-h-screen bg-clair pb-24 font-sans">
-
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
-        {/* Navigation & Header Alignment (Clean & Mobile-First) */}
         <div className="flex items-center justify-between gap-3">
           <Link
             href="/commandes"
@@ -121,7 +132,7 @@ export default function NouvelleCommandePage() {
             <span>Annuler</span>
           </Link>
           <h2 className="text-xl sm:text-2xl font-display font-bold text-sombre">Nouvelle Commande</h2>
-          <div className="w-16" /> {/* Spacer for balanced flex centering */}
+          <div className="w-16" />
         </div>
 
         {error && (
@@ -186,6 +197,19 @@ export default function NouvelleCommandePage() {
                   </Button>
                 </div>
               </div>
+            ) : clients.length === 0 ? (
+              <div className="p-4 bg-[#FAFAF8] rounded-2xl border border-dashed border-sable/80 text-center space-y-2">
+                <p className="text-xs sm:text-sm text-sombre/70 font-semibold">Aucun client enregistré.</p>
+                <Button
+                  type="button"
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setShowNewClientForm(true)}
+                  className="rounded-full"
+                >
+                  + Créer le premier client
+                </Button>
+              </div>
             ) : (
               <select
                 value={selectedClientId}
@@ -201,7 +225,7 @@ export default function NouvelleCommandePage() {
             )}
           </Card>
 
-          {/* SECTION 2: Type de commande (Fixed Visible Active Selection!) */}
+          {/* SECTION 2: Type de commande */}
           <Card className="space-y-4 p-5 sm:p-6 rounded-3xl">
             <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">
               2. Type de Commande
@@ -234,7 +258,6 @@ export default function NouvelleCommandePage() {
               </button>
             </div>
 
-            {/* Dynamic Inputs Based on Type */}
             <div className="space-y-4 pt-2">
               <Input
                 label={typeCommande === 'couture_complete' ? 'Description du modèle' : 'Description de la retouche'}

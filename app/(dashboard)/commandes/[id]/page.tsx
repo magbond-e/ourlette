@@ -1,57 +1,64 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Phone, Calendar, Ruler, CheckCircle2, User, Scissors, DollarSign } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { ArrowLeft, Phone, Calendar, Ruler, User, DollarSign } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { StatusStepper } from '@/components/ui/StatusStepper';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
-import { MockStorageService } from '@/lib/services/mockStorage';
+import { DataService } from '@/lib/services/dataService';
 import { Commande, StatutCommande, Client } from '@/lib/types/database';
 import { formatFCFA, formatDateFR, isCommandeEnRetard, calculSolde } from '@/lib/utils/formatters';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function CommandeDetailPage() {
   const params = useParams();
-  const router = useRouter();
+  const { user } = useAuth();
   const cmdId = params.id as string;
 
-  // ALL HOOKS MUST BE DECLARED AT THE VERY TOP BEFORE ANY CONDITIONAL RETURN
   const [commande, setCommande] = useState<Commande | null>(null);
   const [client, setClient] = useState<Client | null>(null);
-  const [acompteInput, setAcompteInput] = useState<number | ''>('');
   const [loading, setLoading] = useState(true);
   const [newVersementMontant, setNewVersementMontant] = useState<number | ''>('');
   const [newVersementNote, setNewVersementNote] = useState<string>('');
   const [showAddVersement, setShowAddVersement] = useState(false);
 
-  useEffect(() => {
-    const found = MockStorageService.getCommandeById(cmdId);
+  const loadCommande = useCallback(async () => {
+    if (!user?.id || !cmdId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const found = await DataService.getCommandeById(user.id, cmdId);
     if (found) {
       setCommande(found);
-      setAcompteInput(found.acompte);
-      const c = MockStorageService.getClientById(found.client_id);
+      const c = await DataService.getClientById(user.id, found.client_id);
       if (c) setClient(c);
     }
     setLoading(false);
-  }, [cmdId]);
+  }, [user?.id, cmdId]);
 
-  const handleStatusChange = (newStatut: StatutCommande) => {
-    if (!commande) return;
-    const updated = MockStorageService.updateCommande(commande.id, { statut: newStatut });
-    if (updated) setCommande({ ...commande, statut: newStatut });
+  useEffect(() => {
+    loadCommande();
+  }, [loadCommande]);
+
+  const handleStatusChange = async (newStatut: StatutCommande) => {
+    if (!commande || !user?.id) return;
+    const updated = await DataService.updateCommande(user.id, commande.id, { statut: newStatut });
+    if (updated) setCommande(updated);
   };
 
-  const handleAddVersement = (e: React.FormEvent) => {
+  const handleAddVersement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commande) return;
+    if (!commande || !user?.id) return;
     const amount = Number(newVersementMontant);
     if (!amount || amount <= 0) return;
 
-    const updated = MockStorageService.addVersement(commande.id, amount, newVersementNote.trim() || undefined);
+    const updated = await DataService.addVersement(user.id, commande.id, amount, newVersementNote.trim() || undefined);
     if (updated) {
       setCommande(updated);
       setNewVersementMontant('');
@@ -60,7 +67,6 @@ export default function CommandeDetailPage() {
     }
   };
 
-  // CONDITIONAL RENDERS AFTER ALL HOOKS
   if (loading) {
     return (
       <div className="min-h-screen bg-clair">
@@ -87,12 +93,11 @@ export default function CommandeDetailPage() {
   const isOverdue = isCommandeEnRetard(commande.date_livraison_prevue, commande.statut);
   const soldeRestant = calculSolde(commande.prix_total, commande.acompte);
   const versementsList = commande.versements || [
-    ...(commande.acompte > 0 ? [{ id: 'vers-0', montant: commande.acompte, date: commande.date_commande, note: 'Acompte versé' }] : []),
+    ...(commande.acompte > 0 ? [{ id: 'vers-0', montant: commande.acompte, date: commande.date_commande || new Date().toISOString(), note: 'Acompte versé' }] : []),
   ];
 
   return (
     <div className="min-h-screen bg-clair pb-24 font-sans">
-
       <main className="max-w-xl mx-auto px-4 pt-4 space-y-4">
         {/* Navigation */}
         <div className="flex items-center justify-between">
@@ -112,13 +117,13 @@ export default function CommandeDetailPage() {
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-accent">Client</span>
               <h2 className="text-xl font-display font-black text-sombre">{commande.client_nom}</h2>
-              {commande.client_telephone && (
+              {(client?.telephone || commande.client_telephone) && (
                 <a
-                  href={`tel:${commande.client_telephone}`}
+                  href={`tel:${client?.telephone || commande.client_telephone}`}
                   className="text-xs text-accent hover:underline inline-flex items-center gap-1 font-bold mt-0.5"
                 >
                   <Phone className="w-3.5 h-3.5" />
-                  <span>{commande.client_telephone}</span>
+                  <span>{client?.telephone || commande.client_telephone}</span>
                 </a>
               )}
             </div>

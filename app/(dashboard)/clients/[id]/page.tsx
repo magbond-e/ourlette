@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Phone, Ruler, Calendar, Scissors, ChevronRight, User } from 'lucide-react';
+import { ArrowLeft, Phone, Ruler, Scissors, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
-import { MockStorageService } from '@/lib/services/mockStorage';
+import { DataService } from '@/lib/services/dataService';
 import { Client, Commande, Mesure, StatutCommande } from '@/lib/types/database';
 import { formatFCFA, formatDateFR, calculSolde, isCommandeEnRetard } from '@/lib/utils/formatters';
+import { useAuth } from '@/lib/context/AuthContext';
 
 const STATUTS_ORDER: { id: StatutCommande; label: string }[] = [
   { id: 'recue', label: 'Reçue' },
@@ -37,6 +38,7 @@ function MiniStatusBadge({ statut }: { statut: StatutCommande }) {
 
 export default function ClientDetailPage() {
   const params = useParams();
+  const { user } = useAuth();
   const clientId = params.id as string;
 
   const [client, setClient] = useState<Client | null>(null);
@@ -44,17 +46,29 @@ export default function ClientDetailPage() {
   const [mesure, setMesure] = useState<Mesure | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const c = MockStorageService.getClientById(clientId);
+  const loadData = useCallback(async () => {
+    if (!user?.id || !clientId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const [c, allCmds, m] = await Promise.all([
+      DataService.getClientById(user.id, clientId),
+      DataService.getCommandes(user.id),
+      DataService.getMesureByClientId(user.id, clientId),
+    ]);
+
     if (c) {
       setClient(c);
-      const cmds = MockStorageService.getCommandes().filter((cmd) => cmd.client_id === clientId);
-      setCommandes(cmds);
-      const m = MockStorageService.getMesureByClientId(clientId);
+      setCommandes(allCmds.filter((cmd) => cmd.client_id === clientId));
       if (m) setMesure(m);
     }
     setLoading(false);
-  }, [clientId]);
+  }, [user?.id, clientId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   if (loading) {
     return (
@@ -81,7 +95,6 @@ export default function ClientDetailPage() {
 
   return (
     <div className="min-h-screen bg-clair pb-24 font-sans">
-
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
         <div className="flex items-center justify-between gap-3">
           <Link
@@ -185,7 +198,7 @@ export default function ClientDetailPage() {
           )}
         </Card>
 
-        {/* Order History (Polished & Structured Card Layout) */}
+        {/* Order History */}
         <Card className="p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
           <div className="border-b border-sable/40 pb-3 flex items-center justify-between">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2">

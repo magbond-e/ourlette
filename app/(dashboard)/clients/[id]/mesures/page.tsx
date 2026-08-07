@@ -1,21 +1,23 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Ruler, Plus, Trash2, Check, User } from 'lucide-react';
+import { ArrowLeft, Ruler, Plus, Trash2, Check } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { BasteLine } from '@/components/ui/BasteLine';
-import { MockStorageService } from '@/lib/services/mockStorage';
-import { Client, Mesure } from '@/lib/types/database';
+import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
+import { DataService } from '@/lib/services/dataService';
+import { Client } from '@/lib/types/database';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function FormulaireMesuresPage() {
   const params = useParams();
   const router = useRouter();
+  const { user, couturier } = useAuth();
   const clientId = params.id as string;
-  const couturier = MockStorageService.getCouturier();
 
   const [client, setClient] = useState<Client | null>(null);
 
@@ -30,16 +32,22 @@ export default function FormulaireMesuresPage() {
 
   // Custom fields
   const [customFields, setCustomFields] = useState<{ label: string; value: string }[]>([]);
-  const [prisePar, setPrisePar] = useState(couturier.nom || 'Adia');
+  const [prisePar, setPrisePar] = useState('');
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  useEffect(() => {
-    const c = MockStorageService.getClientById(clientId);
+  const loadData = useCallback(async () => {
+    if (!user?.id || !clientId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const c = await DataService.getClientById(user.id, clientId);
     if (c) {
       setClient(c);
-      const m = MockStorageService.getMesureByClientId(clientId);
+      const m = await DataService.getMesureByClientId(user.id, clientId);
       if (m) {
         setTourPoitrine(m.tour_poitrine ?? '');
         setTourTaille(m.tour_taille ?? '');
@@ -48,7 +56,7 @@ export default function FormulaireMesuresPage() {
         setLongueurRobe(m.longueur_robe ?? '');
         setTourCou(m.tour_cou ?? '');
         setLargeurEpaules(m.largeur_epaules ?? '');
-        setPrisePar(m.prise_par || couturier.nom || 'Adia');
+        setPrisePar(m.prise_par || couturier?.nom || '');
 
         if (m.champs_personnalises) {
           const list = Object.entries(m.champs_personnalises).map(([label, value]) => ({
@@ -57,9 +65,16 @@ export default function FormulaireMesuresPage() {
           }));
           setCustomFields(list);
         }
+      } else if (couturier?.nom) {
+        setPrisePar(couturier.nom);
       }
     }
-  }, [clientId]);
+    setLoading(false);
+  }, [user?.id, clientId, couturier?.nom]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleAddCustomField = () => {
     setCustomFields([...customFields, { label: '', value: '' }]);
@@ -75,13 +90,12 @@ export default function FormulaireMesuresPage() {
     setCustomFields(updated);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!client) return;
+    if (!client || !user?.id) return;
 
-    setLoading(true);
+    setSaving(true);
 
-    // Convert custom fields array to JSON dict
     const customDict: Record<string, number | string> = {};
     customFields.forEach((item) => {
       if (item.label.trim()) {
@@ -90,7 +104,7 @@ export default function FormulaireMesuresPage() {
       }
     });
 
-    MockStorageService.saveMesure(client.id, {
+    await DataService.saveMesure(user.id, client.id, {
       tour_poitrine: tourPoitrine === '' ? null : Number(tourPoitrine),
       tour_taille: tourTaille === '' ? null : Number(tourTaille),
       tour_hanches: tourHanches === '' ? null : Number(tourHanches),
@@ -102,20 +116,38 @@ export default function FormulaireMesuresPage() {
       prise_par: prisePar.trim(),
     });
 
+    setSaving(false);
+    setSuccessMsg('Mesures enregistrées avec succès !');
     setTimeout(() => {
-      setLoading(false);
-      setSuccessMsg('Mesures enregistrées avec succès !');
-      setTimeout(() => {
-        router.push(`/clients/${client.id}`);
-      }, 600);
-    }, 300);
+      router.push(`/clients/${client.id}`);
+    }, 600);
   };
 
-  if (!client) return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-clair pb-24 font-sans">
+        <main className="max-w-4xl mx-auto px-4 pt-12">
+          <ThreadSpoolLoader label="Chargement du formulaire de mesures…" size="lg" />
+        </main>
+      </div>
+    );
+  }
+
+  if (!client) {
+    return (
+      <div className="min-h-screen bg-clair pb-24 font-sans">
+        <main className="max-w-4xl mx-auto px-4 pt-12 text-center space-y-4">
+          <p className="text-base font-bold text-sombre/70">Client non trouvé.</p>
+          <Link href="/clients">
+            <Button variant="accent">Retour aux clients</Button>
+          </Link>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-clair pb-24 font-sans">
-
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-4 space-y-4">
         {/* Back Link & Unit */}
         <div className="flex items-center justify-between">
@@ -144,9 +176,9 @@ export default function FormulaireMesuresPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 font-sans">
           {/* SECTION 1: Standard Measurements */}
-          <Card className="p-5 space-y-4 rounded-2xl">
+          <Card className="p-5 space-y-4 rounded-3xl bg-white border-sable/60 shadow-xs">
             <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-accent">
               1. Mensurations Standards (cm)
             </h3>
@@ -212,15 +244,15 @@ export default function FormulaireMesuresPage() {
           </Card>
 
           {/* SECTION 2: Custom Measurements */}
-          <Card className="p-4 space-y-3">
+          <Card className="p-5 space-y-3 bg-white border-sable/60 rounded-3xl shadow-xs">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-tisse">
+              <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-accent">
                 2. Champs Sur-Mesure / Personnalisés
               </h3>
               <button
                 type="button"
                 onClick={handleAddCustomField}
-                className="inline-flex items-center gap-1 text-xs font-bold text-filrouge hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-bold text-accent hover:underline"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>+ Ajouter un champ</span>
@@ -228,7 +260,7 @@ export default function FormulaireMesuresPage() {
             </div>
 
             {customFields.length === 0 ? (
-              <p className="text-xs text-charbon/50 italic py-1">
+              <p className="text-xs text-sombre/60 italic py-1">
                 Aucun champ personnalisé (ex: Tour de poignet, Hauteur taille-sol, Longueur pantalon).
               </p>
             ) : (
@@ -250,7 +282,7 @@ export default function FormulaireMesuresPage() {
                     <button
                       type="button"
                       onClick={() => handleRemoveCustomField(idx)}
-                      className="text-filrouge p-2 hover:bg-filrouge/10 rounded-full"
+                      className="text-accent p-2 hover:bg-accent/10 rounded-full"
                       title="Supprimer"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -262,8 +294,8 @@ export default function FormulaireMesuresPage() {
           </Card>
 
           {/* SECTION 3: Traçabilité Atelier */}
-          <Card className="p-4 space-y-2">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-tisse">
+          <Card className="p-5 space-y-2 bg-white border-sable/60 rounded-3xl shadow-xs">
+            <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-accent">
               3. Traçabilité Prise de Mesure
             </h3>
             <Input
@@ -275,11 +307,11 @@ export default function FormulaireMesuresPage() {
             />
           </Card>
 
-          <BasteLine color="indigo" />
+          <BasteLine color="accent" />
 
-          <Button type="submit" variant="primary" fullWidth size="lg" disabled={loading} className="gap-2 shadow-md">
+          <Button type="submit" variant="accent" fullWidth size="lg" disabled={saving} className="gap-2 shadow-md rounded-full font-bold">
             <Check className="w-5 h-5" />
-            <span>{loading ? 'Enregistrement…' : 'Enregistrer les mesures'}</span>
+            <span>{saving ? 'Enregistrement…' : 'Enregistrer les mesures →'}</span>
           </Button>
         </form>
       </main>

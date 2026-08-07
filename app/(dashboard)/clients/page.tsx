@@ -1,41 +1,62 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, UserPlus, Ruler, Phone, ChevronRight, History } from 'lucide-react';
+import { Search, UserPlus, Ruler, Phone, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { BasteLine } from '@/components/ui/BasteLine';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
-import { MockStorageService } from '@/lib/services/mockStorage';
-import { Client, Mesure } from '@/lib/types/database';
+import { DataService } from '@/lib/services/dataService';
+import { Client, Commande } from '@/lib/types/database';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function ClientsPage() {
+  const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
+  const [commandes, setCommandes] = useState<Commande[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newNom, setNewNom] = useState('');
   const [newTelephone, setNewTelephone] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = useCallback(async () => {
+    if (!user?.id) {
+      setClients([]);
+      setCommandes([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const [cList, cmdList] = await Promise.all([
+      DataService.getClients(user.id),
+      DataService.getCommandes(user.id),
+    ]);
+    setClients(cList);
+    setCommandes(cmdList);
+    setLoading(false);
+  }, [user?.id]);
 
   useEffect(() => {
     setMounted(true);
-    setClients(MockStorageService.getClients());
-  }, []);
+    loadData();
+  }, [loadData]);
 
-  const handleAddClient = (e: React.FormEvent) => {
+  const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNom.trim()) return;
+    if (!newNom.trim() || !user?.id) return;
 
-    MockStorageService.addClient({
+    await DataService.addClient(user.id, {
       nom: newNom.trim(),
       telephone: newTelephone.trim(),
       notes: newNotes.trim(),
     });
 
-    setClients(MockStorageService.getClients());
+    await loadData();
     setShowAddModal(false);
     setNewNom('');
     setNewTelephone('');
@@ -48,10 +69,10 @@ export default function ClientsPage() {
       (c.telephone || '').includes(searchQuery)
   );
 
-  if (!mounted) {
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-[#FAFAF8] font-sans">
-      <main className="max-w-4xl mx-auto px-4 pt-12">
+        <main className="max-w-4xl mx-auto px-4 pt-12">
           <ThreadSpoolLoader label="Chargement de la liste des clients…" size="lg" />
         </main>
       </div>
@@ -60,7 +81,6 @@ export default function ClientsPage() {
 
   return (
     <div className="min-h-screen bg-clair pb-24 font-sans">
-
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-4 space-y-4">
         {/* Title & Add Button */}
         <div className="flex items-center justify-between gap-3">
@@ -161,8 +181,7 @@ export default function ClientsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredClients.map((client) => {
-              const totalCmds = MockStorageService.getCommandes().filter((c) => c.client_id === client.id).length;
-              const hasMesures = Boolean(MockStorageService.getMesureByClientId(client.id));
+              const totalCmds = commandes.filter((c) => c.client_id === client.id).length;
 
               return (
                 <Card
@@ -187,17 +206,15 @@ export default function ClientsPage() {
                       )}
                     </div>
 
-                    {/* Order count badge */}
                     <span className="text-xs font-extrabold text-sombre/70 bg-[#FAFAF8] px-3 py-1 rounded-full border border-sable/70 shrink-0">
                       {totalCmds} commande{totalCmds > 1 ? 's' : ''}
                     </span>
                   </div>
 
-                  {/* Card Actions */}
                   <div className="flex items-center justify-between pt-3 border-t border-sable/40">
                     <Link href={`/clients/${client.id}/mesures`} className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-accent hover:underline bg-accent/10 px-3 py-1 rounded-full border border-accent/20">
                       <Ruler className="w-3.5 h-3.5" />
-                      <span>{hasMesures ? 'Voir mesures' : '+ Prendre mesures'}</span>
+                      <span>Fiche mesures</span>
                     </Link>
 
                     <Link href={`/clients/${client.id}`} className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-sombre hover:text-accent hover:underline">
@@ -209,7 +226,6 @@ export default function ClientsPage() {
               );
             })}
           </div>
-
         )}
       </main>
     </div>

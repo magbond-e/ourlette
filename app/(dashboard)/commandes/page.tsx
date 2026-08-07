@@ -3,13 +3,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, AlertTriangle, Search, Calendar, User, Scissors, ChevronRight, X, Check, TrendingUp, BarChart2, Lock } from 'lucide-react';
+import { Plus, AlertTriangle, Search, Calendar, User, Scissors, ChevronRight, X, Check, BarChart2, Lock } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
-import { MockStorageService } from '@/lib/services/mockStorage';
+import { DataService } from '@/lib/services/dataService';
 import { Commande, StatutCommande } from '@/lib/types/database';
 import { formatFCFA, formatDateFR, isCommandeEnRetard, calculSolde } from '@/lib/utils/formatters';
+import { useAuth } from '@/lib/context/AuthContext';
 
 const STATUTS_ORDER: { id: StatutCommande; label: string }[] = [
   { id: 'recue', label: 'Reçue' },
@@ -131,16 +132,25 @@ function ConfirmStatusModal({
 }
 
 export default function CommandesPage() {
-  const router = useRouter();
+  const { user } = useAuth();
   const [commandes, setCommandes] = useState<Commande[]>([]);
   const [filterStatut, setFilterStatut] = useState<string>('toutes');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [pendingChange, setPendingChange] = useState<{ cmd: Commande; newStatus: StatutCommande } | null>(null);
 
-  const loadCommandes = useCallback(() => {
-    setCommandes(MockStorageService.getCommandes());
-  }, []);
+  const loadCommandes = useCallback(async () => {
+    if (!user?.id) {
+      setCommandes([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const cmds = await DataService.getCommandes(user.id);
+    setCommandes(cmds);
+    setLoading(false);
+  }, [user?.id]);
 
   useEffect(() => {
     setMounted(true);
@@ -152,10 +162,10 @@ export default function CommandesPage() {
     setPendingChange({ cmd, newStatus });
   };
 
-  const handleConfirmStatusChange = () => {
-    if (!pendingChange) return;
-    MockStorageService.updateCommande(pendingChange.cmd.id, { statut: pendingChange.newStatus });
-    loadCommandes();
+  const handleConfirmStatusChange = async () => {
+    if (!pendingChange || !user?.id) return;
+    await DataService.updateCommande(user.id, pendingChange.cmd.id, { statut: pendingChange.newStatus });
+    await loadCommandes();
     setPendingChange(null);
   };
 
@@ -191,10 +201,10 @@ export default function CommandesPage() {
     })),
   ];
 
-  if (!mounted) {
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-clair font-sans">
-      <main className="max-w-4xl mx-auto px-4 pt-12">
+        <main className="max-w-4xl mx-auto px-4 pt-12">
           <ThreadSpoolLoader label="Chargement de votre carnet d'atelier…" size="lg" />
         </main>
       </div>
@@ -203,9 +213,8 @@ export default function CommandesPage() {
 
   return (
     <div className="min-h-screen bg-clair pb-24 font-sans">
-
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
-        {/* Desktop & Mobile Balanced Summary Cards */}
+        {/* Desktop & Mobile Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <Card className="bg-white p-4 sm:p-5 border border-sable/60 shadow-xs min-w-0 rounded-3xl">
             <p className="text-xs sm:text-sm font-bold text-sombre/70 uppercase tracking-wider truncate">
@@ -283,18 +292,6 @@ export default function CommandesPage() {
             );
           })}
         </div>
-
-        {/* Filter Results Count */}
-        {(filterStatut !== 'toutes' || searchQuery) && (
-          <p className="text-xs sm:text-sm text-sombre/70 font-semibold font-sans pl-0.5">
-            {filteredCommandes.length} résultat{filteredCommandes.length !== 1 ? 's' : ''} affiché{filteredCommandes.length !== 1 ? 's' : ''}
-            {filterStatut !== 'toutes' && (
-              <button onClick={() => setFilterStatut('toutes')} className="ml-2 text-accent underline font-bold hover:no-underline">
-                Tout afficher
-              </button>
-            )}
-          </p>
-        )}
 
         {/* Orders Grid */}
         {filteredCommandes.length === 0 ? (
@@ -404,10 +401,9 @@ export default function CommandesPage() {
               );
             })}
           </div>
-
         )}
 
-        {/* Future Financial Statistics Section (Option Premium à venir) */}
+        {/* Future Financial Statistics Section */}
         <Card className="p-6 bg-gradient-to-br from-sombre via-fonce to-sombre text-white rounded-3xl border border-gold/30 shadow-md space-y-4">
           <div className="flex items-center justify-between border-b border-white/20 pb-3">
             <div className="flex items-center gap-2">
@@ -422,25 +418,10 @@ export default function CommandesPage() {
           <p className="text-xs sm:text-sm text-white/80 font-medium leading-relaxed">
             Prochainement : Suivez l'historique financier de votre atelier, vos revenus hebdomadaires et mensuels, ainsi que l'évolution de vos encaissements.
           </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 opacity-60 pointer-events-none">
-            <div className="bg-white/10 p-3 rounded-2xl border border-white/10">
-              <span className="text-[10px] font-bold uppercase text-white/70 block">Chiffre cette semaine</span>
-              <span className="text-base font-bold text-gold">450 000 FCFA</span>
-            </div>
-            <div className="bg-white/10 p-3 rounded-2xl border border-white/10">
-              <span className="text-[10px] font-bold uppercase text-white/70 block">Commandes livrées/mois</span>
-              <span className="text-base font-bold text-emerald-400">28 tenues</span>
-            </div>
-            <div className="col-span-2 sm:col-span-1 bg-white/10 p-3 rounded-2xl border border-white/10">
-              <span className="text-[10px] font-bold uppercase text-white/70 block">Panier moyen atelier</span>
-              <span className="text-base font-bold text-white">35 000 FCFA</span>
-            </div>
-          </div>
         </Card>
       </main>
 
-      {/* Floating CTA Button (Mobile only, hidden on PC/desktop) */}
+      {/* Floating CTA Button (Mobile only) */}
       <div className="fixed bottom-20 right-4 md:hidden z-30">
         <Link href="/commandes/nouvelle">
           <Button

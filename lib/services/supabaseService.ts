@@ -1,5 +1,5 @@
 import { createClient } from '../supabase/client';
-import { Client, Mesure, Commande, Couturier, Realisation, StatutCommande } from '../types/database';
+import { Client, Mesure, Commande, Couturier, Realisation, Versement } from '../types/database';
 
 export class SupabaseService {
   private static getClient() {
@@ -9,15 +9,60 @@ export class SupabaseService {
   // ── Couturiers / Profil Atelier ──────────────────────────────────
   static async getCouturier(slugOrId?: string): Promise<Couturier | null> {
     const supabase = this.getClient();
+    if (!supabase || !slugOrId) return null;
+
+    const { data, error } = await supabase
+      .from('couturiers')
+      .select('*')
+      .or(`id.eq.${slugOrId},slug_vitrine.eq.${slugOrId}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return data as Couturier;
+  }
+
+  static async createOrEnsureCouturier(userId: string, profileData: Partial<Couturier>): Promise<Couturier | null> {
+    const supabase = this.getClient();
     if (!supabase) return null;
 
-    let query = supabase.from('couturiers').select('*');
-    if (slugOrId) {
-      query = query.or(`id.eq.${slugOrId},slug_vitrine.eq.${slugOrId}`);
-    }
+    const existing = await this.getCouturier(userId);
+    if (existing) return existing;
 
-    const { data, error } = await query.limit(1).single();
-    if (error || !data) return null;
+    const slugBase = (profileData.nom_atelier || 'atelier')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || `atelier-${userId.substring(0, 6)}`;
+
+    const newProfile: Partial<Couturier> = {
+      id: userId,
+      nom: profileData.nom || 'Artisan Couturier',
+      nom_atelier: profileData.nom_atelier || 'Mon Atelier',
+      email: profileData.email || '',
+      telephone: profileData.telephone || '',
+      whatsapp_contact: profileData.whatsapp_contact || profileData.telephone || '',
+      ville: profileData.ville || '',
+      pays: profileData.pays || '',
+      slug_vitrine: profileData.slug_vitrine || slugBase,
+      langue: profileData.langue || 'fr',
+      devise: profileData.devise || 'FCFA',
+      plan: 'free',
+      notifications_email: true,
+      notif_rappel_livraison: true,
+      notif_retard: true,
+    };
+
+    const { data, error } = await supabase
+      .from('couturiers')
+      .upsert([newProfile])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating couturier profile:', error);
+      return null;
+    }
     return data as Couturier;
   }
 
@@ -27,19 +72,25 @@ export class SupabaseService {
 
     const { data, error } = await supabase
       .from('couturiers')
-      .update(updates)
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', id)
       .select()
       .single();
 
-    if (error) return null;
+    if (error) {
+      console.error('Error updating couturier:', error);
+      return null;
+    }
     return data as Couturier;
   }
 
   // ── Clients ──────────────────────────────────────────────────────
   static async getClients(couturierId: string): Promise<Client[]> {
     const supabase = this.getClient();
-    if (!supabase) return [];
+    if (!supabase || !couturierId) return [];
 
     const { data, error } = await supabase
       .from('clients')
@@ -51,7 +102,21 @@ export class SupabaseService {
     return data as Client[];
   }
 
-  static async addClient(client: Omit<Client, 'id' | 'date_creation'>): Promise<Client | null> {
+  static async getClientById(id: string): Promise<Client | null> {
+    const supabase = this.getClient();
+    if (!supabase || !id) return null;
+
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return data as Client;
+  }
+
+  static async addClient(client: Omit<Client, 'id' | 'date_creation'> & { id?: string }): Promise<Client | null> {
     const supabase = this.getClient();
     if (!supabase) return null;
 
@@ -74,7 +139,10 @@ export class SupabaseService {
 
     const { data, error } = await supabase
       .from('clients')
-      .update(updates)
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', id)
       .select()
       .single();
@@ -94,7 +162,7 @@ export class SupabaseService {
   // ── Mesures ──────────────────────────────────────────────────────
   static async getMesureByClientId(clientId: string): Promise<Mesure | null> {
     const supabase = this.getClient();
-    if (!supabase) return null;
+    if (!supabase || !clientId) return null;
 
     const { data, error } = await supabase
       .from('mesures')
@@ -145,7 +213,7 @@ export class SupabaseService {
   // ── Commandes ────────────────────────────────────────────────────
   static async getCommandes(couturierId: string): Promise<Commande[]> {
     const supabase = this.getClient();
-    if (!supabase) return [];
+    if (!supabase || !couturierId) return [];
 
     const { data, error } = await supabase
       .from('commandes')
@@ -161,7 +229,6 @@ export class SupabaseService {
 
     if (error || !data) return [];
     
-    // Hydrate client_nom & client_telephone from relation
     return data.map((item: any) => ({
       ...item,
       client_nom: item.clients?.nom || 'Client inconnu',
@@ -169,11 +236,35 @@ export class SupabaseService {
     })) as Commande[];
   }
 
-  static async addCommande(commande: Omit<Commande, 'id' | 'date_commande'>): Promise<Commande | null> {
+  static async getCommandeById(id: string): Promise<Commande | null> {
+    const supabase = this.getClient();
+    if (!supabase || !id) return null;
+
+    const { data, error } = await supabase
+      .from('commandes')
+      .select(`
+        *,
+        clients (
+          nom,
+          telephone
+        )
+      `)
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error || !data) return null;
+    return {
+      ...data,
+      client_nom: data.clients?.nom || 'Client inconnu',
+      client_telephone: data.clients?.telephone || '',
+    } as Commande;
+  }
+
+  static async addCommande(commande: Omit<Commande, 'id' | 'date_commande'> & { id?: string }): Promise<Commande | null> {
     const supabase = this.getClient();
     if (!supabase) return null;
 
-    const { client_nom, client_telephone, versements, ...dbPayload } = commande as any;
+    const { client_nom, client_telephone, ...dbPayload } = commande as any;
 
     const { data, error } = await supabase
       .from('commandes')
@@ -196,12 +287,79 @@ export class SupabaseService {
 
     const { data, error } = await supabase
       .from('commandes')
-      .update(dbPayload)
+      .update({
+        ...dbPayload,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', id)
       .select()
       .single();
 
     if (error) return null;
     return data as Commande;
+  }
+
+  static async addVersement(cmdId: string, montant: number, note?: string): Promise<Commande | null> {
+    const cmd = await this.getCommandeById(cmdId);
+    if (!cmd) return null;
+
+    const currentVersements: Versement[] = cmd.versements || [
+      ...(cmd.acompte > 0 ? [{ id: 'vers-0', montant: cmd.acompte, date: cmd.date_commande || new Date().toISOString(), note: 'Acompte initial' }] : []),
+    ];
+
+    const newVersement: Versement = {
+      id: `vers-${Date.now()}`,
+      montant,
+      date: new Date().toISOString(),
+      note: note || 'Versement complémentaire',
+    };
+
+    const updatedVersements = [...currentVersements, newVersement];
+    const newTotalAcompte = updatedVersements.reduce((sum, v) => sum + v.montant, 0);
+
+    return this.updateCommande(cmdId, {
+      acompte: newTotalAcompte,
+      versements: updatedVersements,
+    });
+  }
+
+  // ── Realisations ─────────────────────────────────────────────────
+  static async getRealisations(couturierId: string): Promise<Realisation[]> {
+    const supabase = this.getClient();
+    if (!supabase || !couturierId) return [];
+
+    const { data, error } = await supabase
+      .from('realisations')
+      .select('*')
+      .eq('couturier_id', couturierId)
+      .order('date_publication', { ascending: false });
+
+    if (error || !data) return [];
+    return data as Realisation[];
+  }
+
+  static async addRealisation(realisation: Omit<Realisation, 'id' | 'date_publication'> & { id?: string }): Promise<Realisation | null> {
+    const supabase = this.getClient();
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+      .from('realisations')
+      .insert([realisation])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding realisation to Supabase:', error);
+      return null;
+    }
+    return data as Realisation;
+  }
+
+  static async deleteRealisation(id: string): Promise<boolean> {
+    const supabase = this.getClient();
+    if (!supabase) return false;
+
+    const { error } = await supabase.from('realisations').delete().eq('id', id);
+    return !error;
   }
 }

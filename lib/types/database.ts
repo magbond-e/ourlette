@@ -7,14 +7,22 @@ export interface Couturier {
   nom_atelier: string;
   email?: string;
   telephone?: string;
+  whatsapp_contact?: string;
   ville?: string;
   pays?: string;
-  langue: string;
-  plan: 'free' | 'pro';
+  adresse_atelier?: string;
+  bio?: string;
+  langue?: string;
+  devise?: string;
+  plan?: 'free' | 'pro';
   slug_vitrine: string;
   logo_url?: string;
   cover_url?: string;
-  date_creation: string;
+  notifications_email?: boolean;
+  notif_rappel_livraison?: boolean;
+  notif_retard?: boolean;
+  date_creation?: string;
+  updated_at?: string;
 }
 
 export interface Client {
@@ -22,8 +30,11 @@ export interface Client {
   couturier_id: string;
   nom: string;
   telephone?: string;
+  email?: string;
+  adresse?: string;
   notes?: string;
-  date_creation: string;
+  date_creation?: string;
+  updated_at?: string;
 }
 
 export interface Mesure {
@@ -36,9 +47,9 @@ export interface Mesure {
   longueur_robe?: number | null;
   tour_cou?: number | null;
   largeur_epaules?: number | null;
-  champs_personnalises: Record<string, number | string>;
+  champs_personnalises?: Record<string, number | string>;
   prise_par?: string;
-  date_maj: string;
+  date_maj?: string;
 }
 
 export interface Versement {
@@ -62,8 +73,10 @@ export interface Commande {
   acompte: number;
   versements?: Versement[];
   statut: StatutCommande;
-  date_commande: string;
+  date_commande?: string;
   date_livraison_prevue: string;
+  notes?: string;
+  updated_at?: string;
 }
 
 export interface Realisation {
@@ -72,5 +85,5 @@ export interface Realisation {
   photo_url: string;
   description?: string;
   commande_id?: string;
-  date_publication: string;
+  date_publication?: string;
 }

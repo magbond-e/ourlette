@@ -15,10 +15,11 @@ export function formatFCFA(amount: number): string {
 /**
  * Format date into readable French string (ex: "14 août 2026")
  */
-export function formatDateFR(dateString: string): string {
+export function formatDateFR(dateString?: string | null): string {
   if (!dateString) return '';
   try {
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
     return date.toLocaleDateString('fr-FR', {
       day: 'numeric',
       month: 'short',

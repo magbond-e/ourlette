@@ -113,6 +113,8 @@ const jsonLdData = {
     'SaaS gratuit pour couturiers et ateliers de couture : carnet de commandes d’atelier, gestion des fiches mesures numériques et vitrine publique WhatsApp.',
 };
 
+import { AuthProvider } from '@/lib/context/AuthContext';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -127,7 +129,9 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased bg-clair text-sombre selection:bg-accent selection:text-white min-h-screen font-sans">
-        <main className="min-h-screen pb-12">{children}</main>
+        <AuthProvider>
+          <main className="min-h-screen pb-12">{children}</main>
+        </AuthProvider>
       </body>
     </html>
   );

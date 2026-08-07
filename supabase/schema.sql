@@ -1,7 +1,16 @@
 -- ============================================================
 -- SCHÉMA DE BASE DE DONNÉES SUPABASE — OURLETTE
--- MVP SaaS Gratuit pour Couturiers
+-- SaaS Gratuit pour Couturiers (Isolé par utilisateur avec RLS)
 -- ============================================================
+
+-- Function to handle updated_at timestamps automatically
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- 1. Table `couturiers`
 CREATE TABLE IF NOT EXISTS public.couturiers (
@@ -10,14 +19,29 @@ CREATE TABLE IF NOT EXISTS public.couturiers (
   nom_atelier TEXT NOT NULL,
   email TEXT UNIQUE,
   telephone TEXT UNIQUE,
+  whatsapp_contact TEXT,
   ville TEXT,
   pays TEXT,
+  adresse_atelier TEXT,
+  bio TEXT,
   langue TEXT DEFAULT 'fr',
+  devise TEXT DEFAULT 'FCFA',
   plan TEXT DEFAULT 'free' CHECK (plan IN ('free', 'pro')),
   slug_vitrine TEXT UNIQUE NOT NULL,
+  logo_url TEXT,
+  cover_url TEXT,
+  notifications_email BOOLEAN DEFAULT true,
+  notif_rappel_livraison BOOLEAN DEFAULT true,
+  notif_retard BOOLEAN DEFAULT true,
   date_creation TIMESTAMPTZ DEFAULT now(),
-  CONSTRAINT check_contact_info CHECK (email IS NOT NULL OR telephone IS NOT NULL)
+  updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Trigger updated_at for couturiers
+DROP TRIGGER IF EXISTS set_couturiers_updated_at ON public.couturiers;
+CREATE TRIGGER set_couturiers_updated_at
+  BEFORE UPDATE ON public.couturiers
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 -- 2. Table `clients`
 CREATE TABLE IF NOT EXISTS public.clients (
@@ -25,9 +49,18 @@ CREATE TABLE IF NOT EXISTS public.clients (
   couturier_id UUID NOT NULL REFERENCES public.couturiers(id) ON DELETE CASCADE,
   nom TEXT NOT NULL,
   telephone TEXT,
+  email TEXT,
+  adresse TEXT,
   notes TEXT,
-  date_creation TIMESTAMPTZ DEFAULT now()
+  date_creation TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Trigger updated_at for clients
+DROP TRIGGER IF EXISTS set_clients_updated_at ON public.clients;
+CREATE TRIGGER set_clients_updated_at
+  BEFORE UPDATE ON public.clients
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 -- 3. Table `mesures`
 CREATE TABLE IF NOT EXISTS public.mesures (
@@ -50,16 +83,25 @@ CREATE TABLE IF NOT EXISTS public.commandes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   couturier_id UUID NOT NULL REFERENCES public.couturiers(id) ON DELETE CASCADE,
   client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
-  type_commande TEXT CHECK (type_commande IN ('couture_complete', 'retouche')),
+  type_commande TEXT CHECK (type_commande IN ('couture_complete', 'retouche')) DEFAULT 'couture_complete',
   description TEXT NOT NULL,
   tissu TEXT,
   responsable TEXT,
   prix_total NUMERIC NOT NULL DEFAULT 0,
   acompte NUMERIC NOT NULL DEFAULT 0,
+  versements JSONB DEFAULT '[]'::jsonb,
   statut TEXT CHECK (statut IN ('recue', 'en_cours', 'essayage', 'prete', 'livree')) DEFAULT 'recue',
   date_commande TIMESTAMPTZ DEFAULT now(),
-  date_livraison_prevue DATE NOT NULL
+  date_livraison_prevue DATE NOT NULL,
+  notes TEXT,
+  updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Trigger updated_at for commandes
+DROP TRIGGER IF EXISTS set_commandes_updated_at ON public.commandes;
+CREATE TRIGGER set_commandes_updated_at
+  BEFORE UPDATE ON public.commandes
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 -- 5. Table `realisations`
 CREATE TABLE IF NOT EXISTS public.realisations (
@@ -70,6 +112,14 @@ CREATE TABLE IF NOT EXISTS public.realisations (
   commande_id UUID REFERENCES public.commandes(id) ON DELETE SET NULL,
   date_publication TIMESTAMPTZ DEFAULT now()
 );
+
+-- Indexes for optimal performance
+CREATE INDEX IF NOT EXISTS idx_clients_couturier_id ON public.clients(couturier_id);
+CREATE INDEX IF NOT EXISTS idx_commandes_couturier_id ON public.commandes(couturier_id);
+CREATE INDEX IF NOT EXISTS idx_commandes_client_id ON public.commandes(client_id);
+CREATE INDEX IF NOT EXISTS idx_mesures_client_id ON public.mesures(client_id);
+CREATE INDEX IF NOT EXISTS idx_realisations_couturier_id ON public.realisations(couturier_id);
+CREATE INDEX IF NOT EXISTS idx_couturiers_slug ON public.couturiers(slug_vitrine);
 
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -82,24 +132,21 @@ ALTER TABLE public.commandes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.realisations ENABLE ROW LEVEL SECURITY;
 
 -- Couturiers
+DROP POLICY IF EXISTS "Les couturiers peuvent lire et modifier leur propre profil" ON public.couturiers;
 CREATE POLICY "Les couturiers peuvent lire et modifier leur propre profil"
   ON public.couturiers FOR ALL USING (auth.uid() = id);
 
--- Couturiers : lecture publique restreinte (uniquement slug + nom_atelier + ville + pays pour les vitrines)
--- Note: Les champs sensibles (email, telephone) sont protégés par RLS.
--- La vitrine publique ne doit afficher que les données non-sensibles.
+DROP POLICY IF EXISTS "Lecture publique restreinte des couturiers pour la vitrine" ON public.couturiers;
 CREATE POLICY "Lecture publique restreinte des couturiers pour la vitrine"
   ON public.couturiers FOR SELECT USING (true);
--- ⚠️  Pour une sécurité maximale en production, créer une vue sécurisée :
--- CREATE VIEW public.couturiers_publics AS
---   SELECT slug_vitrine, nom_atelier, ville, pays FROM public.couturiers;
-
 
 -- Clients
+DROP POLICY IF EXISTS "Les couturiers ne voient et modifient que leurs clients" ON public.clients;
 CREATE POLICY "Les couturiers ne voient et modifient que leurs clients"
   ON public.clients FOR ALL USING (auth.uid() = couturier_id);
 
 -- Mesures
+DROP POLICY IF EXISTS "Les couturiers ne voient et modifient que les mesures de leurs clients" ON public.mesures;
 CREATE POLICY "Les couturiers ne voient et modifient que les mesures de leurs clients"
   ON public.mesures FOR ALL USING (
     EXISTS (
@@ -110,12 +157,15 @@ CREATE POLICY "Les couturiers ne voient et modifient que les mesures de leurs cl
   );
 
 -- Commandes
+DROP POLICY IF EXISTS "Les couturiers ne voient et modifient que leurs commandes" ON public.commandes;
 CREATE POLICY "Les couturiers ne voient et modifient que leurs commandes"
   ON public.commandes FOR ALL USING (auth.uid() = couturier_id);
 
 -- Réalisations
+DROP POLICY IF EXISTS "Les couturiers modifient leurs propres réalisations" ON public.realisations;
 CREATE POLICY "Les couturiers modifient leurs propres réalisations"
   ON public.realisations FOR ALL USING (auth.uid() = couturier_id);
 
+DROP POLICY IF EXISTS "Tout le monde peut voir les réalisations publiques" ON public.realisations;
 CREATE POLICY "Tout le monde peut voir les réalisations publiques"
   ON public.realisations FOR SELECT USING (true);

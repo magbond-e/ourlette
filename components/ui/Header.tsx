@@ -4,17 +4,21 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ClipboardList, Ruler, Store, Settings, Plus, Scissors } from 'lucide-react';
+import { useAuth } from '@/lib/context/AuthContext';
 import { MockStorageService } from '@/lib/services/mockStorage';
 import { Couturier } from '@/lib/types/database';
 import { Button } from '@/components/ui/Button';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
-  const [couturier, setCouturier] = useState<Couturier>(() => MockStorageService.getCouturier());
+  const { couturier: authCouturier } = useAuth();
+  const [localCouturier, setLocalCouturier] = useState<Couturier>(() => MockStorageService.getCouturier());
 
   useEffect(() => {
-    setCouturier(MockStorageService.getCouturier());
+    setLocalCouturier(MockStorageService.getCouturier());
   }, []);
+
+  const couturier = authCouturier || localCouturier;
 
   const navItems = [
     { href: '/commandes', label: 'Commandes', icon: ClipboardList },

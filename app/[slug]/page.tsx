@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Scissors, MapPin, Share2, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { MockStorageService } from '@/lib/services/mockStorage';
+import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
+import { DataService } from '@/lib/services/dataService';
 import { Couturier, Realisation } from '@/lib/types/database';
 import { generateWhatsAppContactLink, generateWhatsAppShareLink, formatDateFR } from '@/lib/utils/formatters';
 
@@ -22,27 +23,49 @@ export default function VitrinePubliquePage() {
 
   const [couturier, setCouturier] = useState<Couturier | null>(null);
   const [realisations, setRealisations] = useState<Realisation[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!slugParam || slugParam.includes('.')) return;
-    const current = MockStorageService.getCouturier();
-    if (current.slug_vitrine === slugParam || slugParam === 'atelier-adia') {
-      setCouturier(current);
-      setRealisations(MockStorageService.getRealisations());
+  const loadVitrine = useCallback(async () => {
+    if (!slugParam || slugParam.includes('.')) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const { couturier: c, realisations: reals } = await DataService.getPublicVitrine(slugParam);
+    if (c) {
+      setCouturier(c);
+      setRealisations(reals);
     } else {
       setCouturier({
-        ...current,
+        id: `mock-${slugParam}`,
+        nom: 'Couturier',
         nom_atelier: `Atelier ${slugParam.replace('-', ' ')}`,
         slug_vitrine: slugParam,
+        langue: 'fr',
+        plan: 'free',
+        date_creation: new Date().toISOString(),
       });
-      setRealisations(MockStorageService.getRealisations());
+      setRealisations([]);
     }
+    setLoading(false);
   }, [slugParam]);
+
+  useEffect(() => {
+    loadVitrine();
+  }, [loadVitrine]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center font-sans">
+        <ThreadSpoolLoader label="Chargement de la vitrine d'atelier…" size="lg" />
+      </div>
+    );
+  }
 
   if (!couturier || (slugParam && slugParam.includes('.'))) return null;
 
   const whatsappGeneralUrl = generateWhatsAppContactLink(
-    couturier.telephone || '+221771234567',
+    couturier.whatsapp_contact || couturier.telephone || '+221771234567',
     couturier.nom_atelier
   );
 
@@ -75,7 +98,7 @@ export default function VitrinePubliquePage() {
       </header>
       <div className="h-[57px] shrink-0 pointer-events-none" aria-hidden="true" />
 
-      {/* Hero Header with High Contrast */}
+      {/* Hero Header */}
       <div className="relative bg-sombre text-white overflow-hidden border-b-2 border-accent/40">
         {featuredImage && (
           <div className="absolute inset-0 z-0 opacity-30">
@@ -122,7 +145,7 @@ export default function VitrinePubliquePage() {
           </div>
 
           <p className="text-xs sm:text-sm text-white/90 leading-relaxed font-sans font-medium max-w-md mx-auto">
-            Maison de couture sur-mesure & créations d'exception. Contactez l'atelier directement sur WhatsApp.
+            {couturier.bio || "Maison de couture sur-mesure & créations d'exception. Contactez l'atelier directement sur WhatsApp."}
           </p>
 
           <div className="pt-2 max-w-xs mx-auto">
@@ -163,7 +186,7 @@ export default function VitrinePubliquePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
               {realisations.map((real) => {
                 const modelWhatsappUrl = generateWhatsAppContactLink(
-                  couturier.telephone || '+221771234567',
+                  couturier.whatsapp_contact || couturier.telephone || '+221771234567',
                   couturier.nom_atelier,
                   real.description || 'Création sur-mesure'
                 );
@@ -183,9 +206,11 @@ export default function VitrinePubliquePage() {
                       />
                       <div className="p-4 space-y-1.5">
                         <p className="text-sm font-bold font-sans text-sombre leading-snug">{real.description || 'Création sur-mesure'}</p>
-                        <p className="text-xs text-sombre/60 font-medium font-sans">
-                          Publié le {formatDateFR(real.date_publication)}
-                        </p>
+                        {real.date_publication && (
+                          <p className="text-xs text-sombre/60 font-medium font-sans">
+                            Publié le {formatDateFR(real.date_publication)}
+                          </p>
+                        )}
                       </div>
                     </div>
 

@@ -1,18 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Store, Share2, Plus, Trash2, ExternalLink, Image as ImageIcon, Check, Copy, Upload } from 'lucide-react';
+import { Store, Plus, Trash2, ExternalLink, Image as ImageIcon, Check, Copy, Upload } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
-import { MockStorageService } from '@/lib/services/mockStorage';
+import { DataService } from '@/lib/services/dataService';
 import { Realisation, Couturier } from '@/lib/types/database';
 import { generateWhatsAppShareLink, formatDateFR } from '@/lib/utils/formatters';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function GererVitrinePage() {
-  const [couturier, setCouturier] = useState<Couturier>(MockStorageService.getCouturier());
+  const { user, couturier: authCouturier, refreshProfile } = useAuth();
+  const [couturier, setCouturier] = useState<Couturier | null>(null);
   const [realisations, setRealisations] = useState<Realisation[]>([]);
 
   // Profile Edit State
@@ -32,20 +34,36 @@ export default function GererVitrinePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const c = MockStorageService.getCouturier();
-    setCouturier(c);
-    setNomAtelier(c.nom_atelier);
-    setVille(c.ville || '');
-    setPays(c.pays || '');
-    setTelephone(c.telephone || '');
-    setSlug(c.slug_vitrine);
-    setCoverUrl(c.cover_url || '');
-    setLogoUrl(c.logo_url || '');
+  const loadData = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const [c, reals] = await Promise.all([
+      DataService.getCouturier(user.id),
+      DataService.getRealisations(user.id),
+    ]);
 
-    setRealisations(MockStorageService.getRealisations());
+    const activeC = c || authCouturier;
+    if (activeC) {
+      setCouturier(activeC);
+      setNomAtelier(activeC.nom_atelier);
+      setVille(activeC.ville || '');
+      setPays(activeC.pays || '');
+      setTelephone(activeC.telephone || '');
+      setSlug(activeC.slug_vitrine);
+      setCoverUrl(activeC.cover_url || '');
+      setLogoUrl(activeC.logo_url || '');
+    }
+
+    setRealisations(reals);
     setLoading(false);
-  }, []);
+  }, [user?.id, authCouturier]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleImageFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -63,11 +81,12 @@ export default function GererVitrinePage() {
     }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) return;
     setSavingProfile(true);
 
-    const updated = MockStorageService.updateCouturier({
+    const updated = await DataService.updateCouturier(user.id, {
       nom_atelier: nomAtelier.trim(),
       ville: ville.trim(),
       pays: pays.trim(),
@@ -77,34 +96,39 @@ export default function GererVitrinePage() {
       logo_url: logoUrl.trim() || undefined,
     });
 
-    setCouturier(updated);
-    setTimeout(() => {
-      setSavingProfile(false);
-    }, 400);
+    if (updated) {
+      setCouturier(updated);
+      await refreshProfile();
+    }
+    setSavingProfile(false);
   };
 
-  const handleAddRealisation = (e: React.FormEvent) => {
+  const handleAddRealisation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!photoUrl.trim()) return;
+    if (!photoUrl.trim() || !user?.id) return;
 
-    MockStorageService.addRealisation({
+    await DataService.addRealisation(user.id, {
       photo_url: photoUrl.trim(),
       description: description.trim() || 'Modèle Haute Couture',
     });
 
-    setRealisations(MockStorageService.getRealisations());
+    const reals = await DataService.getRealisations(user.id);
+    setRealisations(reals);
     setShowAddModal(false);
     setPhotoUrl('');
     setDescription('');
   };
 
-  const handleDeleteRealisation = (id: string) => {
-    MockStorageService.deleteRealisation(id);
-    setRealisations(MockStorageService.getRealisations());
+  const handleDeleteRealisation = async (id: string) => {
+    if (!user?.id) return;
+    await DataService.deleteRealisation(user.id, id);
+    const reals = await DataService.getRealisations(user.id);
+    setRealisations(reals);
   };
 
-  const publicLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/${couturier.slug_vitrine}`;
-  const whatsappShareUrl = generateWhatsAppShareLink(couturier.nom_atelier, couturier.slug_vitrine);
+  const activeSlug = couturier?.slug_vitrine || 'mon-atelier';
+  const publicLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/${activeSlug}`;
+  const whatsappShareUrl = generateWhatsAppShareLink(couturier?.nom_atelier || 'Mon Atelier', activeSlug);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicLink);
@@ -124,7 +148,6 @@ export default function GererVitrinePage() {
 
   return (
     <div className="min-h-screen bg-clair pb-24 font-sans">
-
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
@@ -133,7 +156,7 @@ export default function GererVitrinePage() {
             <p className="text-xs sm:text-sm text-sombre/70 font-semibold">Exposez vos créations et partagez votre catalogue d’atelier</p>
           </div>
 
-          <Link href={`/${couturier.slug_vitrine}`} target="_blank">
+          <Link href={`/${activeSlug}`} target="_blank">
             <Button variant="accent" size="sm" className="gap-2 shadow-md font-bold text-xs sm:text-sm rounded-full">
               <ExternalLink className="w-4 h-4" />
               <span>Aperçu public</span>
@@ -176,7 +199,7 @@ export default function GererVitrinePage() {
                 {copiedLink ? <Check className="w-4 h-4 text-emerald-200" /> : <Copy className="w-4 h-4 text-gold" />}
                 <span>{copiedLink ? 'Copié !' : 'Copier'}</span>
               </button>
-              <Link href={`/${couturier.slug_vitrine}`} target="_blank">
+              <Link href={`/${activeSlug}`} target="_blank">
                 <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold px-3.5 py-2.5 border-sable text-sombre hover:text-accent gap-1.5">
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Aperçu</span>

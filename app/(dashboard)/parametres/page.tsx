@@ -1,30 +1,36 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, User, Store, Globe, Check, LogOut, Bell, MessageSquare, Star, Send } from 'lucide-react';
+import { User, Store, Globe, Check, LogOut, Bell, MessageSquare, Star, Send, MapPin, Mail, Phone, DollarSign } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
-import { MockStorageService } from '@/lib/services/mockStorage';
+import { DataService } from '@/lib/services/dataService';
 import { Couturier } from '@/lib/types/database';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function ParametresPage() {
   const router = useRouter();
-  const [couturier, setCouturier] = useState<Couturier>(MockStorageService.getCouturier());
+  const { user, couturier: authCouturier, refreshProfile, signOut } = useAuth();
+  const [couturier, setCouturier] = useState<Couturier | null>(null);
 
   const [nom, setNom] = useState('');
   const [nomAtelier, setNomAtelier] = useState('');
   const [email, setEmail] = useState('');
   const [telephone, setTelephone] = useState('');
+  const [whatsappContact, setWhatsappContact] = useState('');
   const [ville, setVille] = useState('');
   const [pays, setPays] = useState('');
+  const [adresseAtelier, setAdresseAtelier] = useState('');
+  const [bio, setBio] = useState('');
   const [slug, setSlug] = useState('');
   const [langue, setLangue] = useState('fr');
+  const [devise, setDevise] = useState('FCFA');
 
   // Notifications State
+  const [notifEmail, setNotifEmail] = useState(true);
   const [notifRetard, setNotifRetard] = useState(true);
   const [notifRappelLivraison, setNotifRappelLivraison] = useState(true);
 
@@ -37,42 +43,71 @@ export default function ParametresPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const c = MockStorageService.getCouturier();
-    setCouturier(c);
-    setNom(c.nom);
-    setNomAtelier(c.nom_atelier);
-    setEmail(c.email || '');
-    setTelephone(c.telephone || '');
-    setVille(c.ville || '');
-    setPays(c.pays || '');
-    setSlug(c.slug_vitrine);
-    setLangue(c.langue || 'fr');
+  const loadData = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const c = (await DataService.getCouturier(user.id)) || authCouturier;
+    if (c) {
+      setCouturier(c);
+      setNom(c.nom || '');
+      setNomAtelier(c.nom_atelier || '');
+      setEmail(c.email || user.email || '');
+      setTelephone(c.telephone || '');
+      setWhatsappContact(c.whatsapp_contact || c.telephone || '');
+      setVille(c.ville || '');
+      setPays(c.pays || '');
+      setAdresseAtelier(c.adresse_atelier || '');
+      setBio(c.bio || '');
+      setSlug(c.slug_vitrine || '');
+      setLangue(c.langue || 'fr');
+      setDevise(c.devise || 'FCFA');
+      setNotifEmail(c.notifications_email ?? true);
+      setNotifRetard(c.notif_retard ?? true);
+      setNotifRappelLivraison(c.notif_rappel_livraison ?? true);
+    }
     setLoading(false);
-  }, []);
+  }, [user?.id, user?.email, authCouturier]);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) return;
+
     setSaving(true);
     setSuccessMsg('');
 
-    const updated = MockStorageService.updateCouturier({
+    const updated = await DataService.updateCouturier(user.id, {
       nom: nom.trim(),
       nom_atelier: nomAtelier.trim(),
       email: email.trim(),
       telephone: telephone.trim(),
+      whatsapp_contact: whatsappContact.trim(),
       ville: ville.trim(),
       pays: pays.trim(),
+      adresse_atelier: adresseAtelier.trim(),
+      bio: bio.trim(),
       slug_vitrine: slug.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
       langue,
+      devise,
+      notifications_email: notifEmail,
+      notif_retard: notifRetard,
+      notif_rappel_livraison: notifRappelLivraison,
     });
 
-    setCouturier(updated);
-    setTimeout(() => {
-      setSaving(false);
-      setSuccessMsg('Paramètres de l’atelier mis à jour !');
-      setTimeout(() => setSuccessMsg(''), 3000);
-    }, 300);
+    if (updated) {
+      setCouturier(updated);
+      await refreshProfile();
+    }
+
+    setSaving(false);
+    setSuccessMsg('Paramètres de l’atelier mis à jour !');
+    setTimeout(() => setSuccessMsg(''), 3000);
   };
 
   const handleSendFeedback = (e: React.FormEvent) => {
@@ -84,7 +119,8 @@ export default function ParametresPage() {
     }, 2000);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut();
     router.push('/login');
   };
 
@@ -100,7 +136,6 @@ export default function ParametresPage() {
 
   return (
     <div className="min-h-screen bg-clair pb-24 font-sans">
-
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
         <div className="space-y-1">
           <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">Paramètres d’Atelier</h2>
@@ -119,7 +154,7 @@ export default function ParametresPage() {
           <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2 border-b border-sable/40 pb-3">
               <User className="w-5 h-5 text-accent" />
-              <span>1. Profil Couturier</span>
+              <span>1. Profil Couturier & Contact</span>
             </h3>
 
             <div className="space-y-4 font-sans">
@@ -131,25 +166,35 @@ export default function ParametresPage() {
                 required
               />
 
-              <Input
-                label="Adresse Email"
-                type="email"
-                placeholder="ex: atelier@gmail.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Adresse Email (notifications & compte)"
+                  type="email"
+                  placeholder="ex: atelier@gmail.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+
+                <Input
+                  label="Numéro Téléphone d'atelier"
+                  type="tel"
+                  placeholder="ex: +221 77 123 45 67"
+                  value={telephone}
+                  onChange={(e) => setTelephone(e.target.value)}
+                />
+              </div>
 
               <Input
-                label="Numéro Téléphone (WhatsApp)"
+                label="Numéro WhatsApp (affiché sur la vitrine)"
                 type="tel"
                 placeholder="ex: +221 77 123 45 67"
-                value={telephone}
-                onChange={(e) => setTelephone(e.target.value)}
+                value={whatsappContact}
+                onChange={(e) => setWhatsappContact(e.target.value)}
               />
             </div>
           </Card>
 
-          {/* SECTION 2: Atelier & Vitrine */}
+          {/* SECTION 2: Atelier & Localisation */}
           <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2 border-b border-sable/40 pb-3">
               <Store className="w-5 h-5 text-accent" />
@@ -181,6 +226,27 @@ export default function ParametresPage() {
               </div>
 
               <Input
+                label="Adresse complète de l'atelier (optionnel)"
+                type="text"
+                placeholder="ex: Rue 14 x 11, Medina"
+                value={adresseAtelier}
+                onChange={(e) => setAdresseAtelier(e.target.value)}
+              />
+
+              <div className="space-y-1.5">
+                <label className="block text-xs sm:text-sm font-bold text-sombre">
+                  Présentation / Bio de l'atelier
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="ex: Spécialiste tenue traditionnelle africaine, Bazin, Broderies Haute Couture..."
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  className="w-full p-3.5 bg-white border border-sable/80 rounded-2xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-sans shadow-xs"
+                />
+              </div>
+
+              <Input
                 label="Lien unique de vitrine (Slug)"
                 type="text"
                 value={slug}
@@ -191,18 +257,42 @@ export default function ParametresPage() {
             </div>
           </Card>
 
-          {/* SECTION 3: Notifications & Rappels */}
+          {/* SECTION 3: Notifications & Emails */}
           <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2 border-b border-sable/40 pb-3">
               <Bell className="w-5 h-5 text-accent" />
-              <span>3. Notifications & Alertes de Livraison</span>
+              <span>3. Notifications & Alertes par Email / SMS</span>
             </h3>
 
             <div className="space-y-3 font-sans">
               <label className="flex items-center justify-between p-4 bg-[#FAFAF8] rounded-2xl border border-sable/50 cursor-pointer hover:border-accent/30 transition-colors">
-                <span className="text-xs sm:text-sm font-bold text-sombre pr-4">
-                  Alerter lorsqu'une livraison approche à 24h
+                <div>
+                  <span className="text-xs sm:text-sm font-bold text-sombre block">
+                    Recevoir les notifications par Email
+                  </span>
+                  <span className="text-[11px] text-sombre/60 font-semibold block mt-0.5">
+                    Rappels d'échéances et résumés de commandes
+                  </span>
+                </div>
+                <span className="ios-switch shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={notifEmail}
+                    onChange={(e) => setNotifEmail(e.target.checked)}
+                  />
+                  <span className="ios-slider" />
                 </span>
+              </label>
+
+              <label className="flex items-center justify-between p-4 bg-[#FAFAF8] rounded-2xl border border-sable/50 cursor-pointer hover:border-accent/30 transition-colors">
+                <div>
+                  <span className="text-xs sm:text-sm font-bold text-sombre block">
+                    Alerter lorsqu'une livraison approche à 24h
+                  </span>
+                  <span className="text-[11px] text-sombre/60 font-semibold block mt-0.5">
+                    Notification automatique pour préparer la remise de la tenue
+                  </span>
+                </div>
                 <span className="ios-switch shrink-0">
                   <input
                     type="checkbox"
@@ -214,9 +304,14 @@ export default function ParametresPage() {
               </label>
 
               <label className="flex items-center justify-between p-4 bg-[#FAFAF8] rounded-2xl border border-sable/50 cursor-pointer hover:border-accent/30 transition-colors">
-                <span className="text-xs sm:text-sm font-bold text-sombre pr-4">
-                  Afficher le badge rouge d'alerte pour les commandes en retard
-                </span>
+                <div>
+                  <span className="text-xs sm:text-sm font-bold text-sombre block">
+                    Afficher l'alerte pour les commandes en retard
+                  </span>
+                  <span className="text-[11px] text-sombre/60 font-semibold block mt-0.5">
+                    Signalement visuel rouge dans le carnet de commandes
+                  </span>
+                </div>
                 <span className="ios-switch shrink-0">
                   <input
                     type="checkbox"
@@ -229,25 +324,44 @@ export default function ParametresPage() {
             </div>
           </Card>
 
-          {/* SECTION 4: Langue & Préférences */}
+          {/* SECTION 4: Langue & Monnaie */}
           <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2 border-b border-sable/40 pb-3">
               <Globe className="w-5 h-5 text-accent" />
-              <span>4. Langue & Préférences</span>
+              <span>4. Langue & Devise de Facturation</span>
             </h3>
 
-            <div className="space-y-2 font-sans">
-              <label className="block text-xs sm:text-sm font-bold text-sombre/90">
-                Langue de l'interface
-              </label>
-              <select
-                value={langue}
-                onChange={(e) => setLangue(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-sable/80 rounded-2xl text-sm sm:text-base text-sombre font-bold focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent min-h-[48px] shadow-xs"
-              >
-                <option value="fr">Français (Défaut)</option>
-                <option value="en">English (Bientôt disponible)</option>
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
+              <div className="space-y-2">
+                <label className="block text-xs sm:text-sm font-bold text-sombre/90">
+                  Langue de l'interface
+                </label>
+                <select
+                  value={langue}
+                  onChange={(e) => setLangue(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-sable/80 rounded-2xl text-sm sm:text-base text-sombre font-bold focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent min-h-[48px] shadow-xs"
+                >
+                  <option value="fr">Français (Défaut)</option>
+                  <option value="en">English (Anglais)</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs sm:text-sm font-bold text-sombre/90">
+                  Devise Monétaire
+                </label>
+                <select
+                  value={devise}
+                  onChange={(e) => setDevise(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-sable/80 rounded-2xl text-sm sm:text-base text-sombre font-bold focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent min-h-[48px] shadow-xs"
+                >
+                  <option value="FCFA">FCFA (Franc CFA)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="GNF">GNF (Franc Guinéen)</option>
+                  <option value="MAD">MAD (Dirham Marocain)</option>
+                </select>
+              </div>
             </div>
           </Card>
 
@@ -257,7 +371,7 @@ export default function ParametresPage() {
           </Button>
         </form>
 
-        {/* SECTION 5: Donner un Avis / Témoigner sur le logiciel */}
+        {/* SECTION 5: Donner un Avis */}
         <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
           <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2 border-b border-sable/40 pb-3">
             <MessageSquare className="w-5 h-5 text-accent" />
@@ -309,7 +423,7 @@ export default function ParametresPage() {
         <Card className="p-5 flex flex-col sm:flex-row items-center justify-between gap-3 border-dashed border-2 border-sable/80 bg-white rounded-3xl">
           <div>
             <h4 className="text-sm sm:text-base font-bold text-sombre">Session d'atelier</h4>
-            <p className="text-xs sm:text-sm text-sombre/70 font-medium">Connecté en tant que {couturier.nom}</p>
+            <p className="text-xs sm:text-sm text-sombre/70 font-medium">Connecté en tant que {couturier?.nom || 'Couturier'}</p>
           </div>
           <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2 text-accent border-accent hover:bg-accent hover:text-white rounded-full">
             <LogOut className="w-4 h-4" />
