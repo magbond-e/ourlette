@@ -60,11 +60,11 @@ export default function CommentCaMarchePage() {
             <div className="flex items-center gap-4 border-b border-sable/40 pb-4">
               <span className="text-4xl sm:text-5xl font-display font-bold text-accent">01</span>
               <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">
-                Crée ton compte en 2 minutes
+                Crée ton compte et configure ton atelier
               </h2>
             </div>
             <p className="text-sm sm:text-base text-sombre/80 leading-relaxed font-medium">
-              Nom, nom de ton atelier, téléphone ou email, ville, pays, mot de passe. Ton lien de vitrine publique est généré automatiquement à partir du nom de ton atelier (ex: "Atelier Adia" → <code className="bg-clair/60 px-2 py-0.5 rounded text-accent font-bold">ourlette.app/atelier-adia</code>) — tu peux le modifier ensuite. Aucune carte bancaire demandée.
+              Inscris-toi en 2 minutes par email ou via ton compte Google. Lors du premier accès, l'écran d'onboarding configure automatiquement ton atelier (nom, ville, téléphone). En <strong>Plan Starter (Gratuit)</strong>, un lien de vitrine sécurisé est généré (ex: <code className="bg-clair/60 px-2 py-0.5 rounded text-accent font-bold">ourlette.app/atelier-k7x9p2</code>). En <strong>Plan Pro (1 999 FCFA/mois)</strong>, tu personnalises librement ton lien sur-mesure (ex: <code className="bg-clair/60 px-2 py-0.5 rounded text-accent font-bold">ourlette.app/ma-maison-couture</code>).
             </p>
           </div>
 
@@ -106,7 +106,7 @@ export default function CommentCaMarchePage() {
             </div>
 
             <p className="text-xs sm:text-sm text-sombre/70 italic">
-              Les commandes en retard (date de livraison dépassée, statut non "Livrée") sont signalées automatiquement en rouge sur ton tableau de bord. Tu sais toujours exactement où tu en es.
+              Les commandes en retard et rappels de livraison déclenchent une alerte directe dans l'icône de cloche du header et sur ton tableau de bord. Le Plan Starter te permet de gérer jusqu'à 10 commandes actives simultanées, tandis que le Plan Pro (1 999 FCFA/mois) offre des commandes illimitées.
             </p>
           </div>
 
@@ -119,7 +119,7 @@ export default function CommentCaMarchePage() {
               </h2>
             </div>
             <p className="text-sm sm:text-base text-sombre/80 leading-relaxed font-medium">
-              Ajoute une photo de tes réalisations en quelques secondes — depuis ton téléphone ou en collant un lien. Partage le lien de ta vitrine sur WhatsApp, Instagram, ou où tu veux. Tes clients potentiels consultent tes créations et te contactent directement, sans avoir besoin de créer de compte de leur côté.
+              Ajoute tes plus belles réalisations couture (jusqu'à 8 photos en Plan Starter, illimité en Plan Pro). Partage ton lien de vitrine sur WhatsApp, Instagram ou par SMS. Tes clients potentiels parcourent ta galerie et te contactent directement sur WhatsApp en 1 clic.
             </p>
           </div>
         </div>
@@ -132,23 +132,19 @@ export default function CommentCaMarchePage() {
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm sm:text-base font-medium text-white/90">
             <li className="flex items-start gap-3">
               <Search className="w-5 h-5 text-gold shrink-0 mt-0.5" />
-              <span><strong>Rechercher</strong> une commande par nom de client, modèle, tissu ou responsable</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <Filter className="w-5 h-5 text-gold shrink-0 mt-0.5" />
-              <span><strong>Filtrer</strong> tes commandes par statut (toutes, en cours, en retard, prêtes...)</span>
+              <span><strong>Rechercher & Filtrer</strong> tes commandes par nom, tissu, statut ou responsable d'atelier</span>
             </li>
             <li className="flex items-start gap-3">
               <Ruler className="w-5 h-5 text-gold shrink-0 mt-0.5" />
-              <span><strong>Consulter</strong> les mesures d'un client depuis sa fiche ou une commande</span>
+              <span><strong>Consulter les mesures</strong> d'un client instantanément lors de la création d'une commande</span>
             </li>
             <li className="flex items-start gap-3">
               <Store className="w-5 h-5 text-gold shrink-0 mt-0.5" />
-              <span><strong>Gérer ta vitrine</strong> : photos, infos atelier, lien WhatsApp en 1 tap</span>
+              <span><strong>Gérer ta vitrine</strong> : photos de créations, logo d'atelier, lien WhatsApp direct</span>
             </li>
-            <li className="flex items-start gap-3 col-span-1 sm:col-span-2">
+            <li className="flex items-start gap-3">
               <Wallet className="w-5 h-5 text-gold shrink-0 mt-0.5" />
-              <span><strong>Suivre tes encaissements</strong> : le solde total restant à encaisser est affiché en permanence sur le tableau de bord</span>
+              <span><strong>Suivre tes encaissements & jauges</strong> : soldes à encaisser et jauge d'abonnement dans les Paramètres</span>
             </li>
           </ul>
 

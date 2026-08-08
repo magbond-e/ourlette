@@ -70,8 +70,8 @@ export function generateWhatsAppShareLink(nomAtelier: string, slug: string): str
 export function generateWhatsAppContactLink(telephone: string, nomAtelier: string, nomModele?: string): string {
   const cleanPhone = telephone.replace(/[^0-9+]/g, '');
   const textMsg = nomModele
-    ? `Bonjour Atelier ${nomAtelier}, je visite votre vitrine Ourlette et je souhaiterais commander le modèle "${nomModele}".`
-    : `Bonjour Atelier ${nomAtelier}, je visite votre vitrine Ourlette et je souhaiterais passer une commande.`;
+    ? `Bonjour ${nomAtelier}, je visite votre vitrine Ourlette et je souhaiterais commander le modèle "${nomModele}".`
+    : `Bonjour ${nomAtelier}, je visite votre vitrine Ourlette et je souhaiterais passer une commande.`;
   const message = encodeURIComponent(textMsg);
   return `https://wa.me/${cleanPhone.replace('+', '')}?text=${message}`;
 }

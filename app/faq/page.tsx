@@ -15,27 +15,41 @@ const allFaqItems = [
     category: "Gratuité & Tarifs",
     question: "Ourlette est-il vraiment gratuit ?",
     answer:
-      "Oui, sans limite pendant cette phase. Toutes les fonctionnalités actuelles — carnet de commandes, fiches mesures, vitrine publique, recherche et filtres, partage WhatsApp — restent gratuites pour les couturiers qui les utilisent déjà. Une version Pro arrivera plus tard avec des fonctionnalités supplémentaires, sans retirer ce qui est gratuit aujourd'hui.",
+      "Oui. Le Plan Starter est 100 % gratuit et sans engagement. Il comprend le carnet de commandes (jusqu'à 10 commandes actives simultanées), toutes les fiches mesures, la recherche, le suivi des encaissements et la vitrine publique sur WhatsApp (jusqu'à 8 photos).",
+  },
+  {
+    id: "plan-pro",
+    category: "Gratuité & Tarifs",
+    question: "Combien coûte le Plan Pro et que débloque-t-il ?",
+    answer:
+      "Le Plan Pro est proposé à 1 999 FCFA / mois. Il débloque un nombre illimité de commandes actives, des photos illimitées dans la vitrine publique, la personnalisation du lien de votre atelier (ex: ourlette.app/ma-maison-couture) et l'accès aux jauges de suivi d'abonnement.",
   },
   {
     id: "carte",
     category: "Gratuité & Tarifs",
     question: "Ai-je besoin d'une carte bancaire pour m'inscrire ?",
-    answer: "Non. L'inscription ne demande aucune information de paiement.",
+    answer: "Non. L'inscription est totalement gratuite et ne demande aucune information de paiement.",
+  },
+  {
+    id: "notifications",
+    category: "Fonctionnalités Atelier",
+    question: "Comment fonctionnent les notifications d'atelier ?",
+    answer:
+      "Une icône de cloche dans l'en-tête de votre espace atelier vous alerte en temps réel des commandes en retard de livraison, des rappels d'essayage et des nouveautés de la plateforme.",
   },
   {
     id: "3g",
     category: "Technique & Données",
-    question: "Ourlette fonctionne-t-il avec une connexion internet faible ?",
+    question: "Ourlette fonctionne-t-il avec une connexion internet faible ou hors-ligne ?",
     answer:
-      "Oui. Ourlette est conçu mobile-first, avec des choix techniques (images compressées, polices optimisées, app installable) pensés pour rester rapide même avec une connexion 3G modeste, sans sacrifier un design soigné.",
+      "Oui. Ourlette est conçu mobile-first et supporte le mode hors-ligne pour la consultation et la saisie des commandes et mesures. Vos modifications sont synchronisées dès le retour de la connexion réseau.",
   },
   {
     id: "multi",
     category: "Fonctionnalités Atelier",
     question: "Puis-je utiliser Ourlette si nous sommes plusieurs dans l'atelier ?",
     answer:
-      "Oui. Chaque commande et chaque fiche mesures a un champ \"responsable\" en texte libre, pour savoir qui a pris quoi — sans avoir besoin de créer un compte séparé pour chaque personne de l'atelier.",
+      "Oui. Chaque commande et chaque fiche mesures intègre un champ \"responsable\" en texte libre, pour savoir qui gère quelle tenue sans avoir besoin de créer un compte séparé.",
   },
   {
     id: "retouche",
@@ -63,7 +77,7 @@ const allFaqItems = [
     category: "Technique & Données",
     question: "Mes données sont-elles revendues à des tiers ?",
     answer:
-      "Non. Voir la politique de confidentialité pour le détail de ce qui est collecté et pourquoi.",
+      "Non. Vos données restent strictement confidentielles et réservées à votre propre gestion d'atelier.",
   },
   {
     id: "pays",
@@ -77,7 +91,7 @@ const allFaqItems = [
     category: "Vitrine & WhatsApp",
     question: "Comment mes clients peuvent-ils me contacter depuis ma vitrine ?",
     answer:
-      "Via un bouton de contact direct (WhatsApp ou appel), sans que tes clients aient besoin de créer de compte pour te contacter.",
+      "Via un bouton de contact direct sur WhatsApp ou appel téléphonique, sans que vos clients n'aient besoin de télécharger d'application ni de créer de compte.",
   },
   {
     id: "competences",
@@ -92,13 +106,6 @@ const allFaqItems = [
     question: "Puis-je utiliser Ourlette sur ordinateur, ou seulement sur téléphone ?",
     answer:
       "Ourlette est pensé mobile-first — l'expérience est optimisée pour le téléphone avec une navigation en bas d'écran — mais l'app reste parfaitement utilisable sur ordinateur via un navigateur.",
-  },
-  {
-    id: "version-payante",
-    category: "Gratuité & Tarifs",
-    question: "Une version payante est-elle prévue ?",
-    answer:
-      "Oui, plus tard. Le plan Pro est encore à définir dans le détail (pistes évoquées : statistiques avancées, comptes multi-utilisateurs avec permissions, retrait du bandeau \"Propulsé par Ourlette\" sur la vitrine). Rien n'est retiré de la version gratuite existante quand ce plan sortira.",
   },
   {
     id: "logo-banniere",

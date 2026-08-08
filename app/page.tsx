@@ -29,25 +29,25 @@ const landingFaqItems = [
     id: "gratuit",
     question: "Comment puis-je essayer Ourlette gratuitement ?",
     answer:
-      "Tu peux créer ton compte en 2 minutes sans carte bancaire. Tu accèdes immédiatement au carnet de commandes d'atelier, aux fiches mesures et à ta vitrine publique WhatsApp.",
+      "Tu peux créer ton compte en 2 minutes sans aucune carte bancaire. Le Plan Gratuit inclut jusqu'à 10 commandes actives, 8 photos de vitrine et toutes les fiches mesures. Tu peux passer au Plan Pro (1 999 FCFA/mois) à tout moment pour débloquer l'illimité.",
   },
   {
     id: "carte",
     question: "Ai-je besoin d'une carte bancaire pour m'inscrire ?",
     answer:
-      "Non. L'inscription ne demande aucune information de paiement. Tu commences gratuitement dès ton inscription.",
+      "Non. L'inscription ne demande aucune information de paiement. Tu commences gratuitement dès ton inscription avec le Plan Starter.",
+  },
+  {
+    id: "pro-tarifs",
+    question: "Combien coûte le Plan Pro et que comprend-il ?",
+    answer:
+      "Le Plan Pro est à seulement 1 999 FCFA / mois. Il débloque un nombre illimité de commandes actives, des photos illimitées sur ta vitrine publique, la personnalisation du lien de ton atelier (ex: ourlette.app/ma-maison-couture) et un suivi d'abonnement complet.",
   },
   {
     id: "3g",
-    question: "Ourlette fonctionne-t-il avec une connexion internet faible ?",
+    question: "Ourlette fonctionne-t-il avec une connexion internet faible ou hors-ligne ?",
     answer:
-      "Oui. Ourlette est conçu mobile-first (images compressées, polices optimisées, vitesse d'affichage) pour rester rapide même avec une connexion 3G modeste.",
-  },
-  {
-    id: "multi",
-    question: "Puis-je utiliser Ourlette si nous sommes plusieurs dans l'atelier ?",
-    answer:
-      "Oui. Chaque commande et chaque fiche mesures intègre un champ \"responsable\" en texte libre pour savoir qui gère quelle tenue.",
+      "Oui. Ourlette est conçu mobile-first et prend en charge le fonctionnement hors ligne pour tes commandes et mesures, avec synchronisation automatique au retour du réseau.",
   },
   {
     id: "contact-clients",
@@ -421,57 +421,113 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 9. Section Tarifs (Compliant & Safe) */}
+      {/* 9. Section Tarifs */}
       <section id="tarifs" className="py-16 sm:py-24 bg-white border-b border-sable/40">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <SectionHeader
-            badge="Tarifs"
+            badge="Tarifs & Formules"
             badgeIcon={<span>⭐</span>}
-            title="Démarrer votre atelier"
-            subtitle="Accédez dès maintenant aux fonctionnalités essentielles de gestion d'atelier."
+            title="Choisissez la formule adaptée à votre atelier"
+            subtitle="Démarrez gratuitement avec le Plan Starter ou passez au Plan Pro pour une gestion illimitée."
           />
 
-          <div className="max-w-xl mx-auto bg-white rounded-3xl border-2 border-accent p-8 sm:p-10 shadow-xl space-y-6 relative hover:shadow-2xl transition-shadow">
-            <div className="flex items-center justify-between border-b border-sable/40 pb-4">
-              <div>
-                <span className="text-xs font-bold uppercase text-accent tracking-wider">Plan Découverte</span>
-                <h3 className="text-2xl font-display font-bold text-sombre">Atelier Starter</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
+            {/* Card Plan Gratuit */}
+            <div className="bg-[#FAFAF8] rounded-3xl border border-sable/80 p-8 sm:p-10 shadow-sm space-y-6 flex flex-col justify-between hover:shadow-md transition-shadow">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-sable/40 pb-4">
+                  <div>
+                    <span className="text-xs font-bold uppercase text-sombre/60 tracking-wider">Plan Starter</span>
+                    <h3 className="text-2xl font-display font-bold text-sombre">Gratuit</h3>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-3xl sm:text-4xl font-display font-bold text-sombre">0 FCFA</span>
+                    <span className="text-xs text-sombre/60 block font-semibold">Accès gratuit à vie</span>
+                  </div>
+                </div>
+
+                <ul className="space-y-3 text-sm sm:text-base font-medium text-sombre/85">
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-vertbouton shrink-0" />
+                    <span>Jusqu'à <strong>10 commandes actives</strong> simultanées</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-vertbouton shrink-0" />
+                    <span>Vitrine publique (jusqu'à <strong>8 photos</strong>)</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-vertbouton shrink-0" />
+                    <span>Lien de vitrine généré (<code>atelier-xxxxxx</code>)</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-vertbouton shrink-0" />
+                    <span>Fiches mesures par client (standards + sur-mesure)</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-vertbouton shrink-0" />
+                    <span>Recherche & filtres des commandes par statut</span>
+                  </li>
+                </ul>
               </div>
-              <div className="text-right">
-                <span className="text-3xl sm:text-4xl font-display font-bold text-sombre">0 FCFA</span>
-                <span className="text-xs text-sombre/60 block font-semibold">Accès Découverte</span>
+
+              <div className="pt-4">
+                <Link href="/login">
+                  <Button variant="outline" fullWidth size="lg" className="rounded-full font-bold border-accent text-accent hover:bg-accent/10">
+                    Démarrer gratuitement →
+                  </Button>
+                </Link>
               </div>
             </div>
 
-            <ul className="space-y-3.5 text-sm sm:text-base font-medium text-sombre/85">
-              <li className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-vertbouton shrink-0" />
-                <span>Carnet de commandes d'atelier</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-vertbouton shrink-0" />
-                <span>Fiches mesures par client (standards + sur-mesure)</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-vertbouton shrink-0" />
-                <span>Vitrine publique partageable sur WhatsApp</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-vertbouton shrink-0" />
-                <span>Recherche & filtres des commandes par statut</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-vertbouton shrink-0" />
-                <span>Gestion multi-responsables d'atelier</span>
-              </li>
-            </ul>
+            {/* Card Plan Pro */}
+            <div className="bg-white rounded-3xl border-2 border-accent p-8 sm:p-10 shadow-2xl space-y-6 flex flex-col justify-between relative hover:shadow-2xl transition-all scale-102">
+              <div className="absolute -top-3.5 right-8 bg-accent text-white text-xs font-extrabold px-4 py-1 rounded-full shadow-md tracking-wide">
+                👑 POPULAIRE & ILLIMITÉ
+              </div>
 
-            <div className="pt-2">
-              <Link href="/login">
-                <Button variant="accent" fullWidth size="lg" className="rounded-full font-extrabold shadow-md hover:scale-102 transition-transform">
-                  Créer mon compte atelier →
-                </Button>
-              </Link>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-sable/40 pb-4">
+                  <div>
+                    <span className="text-xs font-bold uppercase text-accent tracking-wider">Atelier Pro</span>
+                    <h3 className="text-2xl font-display font-bold text-sombre">Plan Pro</h3>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-3xl sm:text-4xl font-display font-bold text-accent">1 999 FCFA</span>
+                    <span className="text-xs text-sombre/60 block font-semibold">par mois</span>
+                  </div>
+                </div>
+
+                <ul className="space-y-3 text-sm sm:text-base font-medium text-sombre/85">
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-accent shrink-0" />
+                    <span>Commandes actives <strong>illimitées</strong></span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-accent shrink-0" />
+                    <span>Photos de réalisation vitrine <strong>illimitées</strong></span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-accent shrink-0" />
+                    <span>Lien de vitrine <strong>personnalisé sur-mesure</strong></span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-accent shrink-0" />
+                    <span>Jauges de suivi d'abonnement & statistiques</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-accent shrink-0" />
+                    <span>Support prioritaire pour votre atelier</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="pt-4">
+                <Link href="/login">
+                  <Button variant="accent" fullWidth size="lg" className="rounded-full font-extrabold shadow-lg hover:scale-102 transition-transform">
+                    Activer le Plan Pro →
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
