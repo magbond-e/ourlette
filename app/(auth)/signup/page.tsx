@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Scissors, ArrowLeft, Store, Check } from 'lucide-react';
+import { Scissors, ArrowLeft, Mail, Lock, Check } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { createClient } from '@/lib/supabase/client';
@@ -36,27 +36,17 @@ const GoogleIcon = () => (
 export default function SignupPage() {
   const router = useRouter();
   const { signInWithGoogle } = useAuth();
-  const [nom, setNom] = useState('');
-  const [nomAtelier, setNomAtelier] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [ville, setVille] = useState('');
-  const [pays, setPays] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const slug = nomAtelier
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'mon-atelier';
-
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nom || !nomAtelier || !email || !password) {
-      setError('Veuillez remplir tous les champs obligatoires.');
+    if (!email || !password) {
+      setError('Veuillez remplir votre adresse email et mot de passe.');
       return;
     }
 
@@ -72,12 +62,9 @@ export default function SignupPage() {
     if (!supabase) {
       // Local fallback if Supabase client unavailable
       MockStorageService.updateCouturier({
-        nom,
-        nom_atelier: nomAtelier,
-        email,
-        ville,
-        pays,
-        slug_vitrine: slug,
+        email: email.trim(),
+        nom: 'Artisan Couturier',
+        nom_atelier: 'Mon Atelier',
       });
       setTimeout(() => {
         setLoading(false);
@@ -93,34 +80,29 @@ export default function SignupPage() {
       options: {
         emailRedirectTo: `${origin}/auth/callback`,
         data: {
-          nom: nom.trim(),
-          nom_atelier: nomAtelier.trim(),
-          ville: ville.trim(),
-          pays: pays.trim(),
-          slug_vitrine: slug,
+          email: email.trim(),
         },
       },
     });
 
     if (authErr) {
-      setError(authErr.message.includes('User already registered')
-        ? 'Un compte existe déjà avec cette adresse email.'
-        : authErr.message);
+      setError(
+        authErr.message.includes('User already registered')
+          ? 'Un compte existe déjà avec cette adresse email.'
+          : authErr.message
+      );
       setLoading(false);
       return;
     }
 
     if (authData.user) {
-      const profileInfo = {
-        nom: nom.trim(),
-        nom_atelier: nomAtelier.trim(),
+      const defaultProfile = {
         email: email.trim(),
-        ville: ville.trim(),
-        pays: pays.trim(),
-        slug_vitrine: slug,
+        nom: 'Artisan Couturier',
+        nom_atelier: 'Mon Atelier',
       };
-      await SupabaseService.createOrEnsureCouturier(authData.user.id, profileInfo);
-      await DataService.updateCouturier(authData.user.id, profileInfo);
+      await SupabaseService.createOrEnsureCouturier(authData.user.id, defaultProfile);
+      await DataService.updateCouturier(authData.user.id, defaultProfile);
     }
 
     setLoading(false);
@@ -140,11 +122,14 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-2 border border-sable/60 min-h-[640px]">
+      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-2 border border-sable/60 min-h-[580px]">
         {/* Left Side: Brand Banner */}
         <div className="bg-sombre text-white p-8 sm:p-12 flex flex-col justify-between relative overflow-hidden">
           <div className="space-y-6 z-10">
-            <Link href="/" className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-clair/80 hover:text-gold transition-colors">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-clair/80 hover:text-gold transition-colors"
+            >
               <ArrowLeft className="w-4 h-4" />
               <span>Retour à l&apos;accueil</span>
             </Link>
@@ -154,10 +139,10 @@ export default function SignupPage() {
                 <Scissors className="w-6 h-6 text-gold" />
               </div>
               <h1 className="text-3xl sm:text-4xl font-display font-bold text-white leading-tight">
-                Créer votre Atelier<span className="text-gold title-highlight font-normal">.</span>
+                Créer un compte<span className="text-gold title-highlight font-normal">.</span>
               </h1>
               <p className="text-sm sm:text-base text-clair/80 font-medium max-w-md leading-relaxed">
-                Inscrivez votre atelier en 2 minutes et commencez immédiatement à gérer vos commandes et clients.
+                Crée ton compte rapidement avec ton adresse email. Tu pourras ensuite personnaliser les détails de ton atelier en 1 minute.
               </p>
             </div>
 
@@ -166,30 +151,30 @@ export default function SignupPage() {
               <ul className="space-y-2 text-xs sm:text-sm font-medium text-clair/90">
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-gold shrink-0" />
-                  <span>Accès illimité au carnet de commandes</span>
+                  <span>Carnet de commandes d&apos;atelier digital</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-gold shrink-0" />
-                  <span>Fiches de mesures personnalisées</span>
+                  <span>Fiches de mesures numériques</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-gold shrink-0" />
-                  <span>Lien de vitrine WhatsApp sur-mesure</span>
+                  <span>Vitrine publique WhatsApp personnalisée</span>
                 </li>
               </ul>
             </div>
           </div>
 
           <div className="pt-8 text-xs text-clair/60 font-medium border-t border-white/10 z-10">
-            « Pour tous les ateliers & couturiers d&apos;Afrique et d&apos;ailleurs. »
+            « Pour tous les couturiers & ateliers d&apos;Afrique et du monde. »
           </div>
         </div>
 
-        {/* Right Side: Signup Form */}
+        {/* Right Side: Fast Signup Form */}
         <div className="p-8 sm:p-12 flex flex-col justify-center space-y-5 bg-white">
           <div className="space-y-1">
-            <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">Création d&apos;Atelier</h2>
-            <p className="text-sm text-sombre/70 font-medium">Inscription avec Email ou compte Google</p>
+            <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">Inscription Rapide</h2>
+            <p className="text-sm text-sombre/70 font-medium">Entrez votre email et votre mot de passe</p>
           </div>
 
           {error && (
@@ -217,56 +202,14 @@ export default function SignupPage() {
 
           <form onSubmit={handleSignup} className="space-y-4">
             <Input
-              label="Nom complet"
-              type="text"
-              placeholder="ex: Adia Sylla"
-              value={nom}
-              onChange={(e) => setNom(e.target.value)}
-              required
-            />
-
-            <Input
-              label="Nom de votre Atelier de couture"
-              type="text"
-              placeholder="ex: Atelier Adia Couture"
-              value={nomAtelier}
-              onChange={(e) => setNomAtelier(e.target.value)}
-              required
-            />
-
-            <div className="p-3 bg-[#FAFAF8] rounded-2xl border border-sable/70 flex items-center gap-2.5 text-xs sm:text-sm text-sombre font-sans">
-              <Store className="w-4 h-4 text-accent shrink-0" />
-              <span className="font-mono text-xs sm:text-sm truncate">
-                ourlette.app/<strong className="text-accent font-bold">{slug}</strong>
-              </span>
-            </div>
-
-            <Input
               label="Adresse Email"
               type="email"
-              placeholder="ex: atelier@gmail.com"
+              placeholder="ex: monatelier@gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoFocus
             />
-
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Ville"
-                type="text"
-                placeholder="ex: Dakar"
-                value={ville}
-                onChange={(e) => setVille(e.target.value)}
-              />
-
-              <Input
-                label="Pays"
-                type="text"
-                placeholder="ex: Sénégal"
-                value={pays}
-                onChange={(e) => setPays(e.target.value)}
-              />
-            </div>
 
             <Input
               label="Mot de passe"
@@ -277,12 +220,19 @@ export default function SignupPage() {
               required
             />
 
-            <Button type="submit" variant="accent" fullWidth size="lg" disabled={loading} className="mt-2 shadow-lg shadow-accent/20 font-bold rounded-full">
-              {loading ? 'Création en cours…' : 'Ouvrir mon carnet digital'}
+            <Button
+              type="submit"
+              variant="accent"
+              fullWidth
+              size="lg"
+              disabled={loading}
+              className="mt-2 shadow-lg shadow-accent/20 font-bold rounded-full py-3.5 text-base"
+            >
+              {loading ? 'Création de votre compte…' : 'Créer mon compte'}
             </Button>
           </form>
 
-          <div className="pt-2 text-center text-sm text-sombre/70">
+          <div className="pt-2 text-center text-sm text-sombre/70 font-medium">
             Vous avez déjà un compte ?{' '}
             <Link href="/login" className="font-bold text-accent underline hover:no-underline">
               Se connecter
