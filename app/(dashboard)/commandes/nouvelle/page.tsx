@@ -234,11 +234,10 @@ export default function NouvelleCommandePage() {
               <button
                 type="button"
                 onClick={() => setTypeCommande('couture_complete')}
-                className={`p-4 rounded-2xl text-xs sm:text-sm font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all min-h-[70px] ${
-                  typeCommande === 'couture_complete'
+                className={`p-4 rounded-2xl text-xs sm:text-sm font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all min-h-[70px] ${typeCommande === 'couture_complete'
                     ? 'bg-accent text-white border-accent shadow-md'
                     : 'bg-white text-sombre border-sable/80 hover:border-accent'
-                }`}
+                  }`}
               >
                 <Scissors className="w-5 h-5 text-current" />
                 <span>Couture Complète</span>
@@ -247,11 +246,10 @@ export default function NouvelleCommandePage() {
               <button
                 type="button"
                 onClick={() => setTypeCommande('retouche')}
-                className={`p-4 rounded-2xl text-xs sm:text-sm font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all min-h-[70px] ${
-                  typeCommande === 'retouche'
+                className={`p-4 rounded-2xl text-xs sm:text-sm font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all min-h-[70px] ${typeCommande === 'retouche'
                     ? 'bg-sombre text-white border-sombre shadow-md'
                     : 'bg-white text-sombre border-sable/80 hover:border-accent'
-                }`}
+                  }`}
               >
                 <Sparkles className="w-5 h-5 text-current" />
                 <span>Retouche Tenue</span>
@@ -342,7 +340,7 @@ export default function NouvelleCommandePage() {
 
           <Button type="submit" variant="accent" fullWidth size="lg" disabled={loading} className="gap-2 shadow-lg shadow-accent/20">
             <Check className="w-5 h-5" />
-            <span>{loading ? 'Création en cours…' : 'Valider la commande →'}</span>
+            <span>{loading ? 'Création en cours…' : 'Valider la commande'}</span>
           </Button>
         </form>
       </main>

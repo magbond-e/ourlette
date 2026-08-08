@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Store, Check, Sparkles, ShieldCheck, Lock } from 'lucide-react';
+import { Store, Check, Sparkles, Lock, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -10,7 +10,6 @@ import { DataService } from '@/lib/services/dataService';
 
 export const MandatoryOnboardingModal: React.FC = () => {
   const { user, couturier, refreshProfile } = useAuth();
-  const [show, setShow] = useState(false);
 
   const [nom, setNom] = useState('');
   const [nomAtelier, setNomAtelier] = useState('');
@@ -23,30 +22,16 @@ export const MandatoryOnboardingModal: React.FC = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!user || !couturier) {
-      setShow(false);
-      return;
-    }
-
-    // Check if essential workshop info is missing or default
-    const isMissingNomAtelier = !couturier.nom_atelier || couturier.nom_atelier.trim() === '' || couturier.nom_atelier.trim() === 'Mon Atelier';
-    const isMissingPhone = !couturier.telephone && !couturier.whatsapp_contact;
-    const isMissingVille = !couturier.ville || couturier.ville.trim() === '';
-    const isMissingPays = !couturier.pays || couturier.pays.trim() === '';
-
-    if (isMissingNomAtelier || isMissingPhone || isMissingVille || isMissingPays) {
-      setShow(true);
+    if (couturier) {
       setNom(couturier.nom && couturier.nom !== 'Artisan Couturier' ? couturier.nom : '');
       setNomAtelier(couturier.nom_atelier && couturier.nom_atelier !== 'Mon Atelier' ? couturier.nom_atelier : '');
       setTelephone(couturier.telephone || couturier.whatsapp_contact || '');
       setVille(couturier.ville || '');
       setPays(couturier.pays || '');
-    } else {
-      setShow(false);
     }
-  }, [user, couturier]);
+  }, [couturier]);
 
-  if (!show || !user) return null;
+  if (!user) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +52,7 @@ export const MandatoryOnboardingModal: React.FC = () => {
       return;
     }
     if (!acceptTerms) {
-      setError("Vous devez accepter les conditions d'utilisation pour continuer.");
+      setError("Vous devez accepter les conditions d'utilisation et la politique de confidentialité pour continuer.");
       return;
     }
 
@@ -78,7 +63,9 @@ export const MandatoryOnboardingModal: React.FC = () => {
     const slugified = nomAtelier.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `atelier-${user.id.substring(0, 6)}`;
 
     // Save cookie consent in local storage
-    localStorage.setItem('ourlette_cookie_consent', nowIso);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ourlette_cookie_consent', nowIso);
+    }
 
     const updated = await DataService.updateCouturier(user.id, {
       nom: nom.trim(),
@@ -89,32 +76,28 @@ export const MandatoryOnboardingModal: React.FC = () => {
       pays: pays.trim(),
       slug_vitrine: couturier?.slug_vitrine && couturier.slug_vitrine !== 'mon-atelier' ? couturier.slug_vitrine : slugified,
       cookie_consent_at: nowIso,
+      vitrine_active: couturier?.vitrine_active ?? true,
     });
 
     if (updated) {
       await refreshProfile();
     }
     setSaving(false);
-    setShow(false);
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-sombre/95 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[999] bg-sombre text-sombre flex items-center justify-center p-4 overflow-y-auto font-sans">
       <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border-2 border-gold space-y-5 my-auto animate-in zoom-in-95 duration-200">
         {/* Modal Header */}
         <div className="text-center space-y-2">
           <div className="w-14 h-14 rounded-2xl bg-accent/10 text-accent flex items-center justify-center mx-auto shadow-xs border border-accent/20">
             <Store className="w-7 h-7" />
           </div>
-          <div className="inline-flex items-center gap-1 px-3 py-1 bg-gold/15 text-sombre text-[11px] font-extrabold uppercase tracking-wider rounded-full border border-gold/30">
-            <Sparkles className="w-3.5 h-3.5 text-gold" />
-            <span>Première Connexion — Configuration de l'Atelier</span>
-          </div>
           <h3 className="text-2xl sm:text-3xl font-display font-bold text-sombre pt-1">
             Bienvenue sur Ourlette !
           </h3>
           <p className="text-xs sm:text-sm text-sombre/70 font-medium leading-relaxed">
-            Pour ouvrir ton carnet de commandes et activer ta vitrine publique, renseigne les informations de ton atelier.
+            Pour accéder à ton carnet de commandes et à ta vitrine, complète les informations obligatoires de ton atelier.
           </p>
         </div>
 
@@ -213,7 +196,7 @@ export const MandatoryOnboardingModal: React.FC = () => {
 
         <p className="text-[11px] text-sombre/50 font-semibold text-center flex items-center justify-center gap-1 pt-1">
           <Lock className="w-3.5 h-3.5 text-gold" />
-          <span>Vos données d'atelier sont protégées et confidentielles</span>
+          <span>Vos données d'atelier sont strictement confidentielles</span>
         </p>
       </div>
     </div>

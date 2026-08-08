@@ -334,7 +334,8 @@ export class DataService {
   static async getPublicVitrine(slug: string): Promise<{ couturier: Couturier | null; realisations: Realisation[] }> {
     let couturier = await SupabaseService.getCouturier(slug);
 
-    if (!couturier && typeof window !== 'undefined') {
+    let localCouturier: Couturier | null = null;
+    if (typeof window !== 'undefined') {
       try {
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
@@ -343,7 +344,7 @@ export class DataService {
             if (raw) {
               const c = JSON.parse(raw) as Couturier;
               if (c && c.slug_vitrine === slug) {
-                couturier = c;
+                localCouturier = c;
                 break;
               }
             }
@@ -352,6 +353,12 @@ export class DataService {
       } catch {
         // ignore storage parse error
       }
+    }
+
+    if (!couturier) {
+      couturier = localCouturier;
+    } else if (localCouturier && localCouturier.vitrine_active !== undefined) {
+      couturier.vitrine_active = localCouturier.vitrine_active;
     }
 
     if (!couturier) {

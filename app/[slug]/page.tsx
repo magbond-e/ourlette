@@ -58,7 +58,7 @@ export default function VitrinePubliquePage() {
 
   if (slugParam && slugParam.includes('.')) return null;
 
-  const isVitrineDisabled = !couturier || couturier.vitrine_active === false;
+  const isVitrineDisabled = !couturier || couturier.vitrine_active === false || (couturier.vitrine_active as any) === 'false';
 
   const nomAtelierDisplay = couturier?.nom_atelier || `Atelier ${slugParam.replace('-', ' ')}`;
 
