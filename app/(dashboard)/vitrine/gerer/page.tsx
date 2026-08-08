@@ -10,6 +10,7 @@ import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { DataService } from '@/lib/services/dataService';
 import { Realisation, Couturier } from '@/lib/types/database';
 import { generateWhatsAppShareLink, formatDateFR } from '@/lib/utils/formatters';
+import { canCustomizeSlug, checkRealisationLimit, isProPlan, FREE_PLAN_LIMITS } from '@/lib/utils/planLimits';
 import { useAuth } from '@/lib/context/AuthContext';
 
 export default function GererVitrinePage() {
@@ -285,17 +286,32 @@ export default function GererVitrinePage() {
 
         {/* Realisations Gallery Management */}
         <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 shadow-xs rounded-3xl">
-          <div className="flex items-center justify-between gap-2 border-b border-sable/40 pb-3">
-            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-sombre flex items-center gap-2">
-              <ImageIcon className="w-5 h-5 text-accent" />
-              <span>Galerie de Réalisations ({realisations.length})</span>
-            </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sable/40 pb-3">
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-sombre flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-accent" />
+                <span>Galerie de Réalisations ({realisations.length} {isProPlan(couturier) ? '' : `/ ${FREE_PLAN_LIMITS.maxRealisations}`})</span>
+              </h3>
+              {!isProPlan(couturier) && (
+                <p className="text-xs text-sombre/60 font-semibold mt-0.5">
+                  Plan Gratuit : Max {FREE_PLAN_LIMITS.maxRealisations} photos publiables.
+                </p>
+              )}
+            </div>
 
             <Button
               variant="accent"
               size="sm"
-              onClick={() => setShowAddModal(true)}
-              className="gap-2 font-bold text-xs sm:text-sm rounded-full"
+              onClick={() => {
+                const limitCheck = checkRealisationLimit(couturier, realisations.length);
+                if (!limitCheck.allowed) {
+                  alert(limitCheck.message);
+                  return;
+                }
+                setShowAddModal(true);
+              }}
+              disabled={!isProPlan(couturier) && realisations.length >= FREE_PLAN_LIMITS.maxRealisations}
+              className="gap-2 font-bold text-xs sm:text-sm rounded-full shadow-xs"
             >
               <Plus className="w-4 h-4" />
               <span>+ Ajouter Photo</span>
@@ -516,7 +532,12 @@ export default function GererVitrinePage() {
               placeholder="ex: atelier-adia"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              helperText={`ourlette.app/${slug}`}
+              disabled={!canCustomizeSlug(couturier)}
+              helperText={
+                canCustomizeSlug(couturier)
+                  ? `Lien public : ourlette.app/${slug}`
+                  : `ourlette.app/${slug} — 🔒 Personnalisation du nom de lien réservée au Plan Pro.`
+              }
               required
             />
 

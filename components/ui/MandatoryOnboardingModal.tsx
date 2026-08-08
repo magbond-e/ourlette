@@ -60,7 +60,12 @@ export const MandatoryOnboardingModal: React.FC = () => {
     setError('');
 
     const nowIso = new Date().toISOString();
-    const slugified = nomAtelier.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `atelier-${user.id.substring(0, 6)}`;
+    const isPro = couturier?.plan === 'pro';
+    const customSlug = nomAtelier.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const randomSlug = `atelier-${Math.random().toString(36).substring(2, 8)}`;
+    const finalSlug = isPro
+      ? (couturier?.slug_vitrine && couturier.slug_vitrine !== 'mon-atelier' ? couturier.slug_vitrine : customSlug)
+      : (couturier?.slug_vitrine && couturier.slug_vitrine !== 'mon-atelier' ? couturier.slug_vitrine : randomSlug);
 
     // Save cookie consent in local storage
     if (typeof window !== 'undefined') {
@@ -74,7 +79,7 @@ export const MandatoryOnboardingModal: React.FC = () => {
       whatsapp_contact: telephone.trim(),
       ville: ville.trim(),
       pays: pays.trim(),
-      slug_vitrine: couturier?.slug_vitrine && couturier.slug_vitrine !== 'mon-atelier' ? couturier.slug_vitrine : slugified,
+      slug_vitrine: finalSlug,
       cookie_consent_at: nowIso,
       vitrine_active: couturier?.vitrine_active ?? true,
     });

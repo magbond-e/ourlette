@@ -11,11 +11,14 @@ import { DataService } from '@/lib/services/dataService';
 import { Client, TypeCommande } from '@/lib/types/database';
 import { calculSolde, formatFCFA } from '@/lib/utils/formatters';
 import { useAuth } from '@/lib/context/AuthContext';
+import { checkCommandeLimit, FREE_PLAN_LIMITS } from '@/lib/utils/planLimits';
 
 export default function NouvelleCommandePage() {
   const router = useRouter();
   const { user, couturier } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
+  const [activeCommandesCount, setActiveCommandesCount] = useState<number>(0);
+  const [limitReached, setLimitReached] = useState<boolean>(false);
 
   // Form State
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -43,7 +46,20 @@ export default function NouvelleCommandePage() {
   useEffect(() => {
     async function init() {
       if (!user?.id) return;
-      const list = await DataService.getClients(user.id);
+      const [list, cmds] = await Promise.all([
+        DataService.getClients(user.id),
+        DataService.getCommandes(user.id),
+      ]);
+
+      const activeCount = cmds.filter((c) => c.statut !== 'livree').length;
+      setActiveCommandesCount(activeCount);
+
+      const limitCheck = checkCommandeLimit(couturier, activeCount);
+      if (!limitCheck.allowed) {
+        setLimitReached(true);
+        setError(limitCheck.message || '');
+      }
+
       setClients(list);
       if (list.length > 0) {
         setSelectedClientId(list[0].id);
@@ -55,7 +71,7 @@ export default function NouvelleCommandePage() {
     const in7days = new Date();
     in7days.setDate(in7days.getDate() + 7);
     setDateLivraison(in7days.toISOString().split('T')[0]);
-  }, [user?.id]);
+  }, [user?.id, couturier]);
 
   const handleCreateClientOnTheFly = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -135,7 +151,34 @@ export default function NouvelleCommandePage() {
           <div className="w-16" />
         </div>
 
-        {error && (
+        {limitReached && (
+          <Card className="p-6 bg-gradient-to-br from-sombre to-[#3D1A1E] text-white border-2 border-gold shadow-xl rounded-3xl space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gold/20 text-gold flex items-center justify-center shrink-0 border border-gold/40">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-gold">Limite Plan Gratuit Atteinte (10/10)</span>
+                <h3 className="text-xl font-display font-bold text-white">
+                  Débloquez les commandes illimitées avec le Plan Pro
+                </h3>
+                <p className="text-xs sm:text-sm text-clair/80 font-medium leading-relaxed">
+                  Votre atelier a <strong>{activeCommandesCount} commandes en cours</strong> sur le Plan Gratuit. Pour ajouter de nouvelles commandes sans contrainte, basculez vers la formule Pro.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-white/10">
+              <Link href="/parametres" className="w-full sm:w-auto">
+                <Button variant="gold" size="md" className="w-full sm:w-auto rounded-full font-bold text-xs sm:text-sm shadow-md">
+                  Activer le Plan Pro →
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        )}
+
+        {error && !limitReached && (
           <div className="p-4 bg-accent/10 border border-accent/30 rounded-2xl text-xs sm:text-sm text-accent font-bold">
             {error}
           </div>
@@ -338,7 +381,7 @@ export default function NouvelleCommandePage() {
             </div>
           </Card>
 
-          <Button type="submit" variant="accent" fullWidth size="lg" disabled={loading} className="gap-2 shadow-lg shadow-accent/20">
+          <Button type="submit" variant="accent" fullWidth size="lg" disabled={loading || limitReached} className="gap-2 shadow-lg shadow-accent/20">
             <Check className="w-5 h-5" />
             <span>{loading ? 'Création en cours…' : 'Valider la commande'}</span>
           </Button>

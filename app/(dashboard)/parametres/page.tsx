@@ -11,12 +11,19 @@ import { DataService } from '@/lib/services/dataService';
 import { Couturier } from '@/lib/types/database';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useNotifications } from '@/lib/context/NotificationContext';
+import { isProPlan, FREE_PLAN_LIMITS } from '@/lib/utils/planLimits';
+import { Sparkles, Crown, Zap } from 'lucide-react';
 
 export default function ParametresPage() {
   const router = useRouter();
   const { user, couturier: authCouturier, refreshProfile, signOut } = useAuth();
   const { addDemoNotification, refreshNotifications } = useNotifications();
   const [couturier, setCouturier] = useState<Couturier | null>(null);
+
+  // Stats for Subscription Plan Gauges
+  const [activeCommandesCount, setActiveCommandesCount] = useState<number>(0);
+  const [realisationsCount, setRealisationsCount] = useState<number>(0);
+  const [updatingPlan, setUpdatingPlan] = useState<boolean>(false);
 
   // Profile Edit State
   const [nom, setNom] = useState('');
@@ -53,7 +60,16 @@ export default function ParametresPage() {
       return;
     }
     setLoading(true);
-    const c = (await DataService.getCouturier(user.id)) || authCouturier;
+    const [c, cmds, reals] = await Promise.all([
+      DataService.getCouturier(user.id) || authCouturier,
+      DataService.getCommandes(user.id),
+      DataService.getRealisations(user.id),
+    ]);
+
+    const activeCount = cmds.filter((cmd) => cmd.statut !== 'livree').length;
+    setActiveCommandesCount(activeCount);
+    setRealisationsCount(reals.length);
+
     if (c) {
       setCouturier(c);
       setNom(c.nom && c.nom !== 'Artisan Couturier' ? c.nom : '');
@@ -79,6 +95,23 @@ export default function ParametresPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleTogglePlan = async () => {
+    if (!user?.id) return;
+    setUpdatingPlan(true);
+    const targetPlan = isProPlan(couturier) ? 'free' : 'pro';
+    const updated = await DataService.updateCouturier(user.id, { plan: targetPlan });
+    if (updated) {
+      setCouturier(updated);
+      await refreshProfile();
+      setSuccessMsg(
+        targetPlan === 'pro'
+          ? '🎉 Félicitations ! Votre atelier est désormais sur le Plan Pro (Commandes et vitrine illimitées).'
+          : 'Votre atelier est repassé sur le Plan Gratuit (Limité à 10 commandes et 8 photos).'
+      );
+    }
+    setUpdatingPlan(false);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,6 +190,121 @@ export default function ParametresPage() {
             <span>{successMsg}</span>
           </div>
         )}
+
+        {/* SECTION 0: Formule & Abonnement Atelier */}
+        <Card className={`p-6 sm:p-7 space-y-5 rounded-3xl border-2 shadow-md transition-all ${
+          isProPlan(couturier)
+            ? 'bg-gradient-to-br from-sombre via-[#3D1A1E] to-sombre text-white border-gold'
+            : 'bg-white text-sombre border-sable/80'
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-sable/40 pb-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold shadow-xs ${
+                isProPlan(couturier) ? 'bg-gold/20 text-gold border border-gold/40' : 'bg-accent/10 text-accent'
+              }`}>
+                {isProPlan(couturier) ? <Crown className="w-6 h-6" /> : <Zap className="w-6 h-6" />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-display font-bold">
+                    {isProPlan(couturier) ? 'Plan Pro Atelier' : 'Plan Gratuit (Starter)'}
+                  </h3>
+                  <span className={`text-xs px-3 py-0.5 rounded-full font-extrabold border ${
+                    isProPlan(couturier)
+                      ? 'bg-gold text-sombre border-gold shadow-sm'
+                      : 'bg-sable/40 text-sombre border-sable/80'
+                  }`}>
+                    {isProPlan(couturier) ? '👑 Illimité' : '⚡ 10 Commandes Max'}
+                  </span>
+                </div>
+                <p className={`text-xs font-semibold mt-0.5 ${isProPlan(couturier) ? 'text-clair/80' : 'text-sombre/70'}`}>
+                  {isProPlan(couturier)
+                    ? 'Vous bénéficiez des commandes illimitées et du lien de vitrine personnalisé sur-mesure.'
+                    : 'Limites actives : Max 10 commandes en cours, 8 photos sur la vitrine, lien aléatoire.'}
+                </p>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={handleTogglePlan}
+              disabled={updatingPlan}
+              variant={isProPlan(couturier) ? 'outline' : 'gold'}
+              size="md"
+              className={`rounded-full font-extrabold text-xs sm:text-sm shadow-md gap-2 ${
+                isProPlan(couturier)
+                  ? 'border-white/30 text-white hover:bg-white/10'
+                  : 'bg-gold text-sombre hover:bg-gold/90'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>
+                {updatingPlan
+                  ? 'Mise à jour…'
+                  : isProPlan(couturier)
+                  ? 'Passer au Plan Gratuit'
+                  : 'Activer le Plan Pro (Illimité)'}
+              </span>
+            </Button>
+          </div>
+
+          {/* Consumptions Gauges */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+            {/* Gauge 1: Commandes Actives */}
+            <div className={`p-4 rounded-2xl border space-y-2 ${
+              isProPlan(couturier) ? 'bg-white/10 border-white/15' : 'bg-[#FAFAF8] border-sable/70'
+            }`}>
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span>Commandes Actives</span>
+                <span className="font-mono">
+                  {isProPlan(couturier) ? `${activeCommandesCount} (Illimité)` : `${activeCommandesCount} / ${FREE_PLAN_LIMITS.maxActiveCommandes}`}
+                </span>
+              </div>
+              {!isProPlan(couturier) && (
+                <div className="w-full bg-sable/40 h-2 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      activeCommandesCount >= FREE_PLAN_LIMITS.maxActiveCommandes ? 'bg-accent' : 'bg-gold'
+                    }`}
+                    style={{ width: `${Math.min((activeCommandesCount / FREE_PLAN_LIMITS.maxActiveCommandes) * 100, 100)}%` }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Gauge 2: Photos Vitrine */}
+            <div className={`p-4 rounded-2xl border space-y-2 ${
+              isProPlan(couturier) ? 'bg-white/10 border-white/15' : 'bg-[#FAFAF8] border-sable/70'
+            }`}>
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span>Photos sur Vitrine</span>
+                <span className="font-mono">
+                  {isProPlan(couturier) ? `${realisationsCount} (Illimité)` : `${realisationsCount} / ${FREE_PLAN_LIMITS.maxRealisations}`}
+                </span>
+              </div>
+              {!isProPlan(couturier) && (
+                <div className="w-full bg-sable/40 h-2 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      realisationsCount >= FREE_PLAN_LIMITS.maxRealisations ? 'bg-accent' : 'bg-emerald-500'
+                    }`}
+                    style={{ width: `${Math.min((realisationsCount / FREE_PLAN_LIMITS.maxRealisations) * 100, 100)}%` }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Gauge 3: Lien de Vitrine */}
+            <div className={`p-4 rounded-2xl border space-y-1.5 ${
+              isProPlan(couturier) ? 'bg-white/10 border-white/15' : 'bg-[#FAFAF8] border-sable/70'
+            }`}>
+              <div className="text-xs font-bold">Lien de Vitrine</div>
+              <div className="text-xs font-bold font-mono text-gold truncate">
+                {isProPlan(couturier) ? 'Sur-mesure (Personnalisé)' : 'Aléatoire (Plan Gratuit)'}
+              </div>
+            </div>
+          </div>
+        </Card>
 
         <form onSubmit={handleSave} className="space-y-5">
           {/* SECTION 1: Profil & Coordonnées */}
