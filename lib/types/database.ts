@@ -23,6 +23,7 @@ export interface Couturier {
   notifications_email?: boolean;
   notif_rappel_livraison?: boolean;
   notif_retard?: boolean;
+  notif_nouveautes?: boolean;
   date_creation?: string;
   updated_at?: string;
 }

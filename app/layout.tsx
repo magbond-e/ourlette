@@ -109,7 +109,7 @@ const jsonLdData = {
   offers: {
     '@type': 'Offer',
     price: '0',
-    priceCurrency: 'XOF',
+    priceCurrency: 'FCFA',
   },
   description:
     'SaaS gratuit pour couturiers et ateliers de couture : carnet de commandes d’atelier, gestion des fiches mesures numériques et vitrine publique WhatsApp.',

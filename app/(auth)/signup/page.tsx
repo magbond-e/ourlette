@@ -278,7 +278,7 @@ export default function SignupPage() {
             />
 
             <Button type="submit" variant="accent" fullWidth size="lg" disabled={loading} className="mt-2 shadow-lg shadow-accent/20 font-bold rounded-full">
-              {loading ? 'Création en cours…' : 'Ouvrir mon carnet digital →'}
+              {loading ? 'Création en cours…' : 'Ouvrir mon carnet digital'}
             </Button>
           </form>
 

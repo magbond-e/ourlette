@@ -1,15 +1,18 @@
 import { StatutCommande } from '../types/database';
 
 /**
- * Format currency in FCFA (XOF) or default currency
+ * Format currency in FCFA or custom currency
  */
-export function formatFCFA(amount: number): string {
-  if (isNaN(amount)) return '0 FCFA';
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'XOF',
+export function formatFCFA(amount: number, devise: string = 'FCFA'): string {
+  if (isNaN(amount) || amount === null || amount === undefined) return `0 ${devise}`;
+  const formattedNumber = new Intl.NumberFormat('fr-FR', {
     maximumFractionDigits: 0,
-  }).format(amount).replace('CFA', 'FCFA');
+  }).format(amount);
+
+  if (devise === 'EUR' || devise === '€') return `${formattedNumber} €`;
+  if (devise === 'USD' || devise === '$') return `$${formattedNumber}`;
+
+  return `${formattedNumber} ${devise}`;
 }
 
 /**

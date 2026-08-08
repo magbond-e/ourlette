@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/context/AuthContext';
 import { MockStorageService } from '@/lib/services/mockStorage';
 import { Couturier } from '@/lib/types/database';
 import { Button } from '@/components/ui/Button';
+import { NotificationDropdown } from '@/components/ui/NotificationDropdown';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
@@ -82,12 +83,15 @@ export const Header: React.FC = () => {
             })}
           </nav>
 
-          {/* Right: Quick Action CTA & Atelier Status (Visible on PC/desktop only) */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          {/* Right: Quick Action CTA & Atelier Status & Notifications */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             <div className="hidden lg:flex items-center gap-1.5 bg-emerald-50/80 border border-emerald-200/60 px-3 py-1 rounded-full text-[11px] font-bold text-emerald-800">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>En ligne</span>
             </div>
+
+            {/* Notification Dropdown Icon */}
+            <NotificationDropdown />
 
             {/* Hidden on phone/mobile header, visible on desktop/PC */}
             <Link href="/commandes/nouvelle" className="hidden md:inline-flex">

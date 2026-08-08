@@ -2,6 +2,7 @@ import React from 'react';
 import { Header } from '@/components/ui/Header';
 import { CookieBanner } from '@/components/ui/CookieBanner';
 import { MandatoryOnboardingModal } from '@/components/ui/MandatoryOnboardingModal';
+import { NotificationProvider } from '@/lib/context/NotificationContext';
 
 export default function DashboardLayout({
   children,
@@ -9,7 +10,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <NotificationProvider>
       {/* Header fixe — monté une seule fois pour tout le dashboard */}
       <Header />
 
@@ -23,6 +24,6 @@ export default function DashboardLayout({
       <div className="pt-[64px]">
         {children}
       </div>
-    </>
+    </NotificationProvider>
   );
 }

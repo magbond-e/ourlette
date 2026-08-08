@@ -10,10 +10,12 @@ import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { DataService } from '@/lib/services/dataService';
 import { Couturier } from '@/lib/types/database';
 import { useAuth } from '@/lib/context/AuthContext';
+import { useNotifications } from '@/lib/context/NotificationContext';
 
 export default function ParametresPage() {
   const router = useRouter();
   const { user, couturier: authCouturier, refreshProfile, signOut } = useAuth();
+  const { addDemoNotification, refreshNotifications } = useNotifications();
   const [couturier, setCouturier] = useState<Couturier | null>(null);
 
   // Profile Edit State
@@ -34,6 +36,7 @@ export default function ParametresPage() {
   const [notifEmail, setNotifEmail] = useState(true);
   const [notifRetard, setNotifRetard] = useState(true);
   const [notifRappelLivraison, setNotifRappelLivraison] = useState(true);
+  const [notifNouveautes, setNotifNouveautes] = useState(true);
 
   // Feedback State
   const [feedbackNote, setFeedbackNote] = useState<number>(5);
@@ -68,6 +71,7 @@ export default function ParametresPage() {
       setNotifEmail(c.notifications_email ?? true);
       setNotifRetard(c.notif_retard ?? true);
       setNotifRappelLivraison(c.notif_rappel_livraison ?? true);
+      setNotifNouveautes(c.notif_nouveautes ?? true);
     }
     setLoading(false);
   }, [user?.id, user?.email, authCouturier]);
@@ -101,11 +105,13 @@ export default function ParametresPage() {
       notifications_email: notifEmail,
       notif_retard: notifRetard,
       notif_rappel_livraison: notifRappelLivraison,
+      notif_nouveautes: notifNouveautes,
     });
 
     if (updated) {
       setCouturier(updated);
       await refreshProfile();
+      await refreshNotifications();
     }
 
     setSaving(false);
@@ -326,6 +332,25 @@ export default function ParametresPage() {
                     type="checkbox"
                     checked={notifRetard}
                     onChange={(e) => setNotifRetard(e.target.checked)}
+                  />
+                  <span className="ios-slider" />
+                </span>
+              </label>
+
+              <label className="flex items-center justify-between p-4 bg-[#FAFAF8] rounded-2xl border border-sable/50 cursor-pointer hover:border-accent/30 transition-colors">
+                <div>
+                  <span className="text-xs sm:text-sm font-bold text-sombre block">
+                    Nouveautés & Mises à jour
+                  </span>
+                  <span className="text-[11px] text-sombre/60 font-semibold block mt-0.5">
+                    Recevoir les annonces des nouvelles fonctionnalités de l'application
+                  </span>
+                </div>
+                <span className="ios-switch shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={notifNouveautes}
+                    onChange={(e) => setNotifNouveautes(e.target.checked)}
                   />
                   <span className="ios-slider" />
                 </span>
