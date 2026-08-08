@@ -1,54 +1,69 @@
-import { AppSchema, Schema, Table, Column, ColumnType } from '@powersync/web';
-
 /**
- * PowerSync Local Schema matching Supabase Data Model (data-model.md)
+ * PowerSync / Local Schema Definition matching Supabase Data Model (data-model.md)
  */
-export const clientsTable = new Table({
-  couturier_id: new Column({ type: ColumnType.TEXT }),
-  nom: new Column({ type: ColumnType.TEXT }),
-  telephone: new Column({ type: ColumnType.TEXT }),
-  email: new Column({ type: ColumnType.TEXT }),
-  adresse: new Column({ type: ColumnType.TEXT }),
-  notes: new Column({ type: ColumnType.TEXT }),
-  date_creation: new Column({ type: ColumnType.TEXT }),
-  updated_at: new Column({ type: ColumnType.TEXT }),
-});
 
-export const mesuresTable = new Table({
-  client_id: new Column({ type: ColumnType.TEXT }),
-  tour_poitrine: new Column({ type: ColumnType.INTEGER }),
-  tour_taille: new Column({ type: ColumnType.INTEGER }),
-  tour_hanches: new Column({ type: ColumnType.INTEGER }),
-  longueur_manche: new Column({ type: ColumnType.INTEGER }),
-  longueur_robe: new Column({ type: ColumnType.INTEGER }),
-  tour_cou: new Column({ type: ColumnType.INTEGER }),
-  largeur_epaules: new Column({ type: ColumnType.INTEGER }),
-  champs_personnalises: new Column({ type: ColumnType.TEXT }), // JSON stringified
-  prise_par: new Column({ type: ColumnType.TEXT }),
-  date_maj: new Column({ type: ColumnType.TEXT }),
-});
+export interface PowerSyncColumn {
+  type: 'TEXT' | 'INTEGER' | 'REAL';
+}
 
-export const commandesTable = new Table({
-  couturier_id: new Column({ type: ColumnType.TEXT }),
-  client_id: new Column({ type: ColumnType.TEXT }),
-  type_commande: new Column({ type: ColumnType.TEXT }),
-  description: new Column({ type: ColumnType.TEXT }),
-  tissu: new Column({ type: ColumnType.TEXT }),
-  responsable: new Column({ type: ColumnType.TEXT }),
-  prix_total: new Column({ type: ColumnType.INTEGER }),
-  acompte: new Column({ type: ColumnType.INTEGER }),
-  versements: new Column({ type: ColumnType.TEXT }), // JSON stringified
-  statut: new Column({ type: ColumnType.TEXT }),
-  date_commande: new Column({ type: ColumnType.TEXT }),
-  date_livraison_prevue: new Column({ type: ColumnType.TEXT }),
-  notes: new Column({ type: ColumnType.TEXT }),
-  updated_at: new Column({ type: ColumnType.TEXT }),
-});
+export interface PowerSyncTable {
+  name: string;
+  columns: Record<string, PowerSyncColumn>;
+}
 
-export const AppDatabaseSchema = new Schema([
-  clientsTable,
-  mesuresTable,
-  commandesTable,
-]);
+export const clientsTableSchema: PowerSyncTable = {
+  name: 'clients',
+  columns: {
+    couturier_id: { type: 'TEXT' },
+    nom: { type: 'TEXT' },
+    telephone: { type: 'TEXT' },
+    email: { type: 'TEXT' },
+    adresse: { type: 'TEXT' },
+    notes: { type: 'TEXT' },
+    date_creation: { type: 'TEXT' },
+    updated_at: { type: 'TEXT' },
+  },
+};
 
-export type DatabaseSchema = typeof AppDatabaseSchema;
+export const mesuresTableSchema: PowerSyncTable = {
+  name: 'mesures',
+  columns: {
+    client_id: { type: 'TEXT' },
+    tour_poitrine: { type: 'INTEGER' },
+    tour_taille: { type: 'INTEGER' },
+    tour_hanches: { type: 'INTEGER' },
+    longueur_manche: { type: 'INTEGER' },
+    longueur_robe: { type: 'INTEGER' },
+    tour_cou: { type: 'INTEGER' },
+    largeur_epaules: { type: 'INTEGER' },
+    champs_personnalises: { type: 'TEXT' },
+    prise_par: { type: 'TEXT' },
+    date_maj: { type: 'TEXT' },
+  },
+};
+
+export const commandesTableSchema: PowerSyncTable = {
+  name: 'commandes',
+  columns: {
+    couturier_id: { type: 'TEXT' },
+    client_id: { type: 'TEXT' },
+    type_commande: { type: 'TEXT' },
+    description: { type: 'TEXT' },
+    tissu: { type: 'TEXT' },
+    responsable: { type: 'TEXT' },
+    prix_total: { type: 'INTEGER' },
+    acompte: { type: 'INTEGER' },
+    versements: { type: 'TEXT' },
+    statut: { type: 'TEXT' },
+    date_commande: { type: 'TEXT' },
+    date_livraison_prevue: { type: 'TEXT' },
+    notes: { type: 'TEXT' },
+    updated_at: { type: 'TEXT' },
+  },
+};
+
+export const AppDatabaseTables = [
+  clientsTableSchema,
+  mesuresTableSchema,
+  commandesTableSchema,
+];
