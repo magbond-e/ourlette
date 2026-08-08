@@ -3,6 +3,7 @@ import { Header } from '@/components/ui/Header';
 import { CookieBanner } from '@/components/ui/CookieBanner';
 import { MandatoryOnboardingModal } from '@/components/ui/MandatoryOnboardingModal';
 import { NotificationProvider } from '@/lib/context/NotificationContext';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
 
 export default function DashboardLayout({
   children,
@@ -13,6 +14,9 @@ export default function DashboardLayout({
     <NotificationProvider>
       {/* Header fixe — monté une seule fois pour tout le dashboard */}
       <Header />
+
+      {/* Offline sync status banner */}
+      <OfflineBanner />
 
       {/* Mandatory Onboarding Modal if info is missing */}
       <MandatoryOnboardingModal />

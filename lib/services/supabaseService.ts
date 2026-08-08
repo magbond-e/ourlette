@@ -362,4 +362,27 @@ export class SupabaseService {
     const { error } = await supabase.from('realisations').delete().eq('id', id);
     return !error;
   }
+
+  // ── Storage / Images ─────────────────────────────────────────────
+  static async uploadImage(bucket: string, path: string, file: File): Promise<string | null> {
+    const supabase = this.getClient();
+    if (!supabase) return null;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(path, file, { upsert: true });
+
+      if (error) {
+        console.error('Error uploading image to Supabase Storage:', error);
+        return null;
+      }
+
+      const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(data.path);
+      return publicUrlData?.publicUrl || null;
+    } catch (e) {
+      console.error('Failed image upload:', e);
+      return null;
+    }
+  }
 }

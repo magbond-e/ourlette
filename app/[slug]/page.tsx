@@ -125,8 +125,27 @@ export default function VitrinePubliquePage() {
     );
   }
 
+  const localBusinessSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    name: couturier?.nom_atelier || nomAtelierDisplay,
+    description: couturier?.bio || `Atelier de couture ${couturier?.nom_atelier} - Créations et retouches sur mesure`,
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: couturier?.ville || 'Ville',
+      addressCountry: couturier?.pays || 'Pays',
+    },
+    ...(couturier?.logo_url ? { image: couturier.logo_url } : {}),
+  };
+
   return (
     <div className="min-h-screen bg-[#FAFAF8] pb-16 font-sans">
+      {/* Schema.org Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+      />
+
       {/* Fixed Header Navigation */}
       <header className="bg-sombre text-white py-3.5 px-4 shadow-md fixed top-0 left-0 right-0 z-50 border-b border-gold/30 w-full">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
