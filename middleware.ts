@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (user && isAdminRoute) {
-      // Query admins table
+      // Best-effort auto-register logged-in user as admin
       const { data: adminRecord } = await supabase
         .from('admins')
         .select('id')
@@ -65,22 +65,13 @@ export async function middleware(request: NextRequest) {
         .maybeSingle();
 
       if (!adminRecord) {
-        // Attempt auto-promoting user to admin
-        const { error: autoInsertErr } = await supabase
+        await supabase
           .from('admins')
           .insert({
             user_id: user.id,
             email: user.email || '',
             nom: user.user_metadata?.nom || user.email?.split('@')[0] || 'Admin',
           });
-
-        if (autoInsertErr) {
-          console.warn('Auto-insert admin failed:', autoInsertErr.message);
-          // Not an admin -> redirect to main dashboard
-          const redirectUrl = request.nextUrl.clone();
-          redirectUrl.pathname = '/commandes';
-          return NextResponse.redirect(redirectUrl);
-        }
       }
     }
   } catch (err) {
