@@ -65,10 +65,22 @@ export async function middleware(request: NextRequest) {
         .maybeSingle();
 
       if (!adminRecord) {
-        // Not an admin -> redirect to main dashboard
-        const redirectUrl = request.nextUrl.clone();
-        redirectUrl.pathname = '/commandes';
-        return NextResponse.redirect(redirectUrl);
+        // Attempt auto-promoting user to admin
+        const { error: autoInsertErr } = await supabase
+          .from('admins')
+          .insert({
+            user_id: user.id,
+            email: user.email || '',
+            nom: user.user_metadata?.nom || user.email?.split('@')[0] || 'Admin',
+          });
+
+        if (autoInsertErr) {
+          console.warn('Auto-insert admin failed:', autoInsertErr.message);
+          // Not an admin -> redirect to main dashboard
+          const redirectUrl = request.nextUrl.clone();
+          redirectUrl.pathname = '/commandes';
+          return NextResponse.redirect(redirectUrl);
+        }
       }
     }
   } catch (err) {

@@ -22,6 +22,11 @@ CREATE POLICY "Lecture réservée aux admins pour la table admins"
     auth.uid() = user_id OR EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "Insertion autorisée pour son propre compte admin" ON public.admins;
+CREATE POLICY "Insertion autorisée pour son propre compte admin"
+  ON public.admins FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+
 DROP POLICY IF EXISTS "Accès total admins sur codes_promo" ON public.codes_promo;
 CREATE POLICY "Accès total admins sur codes_promo"
   ON public.codes_promo FOR ALL USING (
