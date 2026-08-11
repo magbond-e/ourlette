@@ -90,19 +90,32 @@ export default function GererVitrinePage() {
     setTogglingStatus(false);
   };
 
-  const handleImageFileChange = (
+  const handleImageFileChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: (url: string) => void
   ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setter(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+    const rawFile = e.target.files?.[0];
+    if (rawFile) {
+      try {
+        const { compressImage } = await import('@/lib/utils/imageCompression');
+        const compressed = await compressImage(rawFile, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 });
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setter(event.target.result as string);
+          }
+        };
+        reader.readAsDataURL(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setter(event.target.result as string);
+          }
+        };
+        reader.readAsDataURL(rawFile);
+      }
     }
   };
 

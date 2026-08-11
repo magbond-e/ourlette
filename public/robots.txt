@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /commandes
+Disallow: /clients
+Disallow: /parametres
+Disallow: /vitrine/gerer
+Disallow: /pro
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://ourlette.vercel.app/sitemap.xml

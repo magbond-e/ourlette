@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS public.couturiers (
   langue TEXT DEFAULT 'fr',
   devise TEXT DEFAULT 'FCFA',
   plan TEXT DEFAULT 'free' CHECK (plan IN ('free', 'pro')),
+  statut_compte TEXT DEFAULT 'actif' CHECK (statut_compte IN ('actif', 'suspendu')),
+  plan_change_manuel BOOLEAN DEFAULT false,
   slug_vitrine TEXT UNIQUE NOT NULL,
   logo_url TEXT,
   cover_url TEXT,
@@ -115,6 +117,56 @@ CREATE TABLE IF NOT EXISTS public.realisations (
   date_publication TIMESTAMPTZ DEFAULT now()
 );
 
+-- 6. Table `admins`
+CREATE TABLE IF NOT EXISTS public.admins (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID UNIQUE NOT NULL,
+  nom TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  date_creation TIMESTAMPTZ DEFAULT now()
+);
+
+-- 7. Table `codes_promo`
+CREATE TABLE IF NOT EXISTS public.codes_promo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT UNIQUE NOT NULL,
+  type TEXT CHECK (type IN ('pourcentage', 'montant_fixe')) NOT NULL DEFAULT 'pourcentage',
+  valeur NUMERIC NOT NULL,
+  plan_concerne TEXT DEFAULT 'pro',
+  date_debut TIMESTAMPTZ DEFAULT now(),
+  date_expiration TIMESTAMPTZ,
+  nombre_utilisation_max INTEGER,
+  nombre_utilisation_actuel INTEGER DEFAULT 0,
+  actif BOOLEAN DEFAULT true,
+  date_creation TIMESTAMPTZ DEFAULT now()
+);
+
+-- 8. Table `abonnements`
+CREATE TABLE IF NOT EXISTS public.abonnements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couturier_id UUID NOT NULL REFERENCES public.couturiers(id) ON DELETE CASCADE,
+  plan TEXT NOT NULL DEFAULT 'pro',
+  montant NUMERIC NOT NULL DEFAULT 2999,
+  devise TEXT NOT NULL DEFAULT 'FCFA',
+  code_promo_utilise UUID REFERENCES public.codes_promo(id),
+  transaction_id TEXT,
+  date_debut TIMESTAMPTZ DEFAULT now(),
+  date_fin TIMESTAMPTZ,
+  statut TEXT CHECK (statut IN ('actif', 'annule', 'expire')) DEFAULT 'actif',
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 9. Table `admin_logs`
+CREATE TABLE IF NOT EXISTS public.admin_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id UUID REFERENCES public.admins(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  cible_type TEXT CHECK (cible_type IN ('couturier', 'code_promo', 'abonnement')),
+  cible_id UUID,
+  details JSONB DEFAULT '{}'::jsonb,
+  date_action TIMESTAMPTZ DEFAULT now()
+);
+
 -- Indexes for optimal performance
 CREATE INDEX IF NOT EXISTS idx_clients_couturier_id ON public.clients(couturier_id);
 CREATE INDEX IF NOT EXISTS idx_commandes_couturier_id ON public.commandes(couturier_id);
@@ -122,6 +174,9 @@ CREATE INDEX IF NOT EXISTS idx_commandes_client_id ON public.commandes(client_id
 CREATE INDEX IF NOT EXISTS idx_mesures_client_id ON public.mesures(client_id);
 CREATE INDEX IF NOT EXISTS idx_realisations_couturier_id ON public.realisations(couturier_id);
 CREATE INDEX IF NOT EXISTS idx_couturiers_slug ON public.couturiers(slug_vitrine);
+CREATE INDEX IF NOT EXISTS idx_abonnements_couturier_id ON public.abonnements(couturier_id);
+CREATE INDEX IF NOT EXISTS idx_codes_promo_code ON public.codes_promo(code);
+CREATE INDEX IF NOT EXISTS idx_admins_user_id ON public.admins(user_id);
 
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -132,6 +187,10 @@ ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mesures ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.commandes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.realisations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.codes_promo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.abonnements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_logs ENABLE ROW LEVEL SECURITY;
 
 -- Couturiers
 DROP POLICY IF EXISTS "Les couturiers peuvent lire et modifier leur propre profil" ON public.couturiers;
@@ -171,3 +230,58 @@ CREATE POLICY "Les couturiers modifient leurs propres réalisations"
 DROP POLICY IF EXISTS "Tout le monde peut voir les réalisations publiques" ON public.realisations;
 CREATE POLICY "Tout le monde peut voir les réalisations publiques"
   ON public.realisations FOR SELECT USING (true);
+
+-- Abonnements
+DROP POLICY IF EXISTS "Les couturiers voient leurs abonnements" ON public.abonnements;
+CREATE POLICY "Les couturiers voient leurs abonnements"
+  ON public.abonnements FOR SELECT USING (auth.uid() = couturier_id);
+
+-- Admins Access Policies
+DROP POLICY IF EXISTS "Lecture réservée aux admins pour la table admins" ON public.admins;
+CREATE POLICY "Lecture réservée aux admins pour la table admins"
+  ON public.admins FOR SELECT USING (
+    auth.uid() = user_id OR EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Accès total admins sur codes_promo" ON public.codes_promo;
+CREATE POLICY "Accès total admins sur codes_promo"
+  ON public.codes_promo FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Lecture publique restreinte des codes promo valides" ON public.codes_promo;
+CREATE POLICY "Lecture publique restreinte des codes promo valides"
+  ON public.codes_promo FOR SELECT USING (actif = true);
+
+DROP POLICY IF EXISTS "Accès total admins sur admin_logs" ON public.admin_logs;
+CREATE POLICY "Accès total admins sur admin_logs"
+  ON public.admin_logs FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid())
+  );
+
+-- Direct Admin Policies on core tables for global view
+DROP POLICY IF EXISTS "Admins voient tous les couturiers" ON public.couturiers;
+CREATE POLICY "Admins voient tous les couturiers"
+  ON public.couturiers FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Admins modifient tous les couturiers" ON public.couturiers;
+CREATE POLICY "Admins modifient tous les couturiers"
+  ON public.couturiers FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Admins voient toutes les commandes" ON public.commandes;
+CREATE POLICY "Admins voient toutes les commandes"
+  ON public.commandes FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Admins voient tous les abonnements" ON public.abonnements;
+CREATE POLICY "Admins voient tous les abonnements"
+  ON public.abonnements FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid())
+  );
+
+

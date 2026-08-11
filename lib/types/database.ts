@@ -1,5 +1,6 @@
 export type StatutCommande = 'recue' | 'en_cours' | 'essayage' | 'prete' | 'livree';
 export type TypeCommande = 'couture_complete' | 'retouche';
+export type StatutCompte = 'actif' | 'suspendu';
 
 export interface Couturier {
   id: string;
@@ -15,6 +16,8 @@ export interface Couturier {
   langue?: string;
   devise?: string;
   plan?: 'free' | 'pro';
+  statut_compte?: StatutCompte;
+  plan_change_manuel?: boolean;
   slug_vitrine: string;
   logo_url?: string;
   cover_url?: string;
@@ -90,3 +93,50 @@ export interface Realisation {
   commande_id?: string;
   date_publication?: string;
 }
+
+export interface Admin {
+  id: string;
+  user_id: string;
+  nom: string;
+  email: string;
+  date_creation?: string;
+}
+
+export interface CodePromo {
+  id: string;
+  code: string;
+  type: 'pourcentage' | 'montant_fixe';
+  valeur: number;
+  plan_concerne: string;
+  date_debut?: string;
+  date_expiration?: string;
+  nombre_utilisation_max?: number | null;
+  nombre_utilisation_actuel: number;
+  actif: boolean;
+  date_creation?: string;
+}
+
+export interface Abonnement {
+  id: string;
+  couturier_id: string;
+  plan: 'pro' | 'free';
+  montant: number;
+  devise: string;
+  code_promo_utilise?: string | null;
+  transaction_id?: string;
+  date_debut?: string;
+  date_fin?: string | null;
+  statut: 'actif' | 'annule' | 'expire';
+  updated_at?: string;
+}
+
+export interface AdminLog {
+  id: string;
+  admin_id?: string;
+  action: string;
+  cible_type?: 'couturier' | 'code_promo' | 'abonnement';
+  cible_id?: string;
+  details?: Record<string, any>;
+  date_action?: string;
+}
+

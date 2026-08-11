@@ -37,13 +37,14 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     const pathname = request.nextUrl.pathname;
 
-    const protectedRoutes = ['/commandes', '/clients', '/parametres', '/vitrine/gerer'];
+    const protectedRoutes = ['/commandes', '/clients', '/parametres', '/vitrine/gerer', '/pro'];
     const authRoutes = ['/login', '/signup'];
+    const isAdminRoute = pathname.startsWith('/admin');
 
     const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
     const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
-    if (!user && isProtectedRoute) {
+    if (!user && (isProtectedRoute || isAdminRoute)) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/login';
       return NextResponse.redirect(redirectUrl);
@@ -53,6 +54,22 @@ export async function middleware(request: NextRequest) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/commandes';
       return NextResponse.redirect(redirectUrl);
+    }
+
+    if (user && isAdminRoute) {
+      // Query admins table
+      const { data: adminRecord } = await supabase
+        .from('admins')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!adminRecord) {
+        // Not an admin -> redirect to main dashboard
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = '/commandes';
+        return NextResponse.redirect(redirectUrl);
+      }
     }
   } catch (err) {
     console.error('Middleware auth check error:', err);
