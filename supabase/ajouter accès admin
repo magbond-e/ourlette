@@ -1,6 +1,0 @@
-INSERT INTO public.admins (user_id, nom, email)
-VALUES (
-  'ID_DE_VOTRE_UTILISATEUR_SUPABASE', -- ID UUID présent dans Supabase Auth (auth.users)
-  'Votre Nom',
-  'votre.email@exemple.com'
-);

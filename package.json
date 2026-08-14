@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@powersync/react": "^2.0.0",
+    "@powersync/web": "^2.1.1",
     "@supabase/ssr": "^0.4.0",
     "@supabase/supabase-js": "^2.44.4",
     "clsx": "^2.1.1",

@@ -3,6 +3,8 @@ import { Playfair_Display, DM_Serif_Text, Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/lib/context/AuthContext';
 import { CookieBanner } from '@/components/ui/CookieBanner';
+import PwaRegister from '@/components/PwaRegister';
+import OfflineBanner from '@/components/ui/OfflineBanner';
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -130,6 +132,8 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-clair text-sombre selection:bg-accent selection:text-white min-h-screen font-sans">
         <AuthProvider>
+          <PwaRegister />
+          <OfflineBanner />
           <main className="min-h-screen pb-12">{children}</main>
           <CookieBanner />
         </AuthProvider>
@@ -137,3 +141,4 @@ export default function RootLayout({
     </html>
   );
 }
+

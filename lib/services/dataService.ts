@@ -3,6 +3,13 @@ import { SupabaseService } from './supabaseService';
 
 const isBrowser = typeof window !== 'undefined';
 
+interface QueueItem {
+  id: string;
+  type: 'ADD_CLIENT' | 'UPDATE_CLIENT' | 'DELETE_CLIENT' | 'SAVE_MESURE' | 'ADD_COMMANDE' | 'UPDATE_COMMANDE' | 'ADD_REALISATION' | 'DELETE_REALISATION';
+  payload: any;
+  timestamp: string;
+}
+
 // Cleanup legacy un-scoped localStorage keys from initial prototype
 if (isBrowser) {
   try {
@@ -36,25 +43,95 @@ export class DataService {
     }
   }
 
+  private static getQueue(userId: string): QueueItem[] {
+    return this.getStore<QueueItem[]>(userId, 'sync_queue', []);
+  }
+
+  private static pushToQueue(userId: string, item: Omit<QueueItem, 'id' | 'timestamp'>) {
+    const queue = this.getQueue(userId);
+    const newItem: QueueItem = {
+      ...item,
+      id: `queue-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      timestamp: new Date().toISOString(),
+    };
+    this.setStore(userId, 'sync_queue', [...queue, newItem]);
+  }
+
+  public static async syncPendingQueue(userId: string | undefined): Promise<void> {
+    if (!userId || !isBrowser || !navigator.onLine) return;
+
+    const queue = this.getQueue(userId);
+    if (queue.length === 0) return;
+
+    const remainingQueue: QueueItem[] = [];
+
+    for (const item of queue) {
+      try {
+        let success = true;
+        switch (item.type) {
+          case 'ADD_CLIENT':
+            success = Boolean(await SupabaseService.addClient(item.payload));
+            break;
+          case 'UPDATE_CLIENT':
+            success = Boolean(await SupabaseService.updateClient(item.payload.id, item.payload.updates));
+            break;
+          case 'DELETE_CLIENT':
+            success = await SupabaseService.deleteClient(item.payload.id);
+            break;
+          case 'SAVE_MESURE':
+            success = Boolean(await SupabaseService.saveMesures(item.payload.clientId, item.payload.mesureData));
+            break;
+          case 'ADD_COMMANDE':
+            success = Boolean(await SupabaseService.addCommande(item.payload));
+            break;
+          case 'UPDATE_COMMANDE':
+            success = Boolean(await SupabaseService.updateCommande(item.payload.id, item.payload.updates));
+            break;
+          case 'ADD_REALISATION':
+            success = Boolean(await SupabaseService.addRealisation(item.payload));
+            break;
+          case 'DELETE_REALISATION':
+            success = await SupabaseService.deleteRealisation(item.payload.id);
+            break;
+          default:
+            break;
+        }
+
+        if (!success) {
+          remainingQueue.push(item);
+        }
+      } catch (e) {
+        remainingQueue.push(item);
+      }
+    }
+
+    this.setStore(userId, 'sync_queue', remainingQueue);
+  }
+
   // ── Couturier ────────────────────────────────────────────────────
   static async getCouturier(userId: string | undefined): Promise<Couturier | null> {
     if (!userId) return null;
 
-    // Try Supabase first
-    const remote = await SupabaseService.getCouturier(userId);
-    if (remote) {
-      this.setStore(userId, 'couturier', remote);
-      return remote;
+    if (navigator.onLine) {
+      await this.syncPendingQueue(userId);
+      const remote = await SupabaseService.getCouturier(userId);
+      if (remote) {
+        this.setStore(userId, 'couturier', remote);
+        return remote;
+      }
     }
 
-    // Fallback to local user store
     return this.getStore<Couturier | null>(userId, 'couturier', null);
   }
 
   static async updateCouturier(userId: string | undefined, updates: Partial<Couturier>): Promise<Couturier | null> {
     if (!userId) return null;
 
-    const remote = await SupabaseService.updateCouturier(userId, updates);
+    let remote: Couturier | null = null;
+    if (navigator.onLine) {
+      remote = await SupabaseService.updateCouturier(userId, updates);
+    }
+
     const existing = await this.getCouturier(userId);
     const updated = remote || { ...(existing || {}), ...updates, id: userId } as Couturier;
 
@@ -66,14 +143,16 @@ export class DataService {
   static async getClients(userId: string | undefined): Promise<Client[]> {
     if (!userId) return [];
 
-    const remote = await SupabaseService.getClients(userId);
-    if (remote && remote.length > 0) {
-      this.setStore(userId, 'clients', remote);
-      return remote;
+    if (navigator.onLine) {
+      await this.syncPendingQueue(userId);
+      const remote = await SupabaseService.getClients(userId);
+      if (remote && remote.length > 0) {
+        this.setStore(userId, 'clients', remote);
+        return remote;
+      }
     }
 
-    const local = this.getStore<Client[]>(userId, 'clients', []);
-    return local;
+    return this.getStore<Client[]>(userId, 'clients', []);
   }
 
   static async getClientById(userId: string | undefined, id: string): Promise<Client | undefined> {
@@ -94,11 +173,17 @@ export class DataService {
       date_creation: new Date().toISOString(),
     };
 
-    const remote = await SupabaseService.addClient(newClient);
-    const finalClient = remote || newClient;
+    let remote: Client | null = null;
+    if (navigator.onLine) {
+      remote = await SupabaseService.addClient(newClient);
+    } else {
+      this.pushToQueue(userId, { type: 'ADD_CLIENT', payload: newClient });
+    }
 
-    const clients = [finalClient, ...(await this.getClients(userId))];
-    this.setStore(userId, 'clients', clients);
+    const finalClient = remote || newClient;
+    const currentClients = this.getStore<Client[]>(userId, 'clients', []);
+    const updatedClients = [finalClient, ...currentClients.filter((c) => c.id !== finalClient.id)];
+    this.setStore(userId, 'clients', updatedClients);
 
     return finalClient;
   }
@@ -106,9 +191,13 @@ export class DataService {
   static async updateClient(userId: string | undefined, id: string, updates: Partial<Client>): Promise<Client | null> {
     if (!userId) return null;
 
-    await SupabaseService.updateClient(id, updates);
+    if (navigator.onLine) {
+      await SupabaseService.updateClient(id, updates);
+    } else {
+      this.pushToQueue(userId, { type: 'UPDATE_CLIENT', payload: { id, updates } });
+    }
 
-    const clients = await this.getClients(userId);
+    const clients = this.getStore<Client[]>(userId, 'clients', []);
     const index = clients.findIndex((c) => c.id === id);
     if (index !== -1) {
       clients[index] = { ...clients[index], ...updates };
@@ -121,9 +210,13 @@ export class DataService {
   static async deleteClient(userId: string | undefined, id: string): Promise<boolean> {
     if (!userId) return false;
 
-    await SupabaseService.deleteClient(id);
+    if (navigator.onLine) {
+      await SupabaseService.deleteClient(id);
+    } else {
+      this.pushToQueue(userId, { type: 'DELETE_CLIENT', payload: { id } });
+    }
 
-    const clients = (await this.getClients(userId)).filter((c) => c.id !== id);
+    const clients = this.getStore<Client[]>(userId, 'clients', []).filter((c) => c.id !== id);
     this.setStore(userId, 'clients', clients);
     return true;
   }
@@ -132,12 +225,15 @@ export class DataService {
   static async getMesureByClientId(userId: string | undefined, clientId: string): Promise<Mesure | undefined> {
     if (!userId || !clientId) return undefined;
 
-    const remote = await SupabaseService.getMesureByClientId(clientId);
-    if (remote) {
-      const dict = this.getStore<Record<string, Mesure>>(userId, 'mesures', {});
-      dict[clientId] = remote;
-      this.setStore(userId, 'mesures', dict);
-      return remote;
+    if (navigator.onLine) {
+      await this.syncPendingQueue(userId);
+      const remote = await SupabaseService.getMesureByClientId(clientId);
+      if (remote) {
+        const dict = this.getStore<Record<string, Mesure>>(userId, 'mesures', {});
+        dict[clientId] = remote;
+        this.setStore(userId, 'mesures', dict);
+        return remote;
+      }
     }
 
     const dict = this.getStore<Record<string, Mesure>>(userId, 'mesures', {});
@@ -151,7 +247,12 @@ export class DataService {
   ): Promise<Mesure | null> {
     if (!userId || !clientId) return null;
 
-    const remote = await SupabaseService.saveMesures(clientId, mesureData);
+    let remote: Mesure | null = null;
+    if (navigator.onLine) {
+      remote = await SupabaseService.saveMesures(clientId, mesureData);
+    } else {
+      this.pushToQueue(userId, { type: 'SAVE_MESURE', payload: { clientId, mesureData } });
+    }
 
     const dict = this.getStore<Record<string, Mesure>>(userId, 'mesures', {});
     const existing = dict[clientId] || {
@@ -177,12 +278,20 @@ export class DataService {
   static async getCommandes(userId: string | undefined): Promise<Commande[]> {
     if (!userId) return [];
 
-    const remote = await SupabaseService.getCommandes(userId);
+    let cmds: Commande[] = [];
+    if (navigator.onLine) {
+      await this.syncPendingQueue(userId);
+      const remote = await SupabaseService.getCommandes(userId);
+      if (remote && remote.length > 0) {
+        cmds = remote;
+      }
+    }
+
+    if (cmds.length === 0) {
+      cmds = this.getStore<Commande[]>(userId, 'commandes', []);
+    }
+
     const clients = await this.getClients(userId);
-
-    let cmds = remote && remote.length > 0 ? remote : this.getStore<Commande[]>(userId, 'commandes', []);
-
-    // Hydrate client names & phone for UI display
     cmds = cmds.map((cmd) => {
       const client = clients.find((c) => c.id === cmd.client_id);
       return {
@@ -192,10 +301,7 @@ export class DataService {
       };
     });
 
-    if (remote && remote.length > 0) {
-      this.setStore(userId, 'commandes', cmds);
-    }
-
+    this.setStore(userId, 'commandes', cmds);
     return cmds;
   }
 
@@ -218,10 +324,15 @@ export class DataService {
       date_commande: new Date().toISOString(),
     };
 
-    const remote = await SupabaseService.addCommande(newCmd);
-    const finalCmd = remote || newCmd;
+    let remote: Commande | null = null;
+    if (navigator.onLine) {
+      remote = await SupabaseService.addCommande(newCmd);
+    } else {
+      this.pushToQueue(userId, { type: 'ADD_COMMANDE', payload: newCmd });
+    }
 
-    const cmds = [finalCmd, ...(await this.getCommandes(userId))];
+    const finalCmd = remote || newCmd;
+    const cmds = [finalCmd, ...(await this.getCommandes(userId)).filter((c) => c.id !== finalCmd.id)];
     this.setStore(userId, 'commandes', cmds);
 
     return finalCmd;
@@ -234,9 +345,13 @@ export class DataService {
   ): Promise<Commande | undefined> {
     if (!userId) return undefined;
 
-    await SupabaseService.updateCommande(id, updates);
+    if (navigator.onLine) {
+      await SupabaseService.updateCommande(id, updates);
+    } else {
+      this.pushToQueue(userId, { type: 'UPDATE_COMMANDE', payload: { id, updates } });
+    }
 
-    const cmds = await this.getCommandes(userId);
+    const cmds = this.getStore<Commande[]>(userId, 'commandes', []);
     const index = cmds.findIndex((c) => c.id === id);
     if (index === -1) return undefined;
 
@@ -252,8 +367,6 @@ export class DataService {
     note?: string
   ): Promise<Commande | undefined> {
     if (!userId) return undefined;
-
-    await SupabaseService.addVersement(cmdId, montant, note);
 
     const cmds = await this.getCommandes(userId);
     const index = cmds.findIndex((c) => c.id === cmdId);
@@ -274,25 +387,23 @@ export class DataService {
     const updatedVersements = [...currentVersements, newVersement];
     const newTotalAcompte = updatedVersements.reduce((sum, v) => sum + v.montant, 0);
 
-    const updatedCmd: Commande = {
-      ...cmd,
+    return this.updateCommande(userId, cmdId, {
       acompte: newTotalAcompte,
       versements: updatedVersements,
-    };
-
-    cmds[index] = updatedCmd;
-    this.setStore(userId, 'commandes', cmds);
-    return updatedCmd;
+    });
   }
 
   // ── Realisations ─────────────────────────────────────────────────
   static async getRealisations(userId: string | undefined): Promise<Realisation[]> {
     if (!userId) return [];
 
-    const remote = await SupabaseService.getRealisations(userId);
-    if (remote && remote.length > 0) {
-      this.setStore(userId, 'realisations', remote);
-      return remote;
+    if (navigator.onLine) {
+      await this.syncPendingQueue(userId);
+      const remote = await SupabaseService.getRealisations(userId);
+      if (remote && remote.length > 0) {
+        this.setStore(userId, 'realisations', remote);
+        return remote;
+      }
     }
 
     return this.getStore<Realisation[]>(userId, 'realisations', []);
@@ -311,10 +422,15 @@ export class DataService {
       date_publication: new Date().toISOString(),
     };
 
-    const remote = await SupabaseService.addRealisation(newReal);
-    const finalReal = remote || newReal;
+    let remote: Realisation | null = null;
+    if (navigator.onLine) {
+      remote = await SupabaseService.addRealisation(newReal);
+    } else {
+      this.pushToQueue(userId, { type: 'ADD_REALISATION', payload: newReal });
+    }
 
-    const reals = [finalReal, ...(await this.getRealisations(userId))];
+    const finalReal = remote || newReal;
+    const reals = [finalReal, ...(await this.getRealisations(userId)).filter((r) => r.id !== finalReal.id)];
     this.setStore(userId, 'realisations', reals);
 
     return finalReal;
@@ -323,7 +439,11 @@ export class DataService {
   static async deleteRealisation(userId: string | undefined, id: string): Promise<boolean> {
     if (!userId) return false;
 
-    await SupabaseService.deleteRealisation(id);
+    if (navigator.onLine) {
+      await SupabaseService.deleteRealisation(id);
+    } else {
+      this.pushToQueue(userId, { type: 'DELETE_REALISATION', payload: { id } });
+    }
 
     const reals = (await this.getRealisations(userId)).filter((r) => r.id !== id);
     this.setStore(userId, 'realisations', reals);
@@ -373,3 +493,4 @@ export class DataService {
     return { couturier, realisations };
   }
 }
+

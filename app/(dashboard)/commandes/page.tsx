@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { DataService } from '@/lib/services/dataService';
+import { useCommandes } from '@/lib/powersync/hooks';
 import { Commande, StatutCommande } from '@/lib/types/database';
 import { formatFCFA, formatDateFR, isCommandeEnRetard, calculSolde } from '@/lib/utils/formatters';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -133,29 +134,19 @@ function ConfirmStatusModal({
 
 export default function CommandesPage() {
   const { user } = useAuth();
-  const [commandes, setCommandes] = useState<Commande[]>([]);
+  // ── Source de données PowerSync (réactive, offline-first) ──────────────────
+  // useCommandes émet une nouvelle valeur à chaque écriture locale ou sync entrant.
+  // Pas besoin de useState/useCallback/useEffect pour charger les données.
+  const commandes = useCommandes(user?.id);
+
   const [filterStatut, setFilterStatut] = useState<string>('toutes');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [pendingChange, setPendingChange] = useState<{ cmd: Commande; newStatus: StatutCommande } | null>(null);
-
-  const loadCommandes = useCallback(async () => {
-    if (!user?.id) {
-      setCommandes([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const cmds = await DataService.getCommandes(user.id);
-    setCommandes(cmds);
-    setLoading(false);
-  }, [user?.id]);
 
   useEffect(() => {
     setMounted(true);
-    loadCommandes();
-  }, [loadCommandes]);
+  }, []);
 
   const handleStatusChangeRequest = (cmd: Commande, newStatus: StatutCommande) => {
     if (newStatus === cmd.statut) return;
@@ -164,8 +155,9 @@ export default function CommandesPage() {
 
   const handleConfirmStatusChange = async () => {
     if (!pendingChange || !user?.id) return;
+    // Écriture locale immédiate via DataService (met à jour localStorage + SQLite PowerSync)
     await DataService.updateCommande(user.id, pendingChange.cmd.id, { statut: pendingChange.newStatus });
-    await loadCommandes();
+    // Plus besoin de recharger — useCommandes se met à jour automatiquement
     setPendingChange(null);
   };
 
@@ -201,7 +193,7 @@ export default function CommandesPage() {
     })),
   ];
 
-  if (!mounted || loading) {
+  if (!mounted) {
     return (
       <div className="min-h-screen bg-clair font-sans">
         <main className="max-w-4xl mx-auto px-4 pt-12">

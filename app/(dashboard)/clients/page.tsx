@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, UserPlus, Ruler, Phone, ChevronRight } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
@@ -9,42 +9,29 @@ import { Input } from '@/components/ui/Input';
 import { BasteLine } from '@/components/ui/BasteLine';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { DataService } from '@/lib/services/dataService';
+import { useClients, useCommandes } from '@/lib/powersync/hooks';
 import { Client, Commande } from '@/lib/types/database';
 import { useAuth } from '@/lib/context/AuthContext';
 
 export default function ClientsPage() {
   const { user } = useAuth();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [commandes, setCommandes] = useState<Commande[]>([]);
+  // ── Sources de données PowerSync (réactives, offline-first) ──────────────
+  // Ces listes se mettent à jour automatiquement dès qu'une écriture locale ou
+  // un sync entrant touche les tables `clients` / `commandes`.
+  const clients = useClients(user?.id);
+  const commandes = useCommandes(user?.id);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newNom, setNewNom] = useState('');
   const [newTelephone, setNewTelephone] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const loadData = useCallback(async () => {
-    if (!user?.id) {
-      setClients([]);
-      setCommandes([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const [cList, cmdList] = await Promise.all([
-      DataService.getClients(user.id),
-      DataService.getCommandes(user.id),
-    ]);
-    setClients(cList);
-    setCommandes(cmdList);
-    setLoading(false);
-  }, [user?.id]);
 
   useEffect(() => {
     setMounted(true);
-    loadData();
-  }, [loadData]);
+  }, []);
+
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +43,7 @@ export default function ClientsPage() {
       notes: newNotes.trim(),
     });
 
-    await loadData();
+    // Plus besoin de recharger — useClients se met à jour automatiquement
     setShowAddModal(false);
     setNewNom('');
     setNewTelephone('');
@@ -69,7 +56,7 @@ export default function ClientsPage() {
       (c.telephone || '').includes(searchQuery)
   );
 
-  if (!mounted || loading) {
+  if (!mounted) {
     return (
       <div className="min-h-screen bg-[#FAFAF8] font-sans">
         <main className="max-w-4xl mx-auto px-4 pt-12">

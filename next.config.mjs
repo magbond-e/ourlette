@@ -2,6 +2,13 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // ── PowerSync / WASM ────────────────────────────────────────────
+  // @powersync/web utilise un worker WASM (SQLite) qui a besoin de SharedArrayBuffer.
+  // SharedArrayBuffer nécessite Cross-Origin isolation (COOP + COEP).
+  experimental: {
+    serverComponentsExternalPackages: ['@powersync/web'],
+  },
+
   // ── Security Headers ────────────────────────────────────────────
   async headers() {
     return [
@@ -27,6 +34,15 @@ const nextConfig = {
           {
             key: 'X-DNS-Prefetch-Control',
             value: 'on',
+          },
+          // ── Cross-Origin Isolation (requis pour PowerSync SQLite worker) ──
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
+          },
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'require-corp',
           },
         ],
       },
