@@ -22,7 +22,7 @@ export function PowerSyncProvider({ children }: PowerSyncProviderProps) {
   const connected = useRef(false);
 
   useEffect(() => {
-    if (connected.current) return;
+    if (connected.current || !db) return;
     connected.current = true;
 
     const powersyncUrl = process.env.NEXT_PUBLIC_POWERSYNC_URL;
@@ -47,10 +47,14 @@ export function PowerSyncProvider({ children }: PowerSyncProviderProps) {
 
     return () => {
       // Nettoyage : déconnecte proprement quand le composant est démonté
-      db.disconnect().catch(() => {});
+      db?.disconnect().catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [db]);
+
+  if (!db) {
+    return <>{children}</>;
+  }
 
   // On rend les enfants même si pas encore ready — ils liront depuis le cache local SQLite
   return (

@@ -266,15 +266,14 @@ export default function CommandesPage() {
               <button
                 key={tab.id}
                 onClick={() => setFilterStatut(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap border transition-all shrink-0 ${
-                  isActive
-                    ? isRetard
-                      ? 'bg-accent text-white border-accent shadow-md'
-                      : 'bg-sombre text-white border-sombre shadow-md'
-                    : isRetard
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap border transition-all shrink-0 ${isActive
+                  ? isRetard
+                    ? 'bg-accent text-white border-accent shadow-md'
+                    : 'bg-sombre text-white border-sombre shadow-md'
+                  : isRetard
                     ? 'bg-accent/10 text-accent border-accent/30 hover:bg-accent/20'
                     : 'bg-white text-sombre/70 border-sable/80 hover:border-accent hover:text-sombre'
-                }`}
+                  }`}
               >
                 <span>{tab.label}</span>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-sombre/10 text-sombre/80'}`}>
@@ -308,7 +307,7 @@ export default function CommandesPage() {
               </button>
             ) : (
               <Link href="/commandes/nouvelle" className="inline-block pt-2">
-                <Button variant="accent" size="md">+ Créer une commande</Button>
+                <Button variant="accent" size="md">Créer une commande</Button>
               </Link>
             )}
           </Card>
@@ -321,9 +320,8 @@ export default function CommandesPage() {
               return (
                 <Card
                   key={cmd.id}
-                  className={`relative space-y-4 transition-all p-5 rounded-3xl animate-slide-up ${
-                    isOverdue ? 'border-2 border-accent bg-accent/5 shadow-md' : 'border border-sable/60 bg-white shadow-xs'
-                  }`}
+                  className={`relative space-y-4 transition-all p-5 rounded-3xl animate-slide-up ${isOverdue ? 'border-2 border-accent bg-accent/5 shadow-md' : 'border border-sable/60 bg-white shadow-xs'
+                    }`}
                 >
                   <div className="flex items-start justify-between gap-3 min-w-0">
                     <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -335,11 +333,10 @@ export default function CommandesPage() {
                           {cmd.client_nom}
                         </Link>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-xs font-bold px-3 py-0.5 rounded-full border ${
-                            cmd.type_commande === 'couture_complete'
-                              ? 'bg-accent/10 text-accent border-accent/20'
-                              : 'bg-sable/30 text-sombre border-sable/50'
-                          }`}>
+                          <span className={`text-xs font-bold px-3 py-0.5 rounded-full border ${cmd.type_commande === 'couture_complete'
+                            ? 'bg-accent/10 text-accent border-accent/20'
+                            : 'bg-sable/30 text-sombre border-sable/50'
+                            }`}>
                             {cmd.type_commande === 'couture_complete' ? 'Couture complète' : 'Retouche'}
                           </span>
                           {cmd.responsable && (
@@ -353,9 +350,8 @@ export default function CommandesPage() {
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className={`inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold px-3 py-1 rounded-xl ${
-                        isOverdue ? 'bg-accent text-white animate-pulse' : 'bg-[#FAFAF8] text-sombre border border-sable/70'
-                      }`}>
+                      <div className={`inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold px-3 py-1 rounded-xl ${isOverdue ? 'bg-accent text-white animate-pulse' : 'bg-[#FAFAF8] text-sombre border border-sable/70'
+                        }`}>
                         <Calendar className="w-3.5 h-3.5" />
                         <span>{formatDateFR(cmd.date_livraison_prevue)}</span>
                       </div>
@@ -422,7 +418,6 @@ export default function CommandesPage() {
             className="rounded-full shadow-xl shadow-accent/40 gap-2 px-5 py-3.5 text-xs font-extrabold bg-accent text-white hover:bg-fonce active:scale-95 border-2 border-white"
           >
             <Plus className="w-5 h-5" />
-            <span>Nouvelle commande</span>
           </Button>
         </Link>
       </div>

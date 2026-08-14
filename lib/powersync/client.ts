@@ -105,7 +105,11 @@ export class SupabasePowerSyncConnector implements PowerSyncBackendConnector {
 
 let _db: PowerSyncDatabase | null = null;
 
-export function getPowerSyncDb(): PowerSyncDatabase {
+export function getPowerSyncDb(): PowerSyncDatabase | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
   if (!_db) {
     _db = new PowerSyncDatabase({
       schema: AppSchema,

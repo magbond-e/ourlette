@@ -3,9 +3,34 @@ import { SupabaseService } from './supabaseService';
 
 const isBrowser = typeof window !== 'undefined';
 
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+async function safeDbExecute(sql: string, params: any[] = []): Promise<void> {
+  if (!isBrowser) return;
+  try {
+    const { getPowerSyncDb } = await import('../powersync/client');
+    const db = getPowerSyncDb();
+    if (db) {
+      await db.execute(sql, params);
+    }
+  } catch (e) {
+    // Si la base SQLite n'est pas encore prête ou initialisée, on continue
+    console.debug('[PowerSync local write skipped/error]:', e);
+  }
+}
+
 interface QueueItem {
   id: string;
-  type: 'ADD_CLIENT' | 'UPDATE_CLIENT' | 'DELETE_CLIENT' | 'SAVE_MESURE' | 'ADD_COMMANDE' | 'UPDATE_COMMANDE' | 'ADD_REALISATION' | 'DELETE_REALISATION';
+  type: 'ADD_CLIENT' | 'UPDATE_CLIENT' | 'DELETE_CLIENT' | 'SAVE_MESURE' | 'ADD_COMMANDE' | 'UPDATE_COMMANDE' | 'DELETE_COMMANDE' | 'ADD_REALISATION' | 'DELETE_REALISATION';
   payload: any;
   timestamp: string;
 }
@@ -87,6 +112,9 @@ export class DataService {
           case 'UPDATE_COMMANDE':
             success = Boolean(await SupabaseService.updateCommande(item.payload.id, item.payload.updates));
             break;
+          case 'DELETE_COMMANDE':
+            success = await SupabaseService.deleteCommande(item.payload.id);
+            break;
           case 'ADD_REALISATION':
             success = Boolean(await SupabaseService.addRealisation(item.payload));
             break;
@@ -148,6 +176,13 @@ export class DataService {
       const remote = await SupabaseService.getClients(userId);
       if (remote && remote.length > 0) {
         this.setStore(userId, 'clients', remote);
+        // Synchroniser également dans SQLite en tâche de fond
+        for (const c of remote) {
+          safeDbExecute(
+            `INSERT OR REPLACE INTO clients (id, couturier_id, nom, telephone, email, adresse, notes, date_creation, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [c.id, c.couturier_id, c.nom, c.telephone || '', c.email || '', c.adresse || '', c.notes || '', c.date_creation, c.updated_at || c.date_creation]
+          );
+        }
         return remote;
       }
     }
@@ -162,17 +197,38 @@ export class DataService {
 
   static async addClient(
     userId: string | undefined,
-    clientData: Omit<Client, 'id' | 'couturier_id' | 'date_creation'>
+    clientData: Omit<Client, 'id' | 'couturier_id' | 'date_creation'> & { id?: string }
   ): Promise<Client | null> {
     if (!userId) return null;
 
+    const validId = clientData.id && clientData.id.includes('-') && !clientData.id.startsWith('client-')
+      ? clientData.id
+      : generateUUID();
+
     const newClient: Client = {
       ...clientData,
-      id: `client-${Date.now()}`,
+      id: validId,
       couturier_id: userId,
       date_creation: new Date().toISOString(),
     };
 
+    // 1. Écriture locale immédiate dans PowerSync SQLite (réactivité 0ms)
+    await safeDbExecute(
+      `INSERT OR REPLACE INTO clients (id, couturier_id, nom, telephone, email, adresse, notes, date_creation, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        newClient.id,
+        newClient.couturier_id,
+        newClient.nom,
+        newClient.telephone || '',
+        newClient.email || '',
+        newClient.adresse || '',
+        newClient.notes || '',
+        newClient.date_creation,
+        new Date().toISOString(),
+      ]
+    );
+
+    // 2. Synchronisation Supabase / File d'attente
     let remote: Client | null = null;
     if (navigator.onLine) {
       remote = await SupabaseService.addClient(newClient);
@@ -190,6 +246,27 @@ export class DataService {
 
   static async updateClient(userId: string | undefined, id: string, updates: Partial<Client>): Promise<Client | null> {
     if (!userId) return null;
+
+    // 1. Écriture locale immédiate dans PowerSync SQLite
+    await safeDbExecute(
+      `UPDATE clients SET
+        nom = COALESCE(?, nom),
+        telephone = COALESCE(?, telephone),
+        email = COALESCE(?, email),
+        adresse = COALESCE(?, adresse),
+        notes = COALESCE(?, notes),
+        updated_at = ?
+       WHERE id = ?`,
+      [
+        updates.nom ?? null,
+        updates.telephone ?? null,
+        updates.email ?? null,
+        updates.adresse ?? null,
+        updates.notes ?? null,
+        new Date().toISOString(),
+        id,
+      ]
+    );
 
     if (navigator.onLine) {
       await SupabaseService.updateClient(id, updates);
@@ -209,6 +286,11 @@ export class DataService {
 
   static async deleteClient(userId: string | undefined, id: string): Promise<boolean> {
     if (!userId) return false;
+
+    // 1. Suppression SQLite
+    await safeDbExecute(`DELETE FROM clients WHERE id = ?`, [id]);
+    await safeDbExecute(`DELETE FROM commandes WHERE client_id = ?`, [id]);
+    await safeDbExecute(`DELETE FROM mesures WHERE client_id = ?`, [id]);
 
     if (navigator.onLine) {
       await SupabaseService.deleteClient(id);
@@ -247,6 +329,34 @@ export class DataService {
   ): Promise<Mesure | null> {
     if (!userId || !clientId) return null;
 
+    const mesureId = (mesureData as any).id && (mesureData as any).id.includes('-') && !(mesureData as any).id.startsWith('mesure-')
+      ? (mesureData as any).id
+      : generateUUID();
+
+    // 1. Écriture SQLite immédiate
+    await safeDbExecute(
+      `INSERT OR REPLACE INTO mesures (
+        id, client_id, tour_poitrine, tour_taille, tour_hanches, longueur_manche,
+        longueur_robe, tour_cou, largeur_epaules, champs_personnalises, prise_par, date_maj
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        mesureId,
+        clientId,
+        mesureData.tour_poitrine ?? null,
+        mesureData.tour_taille ?? null,
+        mesureData.tour_hanches ?? null,
+        mesureData.longueur_manche ?? null,
+        mesureData.longueur_robe ?? null,
+        mesureData.tour_cou ?? null,
+        mesureData.largeur_epaules ?? null,
+        mesureData.champs_personnalises
+          ? (typeof mesureData.champs_personnalises === 'string' ? mesureData.champs_personnalises : JSON.stringify(mesureData.champs_personnalises))
+          : '{}',
+        mesureData.prise_par ?? '',
+        new Date().toISOString(),
+      ]
+    );
+
     let remote: Mesure | null = null;
     if (navigator.onLine) {
       remote = await SupabaseService.saveMesures(clientId, mesureData);
@@ -254,45 +364,63 @@ export class DataService {
       this.pushToQueue(userId, { type: 'SAVE_MESURE', payload: { clientId, mesureData } });
     }
 
-    const dict = this.getStore<Record<string, Mesure>>(userId, 'mesures', {});
-    const existing = dict[clientId] || {
-      id: `mesure-${Date.now()}`,
+    const finalMesure: Mesure = remote || {
+      id: mesureId,
       client_id: clientId,
-      champs_personnalises: {},
-      date_maj: new Date().toISOString(),
-    };
-
-    const updated: Mesure = remote || {
-      ...existing,
       ...mesureData,
       date_maj: new Date().toISOString(),
-    };
+    } as Mesure;
 
-    dict[clientId] = updated;
+    const dict = this.getStore<Record<string, Mesure>>(userId, 'mesures', {});
+    dict[clientId] = finalMesure;
     this.setStore(userId, 'mesures', dict);
 
-    return updated;
+    return finalMesure;
   }
 
   // ── Commandes ────────────────────────────────────────────────────
   static async getCommandes(userId: string | undefined): Promise<Commande[]> {
     if (!userId) return [];
 
-    let cmds: Commande[] = [];
     if (navigator.onLine) {
       await this.syncPendingQueue(userId);
       const remote = await SupabaseService.getCommandes(userId);
       if (remote && remote.length > 0) {
-        cmds = remote;
+        this.setStore(userId, 'commandes', remote);
+        // Synchroniser dans SQLite
+        for (const cmd of remote) {
+          safeDbExecute(
+            `INSERT OR REPLACE INTO commandes (
+              id, couturier_id, client_id, type_commande, description, tissu, responsable,
+              prix_total, acompte, versements, statut, date_commande, date_livraison_prevue, notes, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              cmd.id,
+              cmd.couturier_id,
+              cmd.client_id,
+              cmd.type_commande || 'couture_complete',
+              cmd.description,
+              cmd.tissu || '',
+              cmd.responsable || '',
+              cmd.prix_total || 0,
+              cmd.acompte || 0,
+              typeof cmd.versements === 'string' ? cmd.versements : JSON.stringify(cmd.versements || []),
+              cmd.statut || 'recue',
+              cmd.date_commande || new Date().toISOString(),
+              cmd.date_livraison_prevue || '',
+              cmd.notes || '',
+              cmd.updated_at || new Date().toISOString(),
+            ]
+          );
+        }
+        return remote;
       }
     }
 
-    if (cmds.length === 0) {
-      cmds = this.getStore<Commande[]>(userId, 'commandes', []);
-    }
-
+    const cachedCmds = this.getStore<Commande[]>(userId, 'commandes', []);
     const clients = await this.getClients(userId);
-    cmds = cmds.map((cmd) => {
+
+    const cmds = cachedCmds.map((cmd) => {
       const client = clients.find((c) => c.id === cmd.client_id);
       return {
         ...cmd,
@@ -312,18 +440,48 @@ export class DataService {
 
   static async addCommande(
     userId: string | undefined,
-    cmdData: Omit<Commande, 'id' | 'couturier_id' | 'date_commande' | 'statut'>
+    cmdData: Omit<Commande, 'id' | 'couturier_id' | 'date_commande' | 'statut'> & { id?: string }
   ): Promise<Commande | null> {
     if (!userId) return null;
 
+    const validId = cmdData.id && cmdData.id.includes('-') && !cmdData.id.startsWith('cmd-')
+      ? cmdData.id
+      : generateUUID();
+
     const newCmd: Commande = {
       ...cmdData,
-      id: `cmd-${Date.now()}`,
+      id: validId,
       couturier_id: userId,
       statut: 'recue',
       date_commande: new Date().toISOString(),
     };
 
+    // 1. Écriture locale immédiate dans PowerSync SQLite (réactivité 0ms)
+    await safeDbExecute(
+      `INSERT OR REPLACE INTO commandes (
+        id, couturier_id, client_id, type_commande, description, tissu, responsable,
+        prix_total, acompte, versements, statut, date_commande, date_livraison_prevue, notes, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        newCmd.id,
+        newCmd.couturier_id,
+        newCmd.client_id,
+        newCmd.type_commande || 'couture_complete',
+        newCmd.description,
+        newCmd.tissu || '',
+        newCmd.responsable || '',
+        newCmd.prix_total || 0,
+        newCmd.acompte || 0,
+        typeof newCmd.versements === 'string' ? newCmd.versements : JSON.stringify(newCmd.versements || []),
+        newCmd.statut || 'recue',
+        newCmd.date_commande,
+        newCmd.date_livraison_prevue || '',
+        newCmd.notes || '',
+        new Date().toISOString(),
+      ]
+    );
+
+    // 2. Synchronisation Supabase / File d'attente
     let remote: Commande | null = null;
     if (navigator.onLine) {
       remote = await SupabaseService.addCommande(newCmd);
@@ -345,6 +503,35 @@ export class DataService {
   ): Promise<Commande | undefined> {
     if (!userId) return undefined;
 
+    // 1. Mise à jour SQLite immédiate
+    await safeDbExecute(
+      `UPDATE commandes SET
+        statut = COALESCE(?, statut),
+        prix_total = COALESCE(?, prix_total),
+        acompte = COALESCE(?, acompte),
+        versements = COALESCE(?, versements),
+        date_livraison_prevue = COALESCE(?, date_livraison_prevue),
+        description = COALESCE(?, description),
+        tissu = COALESCE(?, tissu),
+        responsable = COALESCE(?, responsable),
+        notes = COALESCE(?, notes),
+        updated_at = ?
+       WHERE id = ?`,
+      [
+        updates.statut ?? null,
+        updates.prix_total ?? null,
+        updates.acompte ?? null,
+        updates.versements ? (typeof updates.versements === 'string' ? updates.versements : JSON.stringify(updates.versements)) : null,
+        updates.date_livraison_prevue ?? null,
+        updates.description ?? null,
+        updates.tissu ?? null,
+        updates.responsable ?? null,
+        updates.notes ?? null,
+        new Date().toISOString(),
+        id,
+      ]
+    );
+
     if (navigator.onLine) {
       await SupabaseService.updateCommande(id, updates);
     } else {
@@ -358,6 +545,22 @@ export class DataService {
     cmds[index] = { ...cmds[index], ...updates };
     this.setStore(userId, 'commandes', cmds);
     return cmds[index];
+  }
+
+  static async deleteCommande(userId: string | undefined, id: string): Promise<boolean> {
+    if (!userId) return false;
+
+    await safeDbExecute(`DELETE FROM commandes WHERE id = ?`, [id]);
+
+    if (navigator.onLine) {
+      await SupabaseService.deleteCommande(id);
+    } else {
+      this.pushToQueue(userId, { type: 'DELETE_COMMANDE', payload: { id } });
+    }
+
+    const cmds = this.getStore<Commande[]>(userId, 'commandes', []).filter((c) => c.id !== id);
+    this.setStore(userId, 'commandes', cmds);
+    return true;
   }
 
   static async addVersement(
@@ -378,7 +581,7 @@ export class DataService {
     ];
 
     const newVersement = {
-      id: `vers-${Date.now()}`,
+      id: generateUUID(),
       montant,
       date: new Date().toISOString(),
       note: note || 'Versement complémentaire',
@@ -411,13 +614,17 @@ export class DataService {
 
   static async addRealisation(
     userId: string | undefined,
-    realData: Omit<Realisation, 'id' | 'couturier_id' | 'date_publication'>
+    realData: Omit<Realisation, 'id' | 'couturier_id' | 'date_publication'> & { id?: string }
   ): Promise<Realisation | null> {
     if (!userId) return null;
 
+    const validId = realData.id && realData.id.includes('-') && !realData.id.startsWith('real-')
+      ? realData.id
+      : generateUUID();
+
     const newReal: Realisation = {
       ...realData,
-      id: `real-${Date.now()}`,
+      id: validId,
       couturier_id: userId,
       date_publication: new Date().toISOString(),
     };
@@ -450,47 +657,18 @@ export class DataService {
     return true;
   }
 
-  // ── Vitrine Publique ──────────────────────────────────────────────
+  // ── Vitrine Publique ─────────────────────────────────────────────
   static async getPublicVitrine(slug: string): Promise<{ couturier: Couturier | null; realisations: Realisation[] }> {
-    let couturier = await SupabaseService.getCouturier(slug);
+    if (!slug) return { couturier: null, realisations: [] };
 
-    let localCouturier: Couturier | null = null;
-    if (typeof window !== 'undefined') {
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('ourlette_') && key.endsWith('_couturier')) {
-            const raw = localStorage.getItem(key);
-            if (raw) {
-              const c = JSON.parse(raw) as Couturier;
-              if (c && c.slug_vitrine === slug) {
-                localCouturier = c;
-                break;
-              }
-            }
-          }
-        }
-      } catch {
-        // ignore storage parse error
+    if (navigator.onLine) {
+      const c = await SupabaseService.getCouturier(slug);
+      if (c) {
+        const reals = await SupabaseService.getRealisations(c.id);
+        return { couturier: c, realisations: reals };
       }
     }
 
-    if (!couturier) {
-      couturier = localCouturier;
-    } else if (localCouturier && localCouturier.vitrine_active !== undefined) {
-      couturier.vitrine_active = localCouturier.vitrine_active;
-    }
-
-    if (!couturier) {
-      return { couturier: null, realisations: [] };
-    }
-
-    let realisations = await SupabaseService.getRealisations(couturier.id);
-    if ((!realisations || realisations.length === 0) && couturier.id) {
-      realisations = this.getStore<Realisation[]>(couturier.id, 'realisations', []);
-    }
-
-    return { couturier, realisations };
+    return { couturier: null, realisations: [] };
   }
 }
-

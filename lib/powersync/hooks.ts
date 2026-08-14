@@ -10,6 +10,7 @@
  * Les écritures passent par DataService (qui écrit en local SQLite + queue Supabase)
  * ou directement via db.execute() pour les mutations atomiques.
  */
+import { useEffect, useState } from 'react';
 import { useQuery, useStatus } from '@powersync/react';
 import { Commande, Client, Mesure } from '../types/database';
 
@@ -34,14 +35,31 @@ export function useCommandes(userId: string | undefined): Commande[] {
     userId ? [userId] : []
   );
 
-  return (results ?? []).map((row: any) => ({
-    ...row,
-    prix_total: row.prix_total ?? 0,
-    acompte: row.acompte ?? 0,
-    versements: row.versements ? tryParseJson(row.versements, []) : [],
-    client_nom: row.client_nom || 'Client inconnu',
-    client_telephone: row.client_telephone || '',
-  })) as Commande[];
+  const [localFallback, setLocalFallback] = useState<Commande[]>([]);
+
+  useEffect(() => {
+    if (!userId || typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(`ourlette_${userId}_commandes`);
+      if (raw) {
+        setLocalFallback(JSON.parse(raw));
+      }
+    } catch {}
+  }, [userId, results]);
+
+  if (results && results.length > 0) {
+    return results.map((row: any) => ({
+      ...row,
+      prix_total: Number(row.prix_total) || 0,
+      acompte: Number(row.acompte) || 0,
+      versements: row.versements ? tryParseJson(row.versements, []) : [],
+      client_nom: row.client_nom || 'Client inconnu',
+      client_telephone: row.client_telephone || '',
+    })) as Commande[];
+  }
+
+  // Fallback si SQLite est en cours d'initialisation
+  return localFallback;
 }
 
 // ── useClients ───────────────────────────────────────────────────────────────
@@ -57,7 +75,23 @@ export function useClients(userId: string | undefined): Client[] {
     userId ? [userId] : []
   );
 
-  return (results ?? []) as Client[];
+  const [localFallback, setLocalFallback] = useState<Client[]>([]);
+
+  useEffect(() => {
+    if (!userId || typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(`ourlette_${userId}_clients`);
+      if (raw) {
+        setLocalFallback(JSON.parse(raw));
+      }
+    } catch {}
+  }, [userId, results]);
+
+  if (results && results.length > 0) {
+    return results as Client[];
+  }
+
+  return localFallback;
 }
 
 // ── useMesureByClientId ───────────────────────────────────────────────────────

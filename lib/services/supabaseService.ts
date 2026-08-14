@@ -295,8 +295,16 @@ export class SupabaseService {
       .select()
       .single();
 
-    if (error) return null;
+    if (error || !data) return null;
     return data as Commande;
+  }
+
+  static async deleteCommande(id: string): Promise<boolean> {
+    const supabase = this.getClient();
+    if (!supabase || !id) return false;
+
+    const { error } = await supabase.from('commandes').delete().eq('id', id);
+    return !error;
   }
 
   static async addVersement(cmdId: string, montant: number, note?: string): Promise<Commande | null> {
