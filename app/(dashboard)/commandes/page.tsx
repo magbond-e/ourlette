@@ -391,46 +391,28 @@ export default function CommandesPage() {
           </div>
         )}
 
-        {/* Future Financial Statistics Section */}
-        <Card className="p-6 bg-gradient-to-br from-sombre via-fonce to-sombre text-white rounded-3xl border border-gold/30 shadow-md space-y-4">
-          <div className="flex items-center justify-between border-b border-white/20 pb-3">
-            <div className="flex items-center gap-2">
-              <BarChart2 className="w-5 h-5 text-gold" />
-              <h3 className="font-display font-bold text-lg text-white">Statistiques & Suivi Financier</h3>
-            </div>
-            <span className="inline-flex items-center gap-1 text-xs font-bold bg-gold/20 text-gold px-3 py-1 rounded-full border border-gold/40">
-              <Lock className="w-3 h-3" /> Option Premium à venir
-            </span>
-          </div>
+        {/* Floating CTA Button (Mobile only) */}
+        <div className="fixed bottom-20 right-4 md:hidden z-30">
+          <Link href="/commandes/nouvelle">
+            <Button
+              variant="accent"
+              size="lg"
+              className="rounded-full shadow-xl shadow-accent/40 gap-2 px-5 py-3.5 text-xs font-extrabold bg-accent text-white hover:bg-fonce active:scale-95 border-2 border-white"
+            >
+              <Plus className="w-5 h-5" />
+            </Button>
+          </Link>
+        </div>
 
-          <p className="text-xs sm:text-sm text-white/80 font-medium leading-relaxed">
-            Prochainement : Suivez l'historique financier de votre atelier, vos revenus hebdomadaires et mensuels, ainsi que l'évolution de vos encaissements.
-          </p>
-        </Card>
-      </main>
-
-      {/* Floating CTA Button (Mobile only) */}
-      <div className="fixed bottom-20 right-4 md:hidden z-30">
-        <Link href="/commandes/nouvelle">
-          <Button
-            variant="accent"
-            size="lg"
-            className="rounded-full shadow-xl shadow-accent/40 gap-2 px-5 py-3.5 text-xs font-extrabold bg-accent text-white hover:bg-fonce active:scale-95 border-2 border-white"
-          >
-            <Plus className="w-5 h-5" />
-          </Button>
-        </Link>
-      </div>
-
-      {/* Confirmation Modal */}
-      {pendingChange && (
-        <ConfirmStatusModal
-          commande={pendingChange.cmd}
-          newStatus={pendingChange.newStatus}
-          onConfirm={handleConfirmStatusChange}
-          onCancel={() => setPendingChange(null)}
-        />
-      )}
+        {/* Confirmation Modal */}
+        {pendingChange && (
+          <ConfirmStatusModal
+            commande={pendingChange.cmd}
+            newStatus={pendingChange.newStatus}
+            onConfirm={handleConfirmStatusChange}
+            onCancel={() => setPendingChange(null)}
+          />
+        )}
     </div>
   );
 }
