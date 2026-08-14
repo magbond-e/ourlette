@@ -1,12 +1,8 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { WifiOff, Scissors, Users, Settings, RotateCcw } from 'lucide-react';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Mode Hors Ligne | Ourlette',
-  description: 'Vous êtes actuellement hors-ligne. Accédez à vos commandes et clients sauvegardés localement.',
-};
 
 export default function OfflinePage() {
   return (
