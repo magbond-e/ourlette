@@ -12,9 +12,11 @@ import { DataService } from '@/lib/services/dataService';
 import { useClients, useCommandes } from '@/lib/powersync/hooks';
 import { Client, Commande } from '@/lib/types/database';
 import { useAuth } from '@/lib/context/AuthContext';
+import { useNotifications } from '@/lib/context/NotificationContext';
 
 export default function ClientsPage() {
   const { user } = useAuth();
+  const { createNotification } = useNotifications();
   // ── Sources de données PowerSync (réactives, offline-first) ──────────────
   // Ces listes se mettent à jour automatiquement dès qu'une écriture locale ou
   // un sync entrant touche les tables `clients` / `commandes`.
@@ -37,11 +39,23 @@ export default function ClientsPage() {
     e.preventDefault();
     if (!newNom.trim() || !user?.id) return;
 
-    await DataService.addClient(user.id, {
+    const created = await DataService.addClient(user.id, {
       nom: newNom.trim(),
       telephone: newTelephone.trim(),
       notes: newNotes.trim(),
     });
+
+    if (created) {
+      await createNotification({
+        type: 'client_created',
+        category: 'client',
+        priority: 'low',
+        title: '👤 Nouveau client ajouté',
+        message: `${created.nom} a été ajouté avec succès à votre répertoire.`,
+        link: `/clients?id=${created.id}`,
+        metadata: { clientId: created.id },
+      });
+    }
 
     // Plus besoin de recharger — useClients se met à jour automatiquement
     setShowAddModal(false);

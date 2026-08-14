@@ -11,11 +11,13 @@ import { DataService } from '@/lib/services/dataService';
 import { Client, TypeCommande } from '@/lib/types/database';
 import { calculSolde, formatFCFA } from '@/lib/utils/formatters';
 import { useAuth } from '@/lib/context/AuthContext';
+import { useNotifications } from '@/lib/context/NotificationContext';
 import { checkCommandeLimit, FREE_PLAN_LIMITS } from '@/lib/utils/planLimits';
 
 export default function NouvelleCommandePage() {
   const router = useRouter();
   const { user, couturier } = useAuth();
+  const { createNotification } = useNotifications();
   const [clients, setClients] = useState<Client[]>([]);
   const [activeCommandesCount, setActiveCommandesCount] = useState<number>(0);
   const [limitReached, setLimitReached] = useState<boolean>(false);
@@ -86,6 +88,15 @@ export default function NouvelleCommandePage() {
     setClients(updatedList);
     if (created) {
       setSelectedClientId(created.id);
+      await createNotification({
+        type: 'client_created',
+        category: 'client',
+        priority: 'low',
+        title: '👤 Nouveau client ajouté',
+        message: `${created.nom} a été ajouté avec succès à votre liste de clients.`,
+        link: `/clients?id=${created.id}`,
+        metadata: { clientId: created.id },
+      });
     }
     setShowNewClientForm(false);
     setNewClientNom('');
@@ -115,6 +126,8 @@ export default function NouvelleCommandePage() {
 
     setLoading(true);
 
+    const clientObj = clients.find((c) => c.id === selectedClientId);
+
     const newCmd = await DataService.addCommande(user.id, {
       client_id: selectedClientId,
       type_commande: typeCommande,
@@ -125,6 +138,19 @@ export default function NouvelleCommandePage() {
       acompte: Number(acompte) || 0,
       date_livraison_prevue: dateLivraison,
     });
+
+    if (newCmd && newCmd.id) {
+      await createNotification({
+        type: 'order_created',
+        category: 'order',
+        priority: 'medium',
+        title: '✨ Nouvelle commande enregistrée',
+        message: `Commande "${newCmd.description}" enregistrée pour ${clientObj?.nom || 'un client'} (${formatFCFA(newCmd.prix_total)}).`,
+        link: `/commandes/${newCmd.id}`,
+        orderId: newCmd.id,
+        metadata: { orderId: newCmd.id, clientId: selectedClientId },
+      });
+    }
 
     setLoading(false);
     if (newCmd && newCmd.id) {

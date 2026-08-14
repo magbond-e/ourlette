@@ -12,6 +12,7 @@ import { useCommandes } from '@/lib/powersync/hooks';
 import { Commande, StatutCommande } from '@/lib/types/database';
 import { formatFCFA, formatDateFR, isCommandeEnRetard, calculSolde } from '@/lib/utils/formatters';
 import { useAuth } from '@/lib/context/AuthContext';
+import { useNotifications } from '@/lib/context/NotificationContext';
 
 const STATUTS_ORDER: { id: StatutCommande; label: string }[] = [
   { id: 'recue', label: 'Reçue' },
@@ -134,6 +135,7 @@ function ConfirmStatusModal({
 
 export default function CommandesPage() {
   const { user } = useAuth();
+  const { createNotification } = useNotifications();
   // ── Source de données PowerSync (réactive, offline-first) ──────────────────
   // useCommandes émet une nouvelle valeur à chaque écriture locale ou sync entrant.
   // Pas besoin de useState/useCallback/useEffect pour charger les données.
@@ -155,9 +157,23 @@ export default function CommandesPage() {
 
   const handleConfirmStatusChange = async () => {
     if (!pendingChange || !user?.id) return;
+    const { cmd, newStatus } = pendingChange;
+    const statusLabel = STATUTS_ORDER.find((s) => s.id === newStatus)?.label || newStatus;
+
     // Écriture locale immédiate via DataService (met à jour localStorage + SQLite PowerSync)
-    await DataService.updateCommande(user.id, pendingChange.cmd.id, { statut: pendingChange.newStatus });
-    // Plus besoin de recharger — useCommandes se met à jour automatiquement
+    await DataService.updateCommande(user.id, cmd.id, { statut: newStatus });
+
+    await createNotification({
+      type: 'order_status',
+      category: 'order',
+      priority: newStatus === 'prete' || newStatus === 'livree' ? 'high' : 'medium',
+      title: `✂️ Commande passée à "${statusLabel}"`,
+      message: `La commande pour ${cmd.client_nom || 'le client'} ("${cmd.description}") est désormais marquée "${statusLabel}".`,
+      link: `/commandes/${cmd.id}`,
+      orderId: cmd.id,
+      metadata: { orderId: cmd.id, oldStatus: cmd.statut, newStatus },
+    });
+
     setPendingChange(null);
   };
 

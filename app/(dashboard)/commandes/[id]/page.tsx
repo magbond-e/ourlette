@@ -16,10 +16,12 @@ import { DataService } from '@/lib/services/dataService';
 import { Commande, StatutCommande, Client } from '@/lib/types/database';
 import { formatFCFA, formatDateFR, isCommandeEnRetard, calculSolde } from '@/lib/utils/formatters';
 import { useAuth } from '@/lib/context/AuthContext';
+import { useNotifications } from '@/lib/context/NotificationContext';
 
 export default function CommandeDetailPage() {
   const params = useParams();
   const { user } = useAuth();
+  const { createNotification } = useNotifications();
   const cmdId = params.id as string;
 
   const [commande, setCommande] = useState<Commande | null>(null);
@@ -51,7 +53,19 @@ export default function CommandeDetailPage() {
   const handleStatusChange = async (newStatut: StatutCommande) => {
     if (!commande || !user?.id) return;
     const updated = await DataService.updateCommande(user.id, commande.id, { statut: newStatut });
-    if (updated) setCommande(updated);
+    if (updated) {
+      setCommande(updated);
+      await createNotification({
+        type: 'order_status',
+        category: 'order',
+        priority: newStatut === 'prete' || newStatut === 'livree' ? 'high' : 'medium',
+        title: `✂️ Statut de commande : ${newStatut.toUpperCase()}`,
+        message: `La commande pour ${client?.nom || 'le client'} ("${commande.description}") est passée au statut ${newStatut}.`,
+        link: `/commandes/${commande.id}`,
+        orderId: commande.id,
+        metadata: { orderId: commande.id, newStatut },
+      });
+    }
   };
 
   const handleAddVersement = async (e: React.FormEvent) => {
@@ -66,6 +80,17 @@ export default function CommandeDetailPage() {
       setNewVersementMontant('');
       setNewVersementNote('');
       setShowAddVersement(false);
+
+      await createNotification({
+        type: 'payment_received',
+        category: 'payment',
+        priority: 'high',
+        title: `💰 Versement enregistré (${formatFCFA(amount)})`,
+        message: `Paiement de ${formatFCFA(amount)} reçu pour la commande de ${client?.nom || 'un client'} ("${commande.description}").`,
+        link: `/commandes/${commande.id}`,
+        orderId: commande.id,
+        metadata: { orderId: commande.id, amount },
+      });
     }
   };
 

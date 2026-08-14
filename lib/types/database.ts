@@ -140,3 +140,19 @@ export interface AdminLog {
   date_action?: string;
 }
 
+export interface DbNotification {
+  id: string;
+  couturier_id: string;
+  type: string;
+  category: string;
+  priority: string;
+  title: string;
+  message: string;
+  link?: string | null;
+  read: boolean;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at?: string;
+}
+
+

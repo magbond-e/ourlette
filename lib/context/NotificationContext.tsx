@@ -1,210 +1,273 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { DataService } from '../services/dataService';
-import { Commande } from '../types/database';
-import { NotificationItem } from '../types/notification';
+import { NotificationItem, CreateNotificationInput } from '../types/notification';
+import { createClient } from '../supabase/client';
+import { NotificationToast } from '@/components/ui/NotificationToast';
 
 interface NotificationContextType {
   notifications: NotificationItem[];
   unreadCount: number;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  clearAll: () => void;
+  loading: boolean;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
+  clearAll: () => Promise<void>;
+  createNotification: (input: CreateNotificationInput) => Promise<NotificationItem | null>;
   refreshNotifications: () => Promise<void>;
-  addDemoNotification: () => void;
+  triggerTestNotification: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType>({
   notifications: [],
   unreadCount: 0,
-  markAsRead: () => {},
-  markAllAsRead: () => {},
-  clearAll: () => {},
+  loading: false,
+  markAsRead: async () => {},
+  markAllAsRead: async () => {},
+  deleteNotification: async () => {},
+  clearAll: async () => {},
+  createNotification: async () => null,
   refreshNotifications: async () => {},
-  addDemoNotification: () => {},
+  triggerTestNotification: async () => {},
 });
+
+/**
+ * Soft synthetic audio chime for real-time notification alerts
+ */
+function playNotificationChime() {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+  } catch {
+    // Ignore audio permission or playback errors
+  }
+}
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, couturier } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [readIds, setReadIds] = useState<string[]>([]);
-  const [customNotifications, setCustomNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [activeToast, setActiveToast] = useState<NotificationItem | null>(null);
+  const initializedWelcomeRef = useRef<boolean>(false);
 
-  // Load read notification IDs from LocalStorage
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const userId = user?.id || 'guest';
-    try {
-      const stored = localStorage.getItem(`ourlette_${userId}_read_notifs`);
-      if (stored) {
-        setReadIds(JSON.parse(stored));
-      } else {
-        setReadIds([]);
-      }
-    } catch {
-      setReadIds([]);
+  // ── 1. Fetch & Synchronize Notifications from Backend ───────────────
+  const refreshNotifications = useCallback(async () => {
+    if (!user?.id) {
+      setNotifications([]);
+      return;
     }
+
+    setLoading(true);
+    try {
+      // 1. Synchronize automated order alerts (overdue / due soon) once in backend
+      await DataService.syncOrderAlerts(user.id, couturier);
+
+      // 2. Fetch all persisted notifications for this account
+      let list = await DataService.getNotifications(user.id);
+
+      // 3. Ensure Welcome Notification exists once per account
+      if (!initializedWelcomeRef.current && list.length === 0) {
+        initializedWelcomeRef.current = true;
+        const hasWelcome = list.some((n) => n.type === 'welcome');
+        if (!hasWelcome) {
+          const welcomeNotif = await DataService.addNotification(user.id, {
+            type: 'welcome',
+            category: 'account',
+            priority: 'medium',
+            title: '🎉 Bienvenue sur Ourlette !',
+            message: `Heureux de vous compter parmi nous ${couturier?.nom_atelier ? `– ${couturier.nom_atelier}` : ''} ! Prenez en main la gestion de vos clients, commandes et vitrine d'atelier.`,
+            link: '/parametres',
+            read: false,
+          });
+          if (welcomeNotif) {
+            list = [welcomeNotif, ...list];
+          }
+        }
+      }
+
+      setNotifications(list);
+    } catch (e) {
+      console.error('Failed to load notifications:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, couturier]);
+
+  // Initial load
+  useEffect(() => {
+    if (user?.id) {
+      refreshNotifications();
+    } else {
+      setNotifications([]);
+    }
+  }, [user?.id, refreshNotifications]);
+
+  // ── 2. Supabase Realtime Subscription ────────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+    const supabase = createClient();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel(`notifications:couturier_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `couturier_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const newRow = payload.new as any;
+          if (!newRow) return;
+
+          const item: NotificationItem = {
+            id: newRow.id,
+            couturier_id: newRow.couturier_id,
+            type: newRow.type,
+            category: newRow.category || 'order',
+            priority: newRow.priority || 'medium',
+            title: newRow.title,
+            message: newRow.message,
+            date: newRow.created_at || new Date().toISOString(),
+            read: Boolean(newRow.read),
+            link: newRow.link || undefined,
+            metadata: newRow.metadata || {},
+            orderId: newRow.metadata?.orderId || undefined,
+          };
+
+          setNotifications((prev) => {
+            if (prev.some((n) => n.id === item.id)) return prev;
+            return [item, ...prev];
+          });
+
+          // Show Toast & Play audio chime for live incoming notifications
+          setActiveToast(item);
+          playNotificationChime();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `couturier_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const updatedRow = payload.new as any;
+          if (!updatedRow) return;
+
+          setNotifications((prev) =>
+            prev.map((n) =>
+              n.id === updatedRow.id
+                ? {
+                    ...n,
+                    read: Boolean(updatedRow.read),
+                    title: updatedRow.title,
+                    message: updatedRow.message,
+                    link: updatedRow.link || undefined,
+                  }
+                : n
+            )
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `couturier_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const oldRow = payload.old as any;
+          if (!oldRow?.id) return;
+          setNotifications((prev) => prev.filter((n) => n.id !== oldRow.id));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user?.id]);
 
-  const saveReadIds = (newReadIds: string[]) => {
-    setReadIds(newReadIds);
-    if (typeof window === 'undefined') return;
-    const userId = user?.id || 'guest';
-    try {
-      localStorage.setItem(`ourlette_${userId}_read_notifs`, JSON.stringify(newReadIds));
-    } catch (e) {
-      console.error('Failed to save read notifications state', e);
-    }
+  // ── 3. Actions ───────────────────────────────────────────────────────
+  const markAsRead = async (id: string) => {
+    if (!user?.id) return;
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+    await DataService.markNotificationAsRead(user.id, id);
   };
 
-  const refreshNotifications = useCallback(async () => {
-    const userId = user?.id || 'guest';
-    const notifRetardEnabled = couturier?.notif_retard ?? true;
-    const notifRappelEnabled = couturier?.notif_rappel_livraison ?? true;
-    const notifNouveautesEnabled = couturier?.notif_nouveautes ?? true;
-
-    // Fetch real orders
-    const cmds: Commande[] = userId !== 'guest' ? await DataService.getCommandes(userId) : [];
-
-    const generated: NotificationItem[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // 1. Check Overdue & Upcoming Orders
-    cmds.forEach((cmd) => {
-      if (cmd.statut === 'livree') return;
-
-      const datePrev = new Date(cmd.date_livraison_prevue);
-      if (isNaN(datePrev.getTime())) return;
-
-      datePrev.setHours(0, 0, 0, 0);
-      const diffDays = Math.round((datePrev.getTime() - today.getTime()) / (1000 * 3600 * 24));
-      const formattedDate = new Date(cmd.date_livraison_prevue).toLocaleDateString('fr-FR', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-
-      if (diffDays < 0 && notifRetardEnabled) {
-        // Overdue Order Notification
-        const notifId = `notif-overdue-${cmd.id}`;
-        generated.push({
-          id: notifId,
-          type: 'order_overdue',
-          category: 'order',
-          priority: 'urgent',
-          title: '🚨 Commande en retard',
-          message: `La commande pour ${cmd.client_nom || 'un client'} ("${cmd.description}") accuse ${Math.abs(diffDays)} jour(s) de retard (Échéance: ${formattedDate}).`,
-          date: cmd.date_livraison_prevue,
-          read: readIds.includes(notifId),
-          link: `/commandes?id=${cmd.id}`,
-          orderId: cmd.id,
-        });
-      } else if (diffDays >= 0 && diffDays <= 2 && notifRappelEnabled) {
-        // Due Soon Order Notification
-        const notifId = `notif-duesoon-${cmd.id}`;
-        const label = diffDays === 0 ? "Aujourd'hui" : diffDays === 1 ? "Demain" : `dans ${diffDays} jours`;
-        generated.push({
-          id: notifId,
-          type: 'order_due_soon',
-          category: 'order',
-          priority: 'high',
-          title: `⏰ Échéance proche (${label})`,
-          message: `La commande pour ${cmd.client_nom || 'un client'} ("${cmd.description}") doit être livrée le ${formattedDate}.`,
-          date: cmd.date_livraison_prevue,
-          read: readIds.includes(notifId),
-          link: `/commandes?id=${cmd.id}`,
-          orderId: cmd.id,
-        });
-      }
-    });
-
-    // 2. Welcome Notification
-    const welcomeId = `notif-welcome-${userId}`;
-    generated.push({
-      id: welcomeId,
-      type: 'welcome',
-      category: 'account',
-      priority: 'medium',
-      title: '🎉 Bienvenue sur Ourlette !',
-      message: `Heureux de vous compter parmi nous ${couturier?.nom_atelier ? `– ${couturier.nom_atelier}` : ''} ! Prenez en main la gestion de vos clients, commandes et vitrine.`,
-      date: couturier?.date_creation || new Date().toISOString(),
-      read: readIds.includes(welcomeId),
-      link: '/parametres',
-    });
-
-    // 3. New Feature / Update Notification
-    if (notifNouveautesEnabled) {
-      const updateId = 'notif-feature-v1-2';
-      generated.push({
-        id: updateId,
-        type: 'feature_update',
-        category: 'system',
-        priority: 'low',
-        title: '✨ Nouveauté Ourlette v1.2',
-        message: "Notifications intelligentes activées ! Recevez désormais des rappels d'échéances et des alertes visuelles pour vos livraisons.",
-        date: new Date().toISOString(),
-        read: readIds.includes(updateId),
-        link: '/parametres',
-      });
-    }
-
-    // Combine generated with custom/demo notifications
-    const all = [...generated, ...customNotifications].map((item) => ({
-      ...item,
-      read: item.read || readIds.includes(item.id),
-    }));
-
-    // Deduplicate by ID
-    const unique = Array.from(new Map(all.map((item) => [item.id, item])).values());
-
-    setNotifications(unique);
-  }, [user?.id, couturier, readIds, customNotifications]);
-
-  useEffect(() => {
-    refreshNotifications();
-  }, [refreshNotifications]);
-
-  const markAsRead = (id: string) => {
-    if (!readIds.includes(id)) {
-      const updated = [...readIds, id];
-      saveReadIds(updated);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-      );
-    }
-  };
-
-  const markAllAsRead = () => {
-    const allIds = notifications.map((n) => n.id);
-    const combined = Array.from(new Set([...readIds, ...allIds]));
-    saveReadIds(combined);
+  const markAllAsRead = async () => {
+    if (!user?.id) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    await DataService.markAllNotificationsAsRead(user.id);
   };
 
-  const clearAll = () => {
-    markAllAsRead();
-    setCustomNotifications([]);
+  const deleteNotification = async (id: string) => {
+    if (!user?.id) return;
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    await DataService.deleteNotification(user.id, id);
   };
 
-  const addDemoNotification = () => {
-    const demoId = `notif-demo-${Date.now()}`;
-    const newDemo: NotificationItem = {
-      id: demoId,
-      type: 'system',
+  const clearAll = async () => {
+    if (!user?.id) return;
+    setNotifications([]);
+    await DataService.clearAllNotifications(user.id);
+  };
+
+  const createNotification = async (input: CreateNotificationInput): Promise<NotificationItem | null> => {
+    if (!user?.id) return null;
+    const created = await DataService.addNotification(user.id, input);
+    if (created) {
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === created.id)) return prev;
+        return [created, ...prev];
+      });
+      setActiveToast(created);
+      playNotificationChime();
+    }
+    return created;
+  };
+
+  const triggerTestNotification = async () => {
+    if (!user?.id) return;
+    await createNotification({
+      type: 'feature_update',
       category: 'system',
       priority: 'high',
-      title: '🔔 Notification de Test',
-      message: 'Ceci est un test de notification généré à votre demande depuis les Paramètres !',
-      date: new Date().toISOString(),
-      read: false,
+      title: '🔔 Test Notification Réussi !',
+      message: 'Le nouveau système de notification persistant et temps réel fonctionne parfaitement sur votre compte.',
       link: '/parametres',
-    };
-
-    setCustomNotifications((prev) => [newDemo, ...prev]);
-    setNotifications((prev) => [newDemo, ...prev]);
+    });
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -214,14 +277,23 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       value={{
         notifications,
         unreadCount,
+        loading,
         markAsRead,
         markAllAsRead,
+        deleteNotification,
         clearAll,
+        createNotification,
         refreshNotifications,
-        addDemoNotification,
+        triggerTestNotification,
       }}
     >
       {children}
+      {/* Global In-App Toast Banner */}
+      <NotificationToast
+        notification={activeToast}
+        onClose={() => setActiveToast(null)}
+        onRead={markAsRead}
+      />
     </NotificationContext.Provider>
   );
 };

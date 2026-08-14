@@ -17,7 +17,7 @@ import { Sparkles, Crown, Zap } from 'lucide-react';
 export default function ParametresPage() {
   const router = useRouter();
   const { user, couturier: authCouturier, refreshProfile, signOut } = useAuth();
-  const { addDemoNotification, refreshNotifications } = useNotifications();
+  const { triggerTestNotification, refreshNotifications } = useNotifications();
   const [couturier, setCouturier] = useState<Couturier | null>(null);
 
   // Stats for Subscription Plan Gauges
@@ -503,6 +503,26 @@ export default function ParametresPage() {
                   <span className="ios-slider" />
                 </span>
               </label>
+
+              {/* Bouton de Test du système de notifications */}
+              <div className="pt-2 border-t border-sable/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#FAF9F6] p-4 rounded-2xl border border-sable/50">
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-sombre">Tester le système d'alertes</h4>
+                  <p className="text-[11px] text-sombre/60 font-semibold">
+                    Déclenche une vraie notification persistée pour vérifier le temps réel et les alertes visuelles.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={triggerTestNotification}
+                  className="rounded-full text-xs font-bold gap-1.5 border-accent text-accent hover:bg-accent hover:text-white shrink-0"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>Envoyer une notif test</span>
+                </Button>
+              </div>
             </div>
           </Card>
 

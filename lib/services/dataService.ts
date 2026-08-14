@@ -1,4 +1,5 @@
 import { Couturier, Client, Mesure, Commande, Realisation } from '../types/database';
+import { NotificationItem, CreateNotificationInput } from '../types/notification';
 import { SupabaseService } from './supabaseService';
 
 const isBrowser = typeof window !== 'undefined';
@@ -30,7 +31,21 @@ async function safeDbExecute(sql: string, params: any[] = []): Promise<void> {
 
 interface QueueItem {
   id: string;
-  type: 'ADD_CLIENT' | 'UPDATE_CLIENT' | 'DELETE_CLIENT' | 'SAVE_MESURE' | 'ADD_COMMANDE' | 'UPDATE_COMMANDE' | 'DELETE_COMMANDE' | 'ADD_REALISATION' | 'DELETE_REALISATION';
+  type:
+    | 'ADD_CLIENT'
+    | 'UPDATE_CLIENT'
+    | 'DELETE_CLIENT'
+    | 'SAVE_MESURE'
+    | 'ADD_COMMANDE'
+    | 'UPDATE_COMMANDE'
+    | 'DELETE_COMMANDE'
+    | 'ADD_REALISATION'
+    | 'DELETE_REALISATION'
+    | 'ADD_NOTIFICATION'
+    | 'MARK_NOTIF_READ'
+    | 'MARK_ALL_NOTIFS_READ'
+    | 'DELETE_NOTIF'
+    | 'CLEAR_NOTIFS';
   payload: any;
   timestamp: string;
 }
@@ -120,6 +135,21 @@ export class DataService {
             break;
           case 'DELETE_REALISATION':
             success = await SupabaseService.deleteRealisation(item.payload.id);
+            break;
+          case 'ADD_NOTIFICATION':
+            success = Boolean(await SupabaseService.addNotification(item.payload));
+            break;
+          case 'MARK_NOTIF_READ':
+            success = await SupabaseService.markNotificationAsRead(item.payload.id);
+            break;
+          case 'MARK_ALL_NOTIFS_READ':
+            success = await SupabaseService.markAllNotificationsAsRead(item.payload.couturierId);
+            break;
+          case 'DELETE_NOTIF':
+            success = await SupabaseService.deleteNotification(item.payload.id);
+            break;
+          case 'CLEAR_NOTIFS':
+            success = await SupabaseService.clearAllNotifications(item.payload.couturierId);
             break;
           default:
             break;
@@ -669,6 +699,208 @@ export class DataService {
       }
     }
 
-    return { couturier: null, realisations: [] };
+  // ── Notifications ────────────────────────────────────────────────
+  static async getNotifications(userId: string | undefined): Promise<NotificationItem[]> {
+    if (!userId) return [];
+
+    if (navigator.onLine) {
+      await this.syncPendingQueue(userId);
+      const remote = await SupabaseService.getNotifications(userId);
+      if (remote && remote.length >= 0) {
+        this.setStore(userId, 'notifications', remote);
+        return remote;
+      }
+    }
+
+    return this.getStore<NotificationItem[]>(userId, 'notifications', []);
+  }
+
+  static async addNotification(
+    userId: string | undefined,
+    notifData: CreateNotificationInput & { id?: string }
+  ): Promise<NotificationItem | null> {
+    if (!userId) return null;
+
+    const validId = notifData.id && notifData.id.includes('-') && !notifData.id.startsWith('notif-')
+      ? notifData.id
+      : generateUUID();
+
+    const newNotif: NotificationItem = {
+      id: validId,
+      couturier_id: userId,
+      type: notifData.type,
+      category: notifData.category || 'order',
+      priority: notifData.priority || 'medium',
+      title: notifData.title,
+      message: notifData.message,
+      date: new Date().toISOString(),
+      read: notifData.read ?? false,
+      link: notifData.link,
+      metadata: notifData.metadata || {},
+      orderId: notifData.orderId,
+    };
+
+    let remote: NotificationItem | null = null;
+    if (navigator.onLine) {
+      remote = await SupabaseService.addNotification({
+        ...notifData,
+        couturier_id: userId,
+      });
+    } else {
+      this.pushToQueue(userId, {
+        type: 'ADD_NOTIFICATION',
+        payload: { ...notifData, couturier_id: userId },
+      });
+    }
+
+    const finalNotif = remote || newNotif;
+    const currentNotifs = this.getStore<NotificationItem[]>(userId, 'notifications', []);
+    const updatedNotifs = [finalNotif, ...currentNotifs.filter((n) => n.id !== finalNotif.id)];
+    this.setStore(userId, 'notifications', updatedNotifs);
+
+    return finalNotif;
+  }
+
+  static async markNotificationAsRead(userId: string | undefined, id: string): Promise<boolean> {
+    if (!userId || !id) return false;
+
+    if (navigator.onLine) {
+      await SupabaseService.markNotificationAsRead(id);
+    } else {
+      this.pushToQueue(userId, { type: 'MARK_NOTIF_READ', payload: { id } });
+    }
+
+    const notifs = this.getStore<NotificationItem[]>(userId, 'notifications', []);
+    const index = notifs.findIndex((n) => n.id === id);
+    if (index !== -1) {
+      notifs[index] = { ...notifs[index], read: true };
+      this.setStore(userId, 'notifications', notifs);
+      return true;
+    }
+    return false;
+  }
+
+  static async markAllNotificationsAsRead(userId: string | undefined): Promise<boolean> {
+    if (!userId) return false;
+
+    if (navigator.onLine) {
+      await SupabaseService.markAllNotificationsAsRead(userId);
+    } else {
+      this.pushToQueue(userId, { type: 'MARK_ALL_NOTIFS_READ', payload: { couturierId: userId } });
+    }
+
+    const notifs = this.getStore<NotificationItem[]>(userId, 'notifications', []);
+    const updated = notifs.map((n) => ({ ...n, read: true }));
+    this.setStore(userId, 'notifications', updated);
+    return true;
+  }
+
+  static async deleteNotification(userId: string | undefined, id: string): Promise<boolean> {
+    if (!userId || !id) return false;
+
+    if (navigator.onLine) {
+      await SupabaseService.deleteNotification(id);
+    } else {
+      this.pushToQueue(userId, { type: 'DELETE_NOTIF', payload: { id } });
+    }
+
+    const notifs = this.getStore<NotificationItem[]>(userId, 'notifications', []).filter((n) => n.id !== id);
+    this.setStore(userId, 'notifications', notifs);
+    return true;
+  }
+
+  static async clearAllNotifications(userId: string | undefined): Promise<boolean> {
+    if (!userId) return false;
+
+    if (navigator.onLine) {
+      await SupabaseService.clearAllNotifications(userId);
+    } else {
+      this.pushToQueue(userId, { type: 'CLEAR_NOTIFS', payload: { couturierId: userId } });
+    }
+
+    this.setStore(userId, 'notifications', []);
+    return true;
+  }
+
+  /**
+   * Synchronise intelligemment les alertes d'échéances et de retards de commandes.
+   * Génère les notifications persistées une seule fois par commande/état pour éviter les doublons.
+   */
+  static async syncOrderAlerts(userId: string | undefined, couturier: Couturier | null): Promise<NotificationItem[]> {
+    if (!userId) return [];
+
+    const notifRetardEnabled = couturier?.notif_retard ?? true;
+    const notifRappelEnabled = couturier?.notif_rappel_livraison ?? true;
+
+    if (!notifRetardEnabled && !notifRappelEnabled) {
+      return this.getNotifications(userId);
+    }
+
+    const [commandes, existingNotifs] = await Promise.all([
+      this.getCommandes(userId),
+      this.getNotifications(userId),
+    ]);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (const cmd of commandes) {
+      if (cmd.statut === 'livree' || !cmd.date_livraison_prevue) continue;
+
+      const datePrev = new Date(cmd.date_livraison_prevue);
+      if (isNaN(datePrev.getTime())) continue;
+
+      datePrev.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((datePrev.getTime() - today.getTime()) / (1000 * 3600 * 24));
+      const formattedDate = new Date(cmd.date_livraison_prevue).toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+
+      // 1. Commande en retard (diffDays < 0)
+      if (diffDays < 0 && notifRetardEnabled) {
+        const alreadyAlerted = existingNotifs.some(
+          (n) => n.type === 'order_overdue' && (n.orderId === cmd.id || n.metadata?.orderId === cmd.id)
+        );
+
+        if (!alreadyAlerted) {
+          await this.addNotification(userId, {
+            type: 'order_overdue',
+            category: 'order',
+            priority: 'urgent',
+            title: '🚨 Commande en retard',
+            message: `La commande pour ${cmd.client_nom || 'un client'} ("${cmd.description}") accuse ${Math.abs(diffDays)} jour(s) de retard (Échéance: ${formattedDate}).`,
+            link: `/commandes?id=${cmd.id}`,
+            orderId: cmd.id,
+            metadata: { orderId: cmd.id, alertType: 'overdue' },
+          });
+        }
+      }
+
+      // 2. Échéance proche (0 <= diffDays <= 2)
+      else if (diffDays >= 0 && diffDays <= 2 && notifRappelEnabled) {
+        const alreadyAlerted = existingNotifs.some(
+          (n) => n.type === 'order_due_soon' && (n.orderId === cmd.id || n.metadata?.orderId === cmd.id)
+        );
+
+        if (!alreadyAlerted) {
+          const label = diffDays === 0 ? "Aujourd'hui" : diffDays === 1 ? "Demain" : `dans ${diffDays} jours`;
+          await this.addNotification(userId, {
+            type: 'order_due_soon',
+            category: 'order',
+            priority: 'high',
+            title: `⏰ Échéance proche (${label})`,
+            message: `La commande pour ${cmd.client_nom || 'un client'} ("${cmd.description}") doit être livrée le ${formattedDate}.`,
+            link: `/commandes?id=${cmd.id}`,
+            orderId: cmd.id,
+            metadata: { orderId: cmd.id, alertType: 'due_soon' },
+          });
+        }
+      }
+    }
+
+    return this.getNotifications(userId);
   }
 }
+

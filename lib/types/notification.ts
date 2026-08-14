@@ -1,22 +1,43 @@
 export type NotificationType = 
   | 'welcome'
+  | 'order_created'
+  | 'order_status'
   | 'order_overdue'
   | 'order_due_soon'
+  | 'payment_received'
+  | 'client_created'
   | 'feature_update'
   | 'system';
 
-export type NotificationCategory = 'order' | 'system' | 'account';
+export type NotificationCategory = 'order' | 'payment' | 'client' | 'system' | 'account';
+
+export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface NotificationItem {
   id: string;
+  couturier_id?: string;
   type: NotificationType;
   category: NotificationCategory;
+  priority?: NotificationPriority;
   title: string;
   message: string;
-  date: string;
+  date: string; // ISO string representing creation date
   read: boolean;
   link?: string;
-  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  metadata?: Record<string, any>;
+  orderId?: string;
+}
+
+export interface CreateNotificationInput {
+  couturier_id?: string;
+  type: NotificationType;
+  category?: NotificationCategory;
+  priority?: NotificationPriority;
+  title: string;
+  message: string;
+  link?: string;
+  read?: boolean;
+  metadata?: Record<string, any>;
   orderId?: string;
 }
 

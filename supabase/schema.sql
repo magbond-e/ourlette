@@ -167,6 +167,28 @@ CREATE TABLE IF NOT EXISTS public.admin_logs (
   date_action TIMESTAMPTZ DEFAULT now()
 );
 
+-- 10. Table `notifications`
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couturier_id UUID NOT NULL REFERENCES public.couturiers(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'order',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  link TEXT,
+  read BOOLEAN NOT NULL DEFAULT false,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Trigger updated_at for notifications
+DROP TRIGGER IF EXISTS set_notifications_updated_at ON public.notifications;
+CREATE TRIGGER set_notifications_updated_at
+  BEFORE UPDATE ON public.notifications
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
 -- Indexes for optimal performance
 CREATE INDEX IF NOT EXISTS idx_clients_couturier_id ON public.clients(couturier_id);
 CREATE INDEX IF NOT EXISTS idx_commandes_couturier_id ON public.commandes(couturier_id);
@@ -177,6 +199,9 @@ CREATE INDEX IF NOT EXISTS idx_couturiers_slug ON public.couturiers(slug_vitrine
 CREATE INDEX IF NOT EXISTS idx_abonnements_couturier_id ON public.abonnements(couturier_id);
 CREATE INDEX IF NOT EXISTS idx_codes_promo_code ON public.codes_promo(code);
 CREATE INDEX IF NOT EXISTS idx_admins_user_id ON public.admins(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_couturier_id ON public.notifications(couturier_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_couturier_created ON public.notifications(couturier_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_couturier_read ON public.notifications(couturier_id, read);
 
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -191,6 +216,24 @@ ALTER TABLE public.admins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.codes_promo ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.abonnements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+-- Notifications
+DROP POLICY IF EXISTS "Les couturiers lisent leurs propres notifications" ON public.notifications;
+CREATE POLICY "Les couturiers lisent leurs propres notifications"
+  ON public.notifications FOR SELECT USING (auth.uid() = couturier_id);
+
+DROP POLICY IF EXISTS "Les couturiers créent leurs propres notifications" ON public.notifications;
+CREATE POLICY "Les couturiers créent leurs propres notifications"
+  ON public.notifications FOR INSERT WITH CHECK (auth.uid() = couturier_id);
+
+DROP POLICY IF EXISTS "Les couturiers modifient leurs propres notifications" ON public.notifications;
+CREATE POLICY "Les couturiers modifient leurs propres notifications"
+  ON public.notifications FOR UPDATE USING (auth.uid() = couturier_id);
+
+DROP POLICY IF EXISTS "Les couturiers suppriment leurs propres notifications" ON public.notifications;
+CREATE POLICY "Les couturiers suppriment leurs propres notifications"
+  ON public.notifications FOR DELETE USING (auth.uid() = couturier_id);
 
 -- Couturiers
 DROP POLICY IF EXISTS "Les couturiers peuvent lire et modifier leur propre profil" ON public.couturiers;
@@ -247,7 +290,6 @@ DROP POLICY IF EXISTS "Insertion autorisée pour son propre compte admin" ON pub
 CREATE POLICY "Insertion autorisée pour son propre compte admin"
   ON public.admins FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-
 DROP POLICY IF EXISTS "Accès total admins sur codes_promo" ON public.codes_promo;
 CREATE POLICY "Accès total admins sur codes_promo"
   ON public.codes_promo FOR ALL USING (
@@ -288,5 +330,26 @@ CREATE POLICY "Admins voient tous les abonnements"
   ON public.abonnements FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid())
   );
+
+DROP POLICY IF EXISTS "Admins voient toutes les notifications" ON public.notifications;
+CREATE POLICY "Admins voient toutes les notifications"
+  ON public.notifications FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid())
+  );
+
+-- Realtime Publication for Notifications
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+        AND tablename = 'notifications'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+    END IF;
+EXCEPTION
+    WHEN undefined_object THEN
+        NULL;
+END $$;
 
 

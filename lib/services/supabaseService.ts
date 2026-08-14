@@ -1,5 +1,6 @@
 import { createClient } from '../supabase/client';
-import { Client, Mesure, Commande, Couturier, Realisation, Versement } from '../types/database';
+import { Client, Mesure, Commande, Couturier, Realisation, Versement, DbNotification } from '../types/database';
+import { NotificationItem, CreateNotificationInput } from '../types/notification';
 
 export class SupabaseService {
   private static getClient() {
@@ -393,4 +394,163 @@ export class SupabaseService {
       return null;
     }
   }
+
+  // ── Notifications ────────────────────────────────────────────────
+  static async getNotifications(couturierId: string): Promise<NotificationItem[]> {
+    const supabase = this.getClient();
+    if (!supabase || !couturierId) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('couturier_id', couturierId)
+        .order('created_at', { ascending: false })
+        .limit(80);
+
+      if (error) {
+        console.warn('Could not fetch notifications from Supabase:', error.message);
+        return [];
+      }
+
+      return (data || []).map((row: DbNotification) => ({
+        id: row.id,
+        couturier_id: row.couturier_id,
+        type: row.type as any,
+        category: (row.category || 'order') as any,
+        priority: (row.priority || 'medium') as any,
+        title: row.title,
+        message: row.message,
+        date: row.created_at,
+        read: Boolean(row.read),
+        link: row.link || undefined,
+        metadata: row.metadata || {},
+        orderId: row.metadata?.orderId || undefined,
+      }));
+    } catch (e) {
+      console.error('Error fetching notifications:', e);
+      return [];
+    }
+  }
+
+  static async addNotification(input: CreateNotificationInput): Promise<NotificationItem | null> {
+    const supabase = this.getClient();
+    if (!supabase || !input.couturier_id) return null;
+
+    try {
+      const payload: Partial<DbNotification> = {
+        couturier_id: input.couturier_id,
+        type: input.type,
+        category: input.category || 'order',
+        priority: input.priority || 'medium',
+        title: input.title,
+        message: input.message,
+        link: input.link || null,
+        read: input.read || false,
+        metadata: {
+          ...(input.metadata || {}),
+          ...(input.orderId ? { orderId: input.orderId } : {}),
+        },
+      };
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error('Error adding notification:', error);
+        return null;
+      }
+
+      return {
+        id: data.id,
+        couturier_id: data.couturier_id,
+        type: data.type as any,
+        category: data.category as any,
+        priority: data.priority as any,
+        title: data.title,
+        message: data.message,
+        date: data.created_at,
+        read: data.read,
+        link: data.link || undefined,
+        metadata: data.metadata || {},
+        orderId: data.metadata?.orderId || undefined,
+      };
+    } catch (e) {
+      console.error('Error adding notification to Supabase:', e);
+      return null;
+    }
+  }
+
+  static async markNotificationAsRead(id: string): Promise<boolean> {
+    const supabase = this.getClient();
+    if (!supabase || !id) return false;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      return !error;
+    } catch (e) {
+      console.error('Error marking notification as read:', e);
+      return false;
+    }
+  }
+
+  static async markAllNotificationsAsRead(couturierId: string): Promise<boolean> {
+    const supabase = this.getClient();
+    if (!supabase || !couturierId) return false;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true, updated_at: new Date().toISOString() })
+        .eq('couturier_id', couturierId)
+        .eq('read', false);
+
+      return !error;
+    } catch (e) {
+      console.error('Error marking all notifications as read:', e);
+      return false;
+    }
+  }
+
+  static async deleteNotification(id: string): Promise<boolean> {
+    const supabase = this.getClient();
+    if (!supabase || !id) return false;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+
+      return !error;
+    } catch (e) {
+      console.error('Error deleting notification:', e);
+      return false;
+    }
+  }
+
+  static async clearAllNotifications(couturierId: string): Promise<boolean> {
+    const supabase = this.getClient();
+    if (!supabase || !couturierId) return false;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('couturier_id', couturierId);
+
+      return !error;
+    } catch (e) {
+      console.error('Error clearing notifications:', e);
+      return false;
+    }
+  }
 }
+
