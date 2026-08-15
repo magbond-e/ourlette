@@ -1,20 +1,32 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 import { MAKETOU_CONFIG } from '@/lib/services/maketouService';
+
+// Client avec service_role pour bypasser les RLS côté webhook serveur
+function createServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     console.log('[MakeTou Webhook] Received payload:', body);
 
-    // Optional secret key / signature check
+    // Vérification obligatoire du secret header
     const authHeader =
       request.headers.get('x-maketou-secret') ||
       request.headers.get('x-api-key') ||
       request.headers.get('authorization');
 
-    if (authHeader && authHeader.replace('Bearer ', '') !== MAKETOU_CONFIG.apiKey) {
-      console.warn('[MakeTou Webhook] Secret header mismatch:', authHeader);
+    const providedSecret = authHeader?.replace('Bearer ', '') ?? '';
+
+    if (!authHeader || providedSecret !== MAKETOU_CONFIG.apiKey) {
+      console.error('[MakeTou Webhook] Secret invalide ou manquant. Accès refusé.');
+      // On répond 200 pour éviter les retries inutiles de MakeTou, mais on n'agit pas
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 200 });
     }
 
     // Extract transaction info from various possible MakeTou payload schemas
@@ -43,7 +55,7 @@ export async function POST(request: Request) {
     const amount = body.amount || body.total || body.price || MAKETOU_CONFIG.defaultPrice;
     const transactionId = body.id || body.transaction_id || body.order_id || `maketou_${Date.now()}`;
 
-    const supabase = createClient();
+    const supabase = createServiceClient();
     if (!supabase) {
       return NextResponse.json({ error: 'Supabase client unavailable' }, { status: 500 });
     }
