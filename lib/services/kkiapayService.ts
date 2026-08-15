@@ -7,7 +7,7 @@ export const KKIAPAY_CONFIG = {
   publicKey: process.env.NEXT_PUBLIC_KKIAPAY_PUBLIC_KEY || 'tpk_1eb673f094f811f18bc145c6149be787',
   secretKey: process.env.KKIAPAY_SECRET_KEY || 'tsk_1eb673f194f811f18bc145c6149be787',
   sandbox: false, // Production or sandbox flag
-  defaultPrice: PRO_PLAN_PRICE, // 2999 FCFA
+  defaultPrice: PRO_PLAN_PRICE, // 1999 FCFA
 };
 
 declare global {

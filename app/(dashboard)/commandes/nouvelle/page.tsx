@@ -224,7 +224,7 @@ export default function NouvelleCommandePage() {
                   className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-accent hover:underline"
                 >
                   <UserPlus className="w-4 h-4" />
-                  <span>+ Nouveau Client</span>
+                  <span>Nouveau Client</span>
                 </button>
               )}
             </div>
@@ -243,7 +243,7 @@ export default function NouvelleCommandePage() {
                 <Input
                   label="Téléphone"
                   type="tel"
-                  placeholder="ex: +221 77 123 45 67"
+                  placeholder="ex: +229 77 123 45 67"
                   value={newClientTelephone}
                   onChange={(e) => setNewClientTelephone(e.target.value)}
                 />
@@ -304,8 +304,8 @@ export default function NouvelleCommandePage() {
                 type="button"
                 onClick={() => setTypeCommande('couture_complete')}
                 className={`p-4 rounded-2xl text-xs sm:text-sm font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all min-h-[70px] ${typeCommande === 'couture_complete'
-                    ? 'bg-accent text-white border-accent shadow-md'
-                    : 'bg-white text-sombre border-sable/80 hover:border-accent'
+                  ? 'bg-accent text-white border-accent shadow-md'
+                  : 'bg-white text-sombre border-sable/80 hover:border-accent'
                   }`}
               >
                 <Scissors className="w-5 h-5 text-current" />
@@ -316,8 +316,8 @@ export default function NouvelleCommandePage() {
                 type="button"
                 onClick={() => setTypeCommande('retouche')}
                 className={`p-4 rounded-2xl text-xs sm:text-sm font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all min-h-[70px] ${typeCommande === 'retouche'
-                    ? 'bg-sombre text-white border-sombre shadow-md'
-                    : 'bg-white text-sombre border-sable/80 hover:border-accent'
+                  ? 'bg-sombre text-white border-sombre shadow-md'
+                  : 'bg-white text-sombre border-sable/80 hover:border-accent'
                   }`}
               >
                 <Sparkles className="w-5 h-5 text-current" />

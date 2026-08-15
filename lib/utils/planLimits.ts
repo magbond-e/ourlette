@@ -6,7 +6,7 @@ export const FREE_PLAN_LIMITS = {
   allowCustomSlug: false,
 };
 
-export const PRO_PLAN_PRICE = 2999; // FCFA / mois
+export const PRO_PLAN_PRICE = 1999; // FCFA / mois
 
 export const PRO_PLAN_LIMITS = {
   maxActiveCommandes: Infinity,

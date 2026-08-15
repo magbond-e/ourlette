@@ -258,7 +258,7 @@ export default function VitrinePubliquePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
               {realisations.map((real) => {
                 const modelWhatsappUrl = generateWhatsAppContactLink(
-                  couturier.whatsapp_contact || couturier.telephone || '+221771234567',
+                  couturier.whatsapp_contact || couturier.telephone || '+2290140872836',
                   couturier.nom_atelier,
                   real.description || 'Création sur-mesure'
                 );

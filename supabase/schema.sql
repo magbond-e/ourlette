@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS public.abonnements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   couturier_id UUID NOT NULL REFERENCES public.couturiers(id) ON DELETE CASCADE,
   plan TEXT NOT NULL DEFAULT 'pro',
-  montant NUMERIC NOT NULL DEFAULT 2999,
+  montant NUMERIC NOT NULL DEFAULT 1999,
   devise TEXT NOT NULL DEFAULT 'FCFA',
   code_promo_utilise UUID REFERENCES public.codes_promo(id),
   transaction_id TEXT,

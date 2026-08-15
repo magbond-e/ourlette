@@ -75,9 +75,9 @@ export default function AdminFinancesPage() {
         <Card className="p-5 bg-white border-sable/60 rounded-3xl shadow-xs space-y-2">
           <span className="text-xs font-bold text-sombre/70 uppercase tracking-wider">Panier Moyen Pro</span>
           <div className="text-3xl font-display font-extrabold text-sombre font-mono">
-            {formatFCFA(metrics?.averageBasket || 2999)}
+            {formatFCFA(metrics?.averageBasket || 1999)}
           </div>
-          <p className="text-[11px] text-sombre/60 font-medium">Tarif d'abonnement mensuel (2 999 FCFA)</p>
+          <p className="text-[11px] text-sombre/60 font-medium">Tarif d'abonnement mensuel (1 999 FCFA)</p>
         </Card>
       </div>
 

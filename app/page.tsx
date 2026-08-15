@@ -41,7 +41,7 @@ const landingFaqItems = [
     id: "pro-tarifs",
     question: "Combien coûte le Plan Pro et que comprend-il ?",
     answer:
-      "Le Plan Pro est à seulement 2 999 FCFA / mois. Il débloque un nombre illimité de commandes actives, des photos illimitées sur ta vitrine publique, la personnalisation du lien de ton atelier (ex: ourlette.app/ma-maison-couture) et un suivi d'abonnement complet.",
+      "Le Plan Pro est à seulement 1 999 FCFA / mois. Il débloque un nombre illimité de commandes actives, des photos illimitées sur ta vitrine publique, la personnalisation du lien de ton atelier (ex: ourlette.app/ma-maison-couture) et un suivi d'abonnement complet.",
   },
   {
     id: "3g",
