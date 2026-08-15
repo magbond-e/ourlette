@@ -699,6 +699,9 @@ export class DataService {
       }
     }
 
+    return { couturier: null, realisations: [] };
+  }
+
   // ── Notifications ────────────────────────────────────────────────
   static async getNotifications(userId: string | undefined): Promise<NotificationItem[]> {
     if (!userId) return [];

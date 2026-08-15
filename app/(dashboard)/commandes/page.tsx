@@ -429,6 +429,8 @@ export default function CommandesPage() {
             onCancel={() => setPendingChange(null)}
           />
         )}
+      </main>
     </div>
   );
 }
+
