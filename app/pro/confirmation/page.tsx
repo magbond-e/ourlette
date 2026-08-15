@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+export const dynamic = 'force-dynamic';
+
+import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Crown, CheckCircle, Sparkles, ArrowRight, Scissors, ShieldCheck, Store, ClipboardList } from 'lucide-react';
@@ -11,7 +13,7 @@ import { useAuth } from '@/lib/context/AuthContext';
 import { useNotifications } from '@/lib/context/NotificationContext';
 import { MakeTouService } from '@/lib/services/maketouService';
 
-export default function ProConfirmationPage() {
+function ProConfirmationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, couturier, refreshProfile } = useAuth();
@@ -119,5 +121,19 @@ export default function ProConfirmationPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function ProConfirmationPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 font-sans">
+          <ThreadSpoolLoader label="Validation de votre abonnement Pro MakeTou…" size="lg" />
+        </div>
+      }
+    >
+      <ProConfirmationContent />
+    </Suspense>
   );
 }
