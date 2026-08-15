@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { MAKETOU_CONFIG } from '@/lib/services/maketouService';
 
 /**
@@ -12,6 +12,7 @@ import { MAKETOU_CONFIG } from '@/lib/services/maketouService';
 export async function POST(request: Request) {
   try {
     const supabase = createClient();
+    const adminDb = createServiceClient() || supabase;
 
     // 1. Vérifier que l'utilisateur est authentifié
     const {
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     const { orderId, ref } = body as { orderId?: string; ref?: string };
 
     // 3. Retrouver le couturier lié à cet utilisateur
-    const { data: couturier, error: couturierError } = await supabase
+    const { data: couturier, error: couturierError } = await adminDb
       .from('couturiers')
       .select('id, plan, email')
       .eq('user_id', user.id)
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
 
     // 5. Vérifier si le webhook a déjà traité ce paiement
     if (orderId || ref) {
-      const { data: existingAbonnement } = await supabase
+      const { data: existingAbonnement } = await adminDb
         .from('abonnements')
         .select('id, statut')
         .or(`transaction_id.eq.${orderId},transaction_id.eq.${ref}`)
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
 
       if (existingAbonnement?.statut === 'actif') {
         // Webhook a déjà tout fait, on s'assure juste que le plan est Pro
-        await supabase
+        await adminDb
           .from('couturiers')
           .update({ plan: 'pro', plan_change_manuel: false, updated_at: new Date().toISOString() })
           .eq('id', couturier.id);
@@ -125,7 +126,7 @@ export async function POST(request: Request) {
     expiry.setDate(expiry.getDate() + 30);
     const transactionId = orderId || ref || `maketou_${Date.now()}`;
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await adminDb
       .from('couturiers')
       .update({ plan: 'pro', plan_change_manuel: false, updated_at: now.toISOString() })
       .eq('id', couturier.id);
@@ -136,7 +137,7 @@ export async function POST(request: Request) {
     }
 
     // 9. Enregistrer l'abonnement
-    await supabase.from('abonnements').insert([
+    await adminDb.from('abonnements').insert([
       {
         couturier_id: couturier.id,
         plan: 'pro',
@@ -150,7 +151,7 @@ export async function POST(request: Request) {
     ]);
 
     // 10. Notification
-    await supabase.from('notifications').insert([
+    await adminDb.from('notifications').insert([
       {
         couturier_id: couturier.id,
         type: 'feature_update',
