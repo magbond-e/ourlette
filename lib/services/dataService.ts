@@ -79,6 +79,7 @@ export class DataService {
     if (!isBrowser || !userId) return;
     try {
       localStorage.setItem(`ourlette_${userId}_${key}`, JSON.stringify(val));
+      window.dispatchEvent(new CustomEvent('ourlette_data_change', { detail: { type: key, userId } }));
     } catch (e) {
       console.error('Failed to save to localStorage:', e);
     }

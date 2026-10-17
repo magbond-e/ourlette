@@ -111,12 +111,17 @@ export function getPowerSyncDb(): PowerSyncDatabase | null {
   }
 
   if (!_db) {
-    _db = new PowerSyncDatabase({
-      schema: AppSchema,
-      database: {
-        dbFilename: 'ourlette.db',
-      },
-    });
+    try {
+      _db = new PowerSyncDatabase({
+        schema: AppSchema,
+        database: {
+          dbFilename: 'ourlette.db',
+        },
+      });
+    } catch (err) {
+      console.warn('[PowerSync] Base de données SQLite non disponible sur cet appareil (mode dégradé local actif) :', err);
+      return null;
+    }
   }
   return _db;
 }

@@ -16,6 +16,9 @@ export default function PwaRegister() {
             scope: '/',
           });
 
+          // Forcer la vérification immédiate de mise à jour (purge ancien cache v2)
+          registration.update().catch(() => {});
+
           // Vérifier les mises à jour du service worker
           registration.addEventListener('updatefound', () => {
             const installingWorker = registration.installing;

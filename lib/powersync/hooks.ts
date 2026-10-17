@@ -4,25 +4,36 @@
  * PowerSync Hooks — Ourlette
  *
  * Hooks réactifs pour lire les données locales en temps réel.
- * Utilisent usePowerSyncQuery (@powersync/react) qui émet une nouvelle valeur
- * à chaque fois que la table locale change (insert/update/delete ou sync entrant).
- *
- * Les écritures passent par DataService (qui écrit en local SQLite + queue Supabase)
- * ou directement via db.execute() pour les mutations atomiques.
+ * Synchronisation à 0ms via localStorage/DataService avec enrichissement SQLite PowerSync.
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useStatus } from '@powersync/react';
 import { Commande, Client, Mesure } from '../types/database';
 
+function getCachedUserId(explicitUserId?: string): string | undefined {
+  if (explicitUserId) return explicitUserId;
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const raw = localStorage.getItem('ourlette_cached_couturier');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.id) return parsed.id;
+    }
+  } catch {}
+  return undefined;
+}
+
 // ── useCommandes ─────────────────────────────────────────────────────────────
 
 /**
  * Retourne la liste réactive des commandes du couturier connecté.
- * Enrichit chaque commande avec client_nom / client_telephone depuis la table locale `clients`.
+ * Synchronisation instantanée 0ms depuis le stockage local avec mise à jour SQLite.
  */
 export function useCommandes(userId: string | undefined): Commande[] {
+  const effectiveUserId = getCachedUserId(userId);
+
   const { data: results } = useQuery<any>(
-    userId
+    effectiveUserId
       ? `SELECT
           c.*,
           cl.nom      AS client_nom,
@@ -31,21 +42,48 @@ export function useCommandes(userId: string | undefined): Commande[] {
          LEFT JOIN clients cl ON cl.id = c.client_id
          WHERE c.couturier_id = ?
          ORDER BY c.date_commande DESC`
-      : 'SELECT * FROM commandes WHERE 0', // Query vide si pas d'userId
-    userId ? [userId] : []
+      : 'SELECT * FROM commandes WHERE 0',
+    effectiveUserId ? [effectiveUserId] : []
   );
 
-  const [localFallback, setLocalFallback] = useState<Commande[]>([]);
+  const [localFallback, setLocalFallback] = useState<Commande[]>(() => {
+    if (!effectiveUserId || typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(`ourlette_${effectiveUserId}_commandes`);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
-    if (!userId || typeof window === 'undefined') return;
-    try {
-      const raw = localStorage.getItem(`ourlette_${userId}_commandes`);
-      if (raw) {
-        setLocalFallback(JSON.parse(raw));
+    if (!effectiveUserId || typeof window === 'undefined') return;
+
+    const reloadLocal = () => {
+      try {
+        const raw = localStorage.getItem(`ourlette_${effectiveUserId}_commandes`);
+        if (raw) {
+          setLocalFallback(JSON.parse(raw));
+        }
+      } catch {}
+    };
+
+    reloadLocal();
+
+    const handleDataChange = (e: any) => {
+      if (!e.detail || e.detail.type === 'commandes' || e.detail.type === 'all') {
+        reloadLocal();
       }
-    } catch {}
-  }, [userId, results]);
+    };
+
+    window.addEventListener('ourlette_data_change', handleDataChange);
+    window.addEventListener('storage', handleDataChange);
+
+    return () => {
+      window.removeEventListener('ourlette_data_change', handleDataChange);
+      window.removeEventListener('storage', handleDataChange);
+    };
+  }, [effectiveUserId, results]);
 
   if (results && results.length > 0) {
     return results.map((row: any) => ({
@@ -58,7 +96,6 @@ export function useCommandes(userId: string | undefined): Commande[] {
     })) as Commande[];
   }
 
-  // Fallback si SQLite est en cours d'initialisation
   return localFallback;
 }
 
@@ -66,26 +103,56 @@ export function useCommandes(userId: string | undefined): Commande[] {
 
 /**
  * Retourne la liste réactive des clients du couturier connecté.
+ * Synchronisation instantanée 0ms depuis le stockage local avec mise à jour SQLite.
  */
 export function useClients(userId: string | undefined): Client[] {
+  const effectiveUserId = getCachedUserId(userId);
+
   const { data: results } = useQuery<any>(
-    userId
+    effectiveUserId
       ? `SELECT * FROM clients WHERE couturier_id = ? ORDER BY date_creation DESC`
       : 'SELECT * FROM clients WHERE 0',
-    userId ? [userId] : []
+    effectiveUserId ? [effectiveUserId] : []
   );
 
-  const [localFallback, setLocalFallback] = useState<Client[]>([]);
+  const [localFallback, setLocalFallback] = useState<Client[]>(() => {
+    if (!effectiveUserId || typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(`ourlette_${effectiveUserId}_clients`);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
-    if (!userId || typeof window === 'undefined') return;
-    try {
-      const raw = localStorage.getItem(`ourlette_${userId}_clients`);
-      if (raw) {
-        setLocalFallback(JSON.parse(raw));
+    if (!effectiveUserId || typeof window === 'undefined') return;
+
+    const reloadLocal = () => {
+      try {
+        const raw = localStorage.getItem(`ourlette_${effectiveUserId}_clients`);
+        if (raw) {
+          setLocalFallback(JSON.parse(raw));
+        }
+      } catch {}
+    };
+
+    reloadLocal();
+
+    const handleDataChange = (e: any) => {
+      if (!e.detail || e.detail.type === 'clients' || e.detail.type === 'all') {
+        reloadLocal();
       }
-    } catch {}
-  }, [userId, results]);
+    };
+
+    window.addEventListener('ourlette_data_change', handleDataChange);
+    window.addEventListener('storage', handleDataChange);
+
+    return () => {
+      window.removeEventListener('ourlette_data_change', handleDataChange);
+      window.removeEventListener('storage', handleDataChange);
+    };
+  }, [effectiveUserId, results]);
 
   if (results && results.length > 0) {
     return results as Client[];
@@ -107,35 +174,80 @@ export function useMesureByClientId(clientId: string | undefined): Mesure | null
     clientId ? [clientId] : []
   );
 
-  if (!results || results.length === 0) return null;
+  const [localFallback, setLocalFallback] = useState<Mesure | null>(() => {
+    if (!clientId || typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(`ourlette_mesure_${clientId}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  const row = results[0];
-  return {
-    ...row,
-    champs_personnalises: row.champs_personnalises
-      ? tryParseJson(row.champs_personnalises, {})
-      : {},
-  } as Mesure;
+  useEffect(() => {
+    if (!clientId || typeof window === 'undefined') return;
+
+    const reloadLocal = () => {
+      try {
+        const raw = localStorage.getItem(`ourlette_mesure_${clientId}`);
+        if (raw) setLocalFallback(JSON.parse(raw));
+      } catch {}
+    };
+
+    reloadLocal();
+
+    const handleDataChange = (e: any) => {
+      if (!e.detail || e.detail.type === 'mesures' || e.detail.type === 'all') {
+        reloadLocal();
+      }
+    };
+
+    window.addEventListener('ourlette_data_change', handleDataChange);
+    window.addEventListener('storage', handleDataChange);
+
+    return () => {
+      window.removeEventListener('ourlette_data_change', handleDataChange);
+      window.removeEventListener('storage', handleDataChange);
+    };
+  }, [clientId, results]);
+
+  if (results && results.length > 0) {
+    const row = results[0];
+    return {
+      ...row,
+      champs_personnalises: row.champs_personnalises
+        ? tryParseJson(row.champs_personnalises, {})
+        : {},
+    } as Mesure;
+  }
+
+  return localFallback;
 }
 
 // ── usePowerSyncStatus ────────────────────────────────────────────────────────
 
 /**
- * Expose l'état de la synchronisation PowerSync :
- * - connected : connexion active au service de sync
- * - hasSyncedOnce : au moins un cycle de sync complété
- * - uploading : opérations locales en attente d'être envoyées
+ * Expose l'état de synchronisation sans jamais lever d'exception.
  */
 export function usePowerSyncStatus() {
-  const status = useStatus();
-
-  return {
-    connected: status?.connected ?? false,
-    hasSyncedOnce: status?.hasSynced ?? false,
-    uploading: status?.uploading ?? false,
-    downloading: status?.downloading ?? false,
-    dataFlowStatus: status?.dataFlowStatus,
-  };
+  try {
+    const status = useStatus();
+    return {
+      connected: status?.connected ?? false,
+      hasSyncedOnce: status?.hasSynced ?? false,
+      uploading: status?.uploading ?? false,
+      downloading: status?.downloading ?? false,
+      dataFlowStatus: status?.dataFlowStatus,
+    };
+  } catch {
+    return {
+      connected: false,
+      hasSyncedOnce: false,
+      uploading: false,
+      downloading: false,
+      dataFlowStatus: undefined,
+    };
+  }
 }
 
 // ── Utilitaire ────────────────────────────────────────────────────────────────

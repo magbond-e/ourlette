@@ -52,14 +52,31 @@ export function PowerSyncProvider({ children }: PowerSyncProviderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db]);
 
-  if (!db) {
-    return <>{children}</>;
-  }
+  // Si PowerSync Database n'est pas instanciable (ex: mobile sans OPFS),
+  // on injecte un fallback sécurisé afin que useQuery / useStatus ne lèvent jamais d'erreur bloquante.
+  const activeDb = db || dummyDb;
 
-  // On rend les enfants même si pas encore ready — ils liront depuis le cache local SQLite
   return (
-    <PowerSyncContext.Provider value={db}>
+    <PowerSyncContext.Provider value={activeDb}>
       {children}
     </PowerSyncContext.Provider>
   );
 }
+
+const dummyDb: any = {
+  getAll: async () => [],
+  execute: async () => {},
+  get: async () => null,
+  watch: () => ({
+    [Symbol.asyncIterator]: async function* () {
+      yield [];
+    },
+    subscribe: (callback: any) => {
+      if (typeof callback === 'function') callback([]);
+      else if (callback?.next) callback.next([]);
+      return { unsubscribe: () => {} };
+    },
+  }),
+  currentStatus: { connected: false, hasSynced: false, uploading: false, downloading: false },
+  registerListener: () => () => {},
+};

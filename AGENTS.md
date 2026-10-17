@@ -73,14 +73,16 @@ Ce document régit les règles d'architecture, de conception, de sécurité et d
 - **Clé Service Role** : `SUPABASE_SERVICE_ROLE_KEY` est strictement réservée au backend (webhooks, opérations administratives isolées). Ne jamais l'exposer au client.
 - **Protection des routes** : `middleware.ts` protège les espaces privés `(dashboard)`, `/pro`, et `/admin`. Redirection automatique vers `/login` si non authentifié.
 - **Espace Admin** (`/admin`) : Réservé aux administrateurs validés dans la table `admins`. Gestion des comptes, bascule manuelle des plans Free ↔ Pro (`plan_change_manuel`), codes promo, KPIs financiers et journal d'audit (`admin_logs`).
-- **Synchronisation Offline** : PowerSync gère la persistance locale SQLite et la synchronisation avec Supabase pour les tables `clients`, `mesures` et `commandes`.
+- **Synchronisation Offline & DataService** : PowerSync gère la persistance locale SQLite et la synchronisation avec Supabase pour les tables `clients`, `mesures` et `commandes`. Toute interaction avec les données métier doit impérativement passer par `DataService` (`lib/services/dataService.ts`) qui gère de façon transparente la persistance locale, la file d'attente hors-ligne (`QueueItem`) et les mutations distantes Supabase.
+- **Internationalisation (i18n)** : L'application est bilingue (Français / Anglais). Toutes les nouvelles chaînes d'interface doivent impérativement être déclarées dans `lib/i18n/locales/fr.ts` et `lib/i18n/locales/en.ts` et consommées via le hook `useTranslation()`. Aucun texte en dur non traduit dans les pages de bord.
+- **Centre de Notifications & Alertes** : Gestion centralisée via `NotificationService` et `NotificationContext`. Les rappels de livraison, alertes de retard et relances sont programmés via `/api/cron/check-alerts`.
 
 ---
 
-## 5. Directives de Sécurité & Audit (audit-securite.md)
+## 5. Directives de Sécurité & Audit (audit-securite.md & rapport-audit.md)
 
-Le document de référence pour les exigences de sécurité est `.directives-IA/audit-securite.md`.
-Tout développement et audit doivent respecter impérativement ces 10 invariants :
+Le document de référence pour les exigences de sécurité est `.directives-IA/audit-securite.md` et les résultats d'audit validés figurent dans `rapport-audit.md` (15 vulnérabilités traitées, 100% de conformité).
+Tout développement ultérieur doit continuer de respecter impérativement ces 10 invariants :
 
 1. **Aucune fuite de secrets** : Les clés privées (`SUPABASE_SERVICE_ROLE_KEY`, `SASPAY_API_KEY`, `SASPAY_WEBHOOK_SECRET`) ne doivent **jamais** être préfixées par `NEXT_PUBLIC_`, injectées dans le bundle client, ni commitées dans Git. Ne jamais afficher de vraies valeurs de secret dans les rapports ou logs.
 2. **Imperméabilité du Plan Pro** : Un couturier ne doit jamais pouvoir modifier sa propre colonne `plan` ou `statut_compte` via l'API client Supabase. Le plan Pro est activé exclusivement par le serveur après vérification positive (`GET /payments/{id}/verify/` -> `SUCCESS`).
@@ -92,4 +94,13 @@ Tout développement et audit doivent respecter impérativement ces 10 invariants
 8. **Sécurité des uploads & médias** : Validation stricte des types MIME et tailles côté serveur. Refus catégorique des fichiers SVG (risque XSS). URLs externes validées sans risque SSRF.
 9. **Hygiène de session et appareils partagés** : Effacement complet des données locales de session et de la base PowerSync locale lors de la déconnexion (`disconnectAndClear`).
 10. **En-têtes de sécurité & XSS** : Configuration stricte des en-têtes HTTP (CSP, HSTS, nosniff, frame-ancestors, Permissions-Policy), pas de `dangerouslySetInnerHTML` non assaini, et échappement rigoureux dans le JSON-LD.
+
+---
+
+## 6. Directives Ergonomie & Expérience Couturier (Directive 6 & Bonnes Pratiques)
+
+- **Directive 6 — Prise de mesures intégrée à la commande** : Lors de la création d'une nouvelle commande (`/commandes/nouvelle`), le couturier doit pouvoir consulter et saisir ou modifier les mesures du client sélectionné directement sur la page sans devoir naviguer vers une autre route.
+- **Résilience réseau & Fallback client** : Toujours prévoir un affichage par défaut immédiat (optimistic UI ou fallback local) en cas de lenteur réseau ou chargement d'authentification asynchrone. Ne jamais bloquer l'écran avec un loader infini.
+- **Onboarding Obligatoire** : Les nouveaux ateliers sont guidés par `MandatoryOnboardingModal` afin de garantir que l'identité de l'atelier, le contact WhatsApp et la devise soient convenablement renseignés avant toute prise de commande.
+
 
