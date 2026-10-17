@@ -40,7 +40,7 @@ import { useAuth } from '@/lib/context/AuthContext';
 import { useNotifications } from '@/lib/context/NotificationContext';
 import { useLanguage, Locale } from '@/lib/i18n';
 import { isProPlan, FREE_PLAN_LIMITS, PRO_PLAN_PRICE, SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
-import { formatFCFA } from '@/lib/utils/formatters';
+import { formatFCFA, OURLETTE_SUPPORT_WHATSAPP_URL, OURLETTE_SUPPORT_PHONE } from '@/lib/utils/formatters';
 
 type SettingsTab = 'profil' | 'atelier' | 'abonnement' | 'notifications' | 'preferences' | 'avis';
 
@@ -49,6 +49,7 @@ export default function ParametresPage() {
   const { user, couturier: authCouturier, refreshProfile, signOut } = useAuth();
   const { triggerTestNotification, refreshNotifications } = useNotifications();
   const { dict, locale, setLocale } = useLanguage();
+  const isEn = locale === 'en';
   const [couturier, setCouturier] = useState<Couturier | null>(null);
 
   // Active Tab
@@ -425,57 +426,72 @@ export default function ParametresPage() {
   return (
     <div className="min-h-screen bg-[#F7F7F5] pb-32 font-sans selection:bg-gold/30">
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 space-y-4">
-        {/* Mobile Horizontal Tabs (< lg) */}
-        <div className="sticky top-[64px] z-20 bg-[#F7F7F5]/95 backdrop-blur-md py-1 lg:hidden">
-          <div className="flex items-center gap-1.5 p-1 bg-white border border-sable/70 rounded-xl shadow-xs overflow-x-auto no-scrollbar">
+        {/* Mobile Segmented 5-Tab Bar (< lg) */}
+        <div className="sticky top-[64px] z-20 bg-[#F7F7F5]/95 backdrop-blur-md pt-1 pb-2 lg:hidden">
+          <div className="grid grid-cols-5 p-1 bg-white border border-sable/70 rounded-2xl shadow-xs gap-1">
             <button
+              type="button"
               onClick={() => setActiveTab('profil')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'profil' ? 'bg-sombre text-white shadow-xs' : 'text-sombre/70 hover:bg-black/5'
+              className={`flex flex-col items-center justify-center py-2 px-0.5 rounded-xl text-[10px] font-bold transition-all cursor-pointer min-h-[44px] ${
+                activeTab === 'profil'
+                  ? 'bg-sombre text-white shadow-xs'
+                  : 'text-sombre/70 hover:bg-black/5 hover:text-sombre'
               }`}
             >
-              <User className="w-3.5 h-3.5" />
-              <span>{dict.parametres.tabProfile}</span>
+              <User className="w-4 h-4 mb-0.5 shrink-0" />
+              <span className="truncate max-w-full">{isEn ? 'Profile' : 'Profil'}</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('atelier')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'atelier' ? 'bg-sombre text-white shadow-xs' : 'text-sombre/70 hover:bg-black/5'
+              className={`flex flex-col items-center justify-center py-2 px-0.5 rounded-xl text-[10px] font-bold transition-all cursor-pointer min-h-[44px] ${
+                activeTab === 'atelier'
+                  ? 'bg-sombre text-white shadow-xs'
+                  : 'text-sombre/70 hover:bg-black/5 hover:text-sombre'
               }`}
             >
-              <Store className="w-3.5 h-3.5" />
-              <span>{dict.parametres.tabWorkshop}</span>
+              <Store className="w-4 h-4 mb-0.5 shrink-0" />
+              <span className="truncate max-w-full">{isEn ? 'Workshop' : 'Atelier'}</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('notifications')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'notifications' ? 'bg-sombre text-white shadow-xs' : 'text-sombre/70 hover:bg-black/5'
+              className={`flex flex-col items-center justify-center py-2 px-0.5 rounded-xl text-[10px] font-bold transition-all cursor-pointer min-h-[44px] ${
+                activeTab === 'notifications'
+                  ? 'bg-sombre text-white shadow-xs'
+                  : 'text-sombre/70 hover:bg-black/5 hover:text-sombre'
               }`}
             >
-              <Bell className="w-3.5 h-3.5" />
-              <span>{dict.parametres.tabNotifications}</span>
+              <Bell className="w-4 h-4 mb-0.5 shrink-0" />
+              <span className="truncate max-w-full">{isEn ? 'Alerts' : 'Alertes'}</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('preferences')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'preferences' ? 'bg-sombre text-white shadow-xs' : 'text-sombre/70 hover:bg-black/5'
+              className={`flex flex-col items-center justify-center py-2 px-0.5 rounded-xl text-[10px] font-bold transition-all cursor-pointer min-h-[44px] ${
+                activeTab === 'preferences'
+                  ? 'bg-sombre text-white shadow-xs'
+                  : 'text-sombre/70 hover:bg-black/5 hover:text-sombre'
               }`}
             >
-              <Globe className="w-3.5 h-3.5" />
-              <span>{dict.parametres.tabPreferences}</span>
+              <Globe className="w-4 h-4 mb-0.5 shrink-0" />
+              <span className="truncate max-w-full">{isEn ? 'Options' : 'Général'}</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setActiveTab('avis')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'avis' ? 'bg-sombre text-white shadow-xs' : 'text-sombre/70 hover:bg-black/5'
+              className={`flex flex-col items-center justify-center py-2 px-0.5 rounded-xl text-[10px] font-bold transition-all cursor-pointer min-h-[44px] ${
+                activeTab === 'avis'
+                  ? 'bg-sombre text-white shadow-xs'
+                  : 'text-sombre/70 hover:bg-black/5 hover:text-sombre'
               }`}
             >
-              <Star className="w-3.5 h-3.5" />
-              <span>{dict.parametres.tabFeedback}</span>
+              <Star className="w-4 h-4 mb-0.5 shrink-0" />
+              <span className="truncate max-w-full">{isEn ? 'Support' : 'Support'}</span>
             </button>
           </div>
         </div>
@@ -1259,13 +1275,16 @@ export default function ParametresPage() {
             )}
 
             {/* Support WhatsApp Link */}
-            <div className="pt-3 border-t border-black/5 flex items-center justify-between text-xs text-sombre/70 font-semibold">
-              <span>{locale === 'fr' ? 'Besoin d’aide technique ?' : 'Need technical assistance?'}</span>
+            <div className="pt-3 border-t border-black/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-sombre/70 font-semibold">
+              <div className="space-y-0.5">
+                <span>{locale === 'fr' ? 'Besoin d’aide technique directe ?' : 'Need direct technical assistance?'}</span>
+                <span className="text-[11px] text-sombre/50 block font-mono font-bold">{OURLETTE_SUPPORT_PHONE}</span>
+              </div>
               <a
-                href="https://wa.me/22900000000?text=Bonjour%20Ourlette"
+                href={OURLETTE_SUPPORT_WHATSAPP_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-bold text-accent hover:underline flex items-center gap-1"
+                className="font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/70 px-4 py-2.5 rounded-2xl flex items-center justify-center gap-1.5 transition-colors shrink-0 shadow-2xs"
               >
                 <span>{locale === 'fr' ? 'Support WhatsApp 7j/7' : '7-Day WhatsApp Support'}</span>
                 <ChevronRight className="w-3.5 h-3.5" />

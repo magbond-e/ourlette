@@ -21,6 +21,7 @@ import { useNotifications } from '@/lib/context/NotificationContext';
 import { useLanguage } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
+import { OURLETTE_SUPPORT_WHATSAPP_URL } from '@/lib/utils/formatters';
 
 type ActivationState = 'loading' | 'success' | 'already_pro' | 'error' | 'unauthorized';
 
@@ -181,6 +182,16 @@ function ProConfirmationContent() {
                 {dict.common.retry}
               </Button>
             </Link>
+          </div>
+          <div className="pt-1">
+            <a
+              href={OURLETTE_SUPPORT_WHATSAPP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-full text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 transition-colors"
+            >
+              <span>{isEn ? 'Contact WhatsApp Support (7/7)' : 'Contacter le Support WhatsApp (7j/7)'}</span>
+            </a>
           </div>
         </Card>
       </div>

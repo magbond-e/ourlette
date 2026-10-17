@@ -11,6 +11,7 @@ import { DataService } from '@/lib/services/dataService';
 import { useClients, useCommandes } from '@/lib/powersync/hooks';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useLanguage } from '@/lib/i18n';
+import { generateWhatsAppContactLink } from '@/lib/utils/formatters';
 
 export default function ClientsPage() {
   const { user } = useAuth();
@@ -169,47 +170,80 @@ export default function ClientsPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
               {paginatedClients.map((client) => {
                 const totalCmds = commandes.filter((c) => c.client_id === client.id).length;
 
                 return (
                   <Card
                     key={client.id}
-                    className="p-5 space-y-3 hover:border-accent transition-all bg-white border-sable/70 shadow-xs rounded-2xl min-h-[140px] flex flex-col justify-between"
+                    className="p-4 sm:p-5 space-y-3.5 hover:border-accent/60 transition-all bg-white border-sable/70 shadow-xs rounded-3xl flex flex-col justify-between group"
                   >
-                    <div className="flex items-start justify-between min-w-0 gap-3">
-                      <div className="min-w-0 flex-1">
-                        <Link href={`/clients/${client.id}`} className="font-display font-bold text-base sm:text-lg text-sombre truncate hover:text-accent block">
-                          {client.nom}
-                        </Link>
-                        {client.telephone ? (
-                          <a
-                            href={`tel:${client.telephone}`}
-                            className="text-xs sm:text-sm text-accent hover:underline inline-flex items-center gap-1 font-bold mt-0.5 whitespace-nowrap shrink-0"
-                          >
-                            <Phone className="w-3.5 h-3.5" />
-                            <span>{client.telephone}</span>
-                          </a>
-                        ) : (
-                          <span className="text-xs text-sombre/50 italic block">{isEn ? 'No phone recorded' : 'Sans téléphone'}</span>
-                        )}
+                    {/* Top: Avatar + Client Info + Order Badge */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Avatar Bubble */}
+                      <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-sombre text-gold font-display font-black text-sm sm:text-base flex items-center justify-center shrink-0 border border-gold/30 shadow-xs group-hover:scale-105 transition-transform">
+                        {client.nom ? client.nom.charAt(0).toUpperCase() : 'C'}
                       </div>
 
-                      <span className="text-xs font-extrabold text-sombre/70 bg-[#FAFAF8] px-2.5 py-0.5 rounded-full border border-sable/70 shrink-0">
-                        {totalCmds} {isEn ? (totalCmds > 1 ? 'orders' : 'order') : (totalCmds > 1 ? 'commandes' : 'commande')}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <Link
+                            href={`/clients/${client.id}`}
+                            className="font-display font-bold text-sm sm:text-base text-sombre truncate hover:text-accent transition-colors block"
+                          >
+                            {client.nom}
+                          </Link>
+                          <span className="text-[10px] sm:text-[11px] font-black text-sombre/80 bg-[#F7F7F5] px-2 sm:px-2.5 py-0.5 rounded-full border border-sable/60 shrink-0">
+                            {totalCmds} {isEn ? (totalCmds > 1 ? 'orders' : 'order') : (totalCmds > 1 ? 'commandes' : 'commande')}
+                          </span>
+                        </div>
+
+                        {/* Phone & Direct Contact */}
+                        <div className="flex items-center flex-wrap gap-2 mt-1 text-xs">
+                          {client.telephone ? (
+                            <>
+                              <a
+                                href={`tel:${client.telephone}`}
+                                className="text-sombre/80 hover:text-accent font-bold inline-flex items-center gap-1 transition-colors text-[11px] sm:text-xs"
+                              >
+                                <Phone className="w-3.5 h-3.5 text-accent shrink-0" />
+                                <span>{client.telephone}</span>
+                              </a>
+                              <a
+                                href={generateWhatsAppContactLink(client.telephone, '')}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/70 px-2 py-0.5 rounded-full inline-flex items-center gap-1 transition-colors"
+                                title="Discuter sur WhatsApp"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span>WhatsApp</span>
+                              </a>
+                            </>
+                          ) : (
+                            <span className="text-sombre/40 italic text-[11px]">{isEn ? 'No phone recorded' : 'Aucun contact'}</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2.5 border-t border-sable/40">
-                      <Link href={`/clients/${client.id}/mesures`} className="inline-flex items-center gap-1 text-xs font-bold text-accent hover:underline bg-accent/10 px-3 py-1 rounded-full border border-accent/20">
-                        <Ruler className="w-3.5 h-3.5" />
+                    {/* Bottom Action Strip */}
+                    <div className="flex items-center justify-between pt-2.5 border-t border-sable/40 gap-2">
+                      <Link
+                        href={`/clients/${client.id}/mesures`}
+                        className="inline-flex items-center gap-1.5 text-xs font-extrabold text-accent bg-accent/10 hover:bg-accent hover:text-white px-3 sm:px-3.5 py-2 rounded-xl border border-accent/20 transition-all cursor-pointer min-h-[38px]"
+                      >
+                        <Ruler className="w-3.5 h-3.5 shrink-0" />
                         <span>{dict.clients.cardMeasurements}</span>
                       </Link>
 
-                      <Link href={`/clients/${client.id}`} className="inline-flex items-center gap-1 text-xs font-bold text-sombre hover:text-accent hover:underline">
-                        <span>{isEn ? 'Full profile' : 'Profil complet'}</span>
-                        <ChevronRight className="w-4 h-4" />
+                      <Link
+                        href={`/clients/${client.id}`}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-sombre/80 hover:text-sombre bg-[#F7F7F5] hover:bg-white border border-sable/60 px-3 sm:px-3.5 py-2 rounded-xl transition-all cursor-pointer min-h-[38px]"
+                      >
+                        <span>{isEn ? 'Client file' : 'Fiche client'}</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-sombre/50" />
                       </Link>
                     </div>
                   </Card>

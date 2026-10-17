@@ -183,12 +183,16 @@ export default function FormulaireMesuresPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4 font-sans">
           {/* SECTION 1: Standard Measurements */}
-          <Card className="p-5 space-y-4 rounded-3xl bg-white border-sable/60 shadow-xs">
-            <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-accent">
-              {dict.mesures.standardMeasurementsTitle}
-            </h3>
+          <Card className="p-4 sm:p-6 space-y-4 rounded-3xl bg-white border-sable/60 shadow-xs">
+            <div className="flex items-center justify-between border-b border-sable/40 pb-2.5">
+              <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-accent flex items-center gap-2">
+                <Ruler className="w-4 h-4 text-accent" />
+                <span>{dict.mesures.standardMeasurementsTitle}</span>
+              </h3>
+              <span className="text-[11px] text-sombre/50 font-bold">7 {isEn ? 'key measurements' : 'mesures clés'}</span>
+            </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               <Input
                 label={`${dict.mesures.chest} (cm)`}
                 type="number"
@@ -214,6 +218,14 @@ export default function FormulaireMesuresPage() {
               />
 
               <Input
+                label={`${dict.mesures.shoulders} (cm)`}
+                type="number"
+                placeholder="ex: 40"
+                value={largeurEpaules}
+                onChange={(e) => setLargeurEpaules(e.target.value === '' ? '' : Number(e.target.value))}
+              />
+
+              <Input
                 label={`${dict.mesures.sleeveLength} (cm)`}
                 type="number"
                 placeholder="ex: 60"
@@ -235,14 +247,6 @@ export default function FormulaireMesuresPage() {
                 placeholder="ex: 38"
                 value={tourCou}
                 onChange={(e) => setTourCou(e.target.value === '' ? '' : Number(e.target.value))}
-              />
-
-              <Input
-                label={`${dict.mesures.shoulders} (cm)`}
-                type="number"
-                placeholder="ex: 40"
-                value={largeurEpaules}
-                onChange={(e) => setLargeurEpaules(e.target.value === '' ? '' : Number(e.target.value))}
               />
             </div>
           </Card>

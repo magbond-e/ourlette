@@ -5,13 +5,13 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Phone, Ruler, Scissors, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Phone, Ruler, Scissors, ChevronRight, MessageCircle, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { DataService } from '@/lib/services/dataService';
 import { Client, Commande, Mesure, StatutCommande } from '@/lib/types/database';
-import { formatFCFA, formatDateFR, calculSolde, isCommandeEnRetard } from '@/lib/utils/formatters';
+import { formatFCFA, formatDateFR, calculSolde, isCommandeEnRetard, generateWhatsAppContactLink } from '@/lib/utils/formatters';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useLanguage } from '@/lib/i18n';
 
@@ -120,27 +120,56 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Client Profile Header */}
-        <Card className="p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-            <div className="space-y-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-accent block">
-                {isEn ? 'Client Profile' : 'Fiche Client'}
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre leading-tight">{client.nom}</h2>
-              {client.telephone && (
-                <a
-                  href={`tel:${client.telephone}`}
-                  className="text-sm sm:text-base font-bold text-accent hover:underline inline-flex items-center gap-2 pt-1"
-                >
-                  <Phone className="w-4 h-4" />
-                  <span>{client.telephone}</span>
-                </a>
-              )}
+        <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-sombre text-gold font-display font-black text-xl flex items-center justify-center shrink-0 border border-gold/30 shadow-xs">
+                {client.nom ? client.nom.charAt(0).toUpperCase() : 'C'}
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-wider text-accent block">
+                  {isEn ? 'Client Profile' : 'Fiche Client'}
+                </span>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-display font-bold text-sombre leading-tight truncate">
+                  {client.nom}
+                </h2>
+                <span className="text-[11px] text-sombre/60 block font-semibold mt-0.5">
+                  {isEn ? 'Registered on' : 'Inscrit le'} {formatDateFR(client.date_creation, locale)}
+                </span>
+              </div>
             </div>
 
-            <div className="text-left sm:text-right shrink-0">
-              <span className="text-xs text-sombre/60 block font-semibold">{isEn ? 'Registered on' : 'Inscrit le'}</span>
-              <span className="text-xs sm:text-sm font-bold text-sombre">{formatDateFR(client.date_creation, locale)}</span>
+            {/* Quick Action Buttons on Mobile */}
+            <div className="flex items-center flex-wrap gap-2 pt-1 sm:pt-0">
+              {client.telephone && (
+                <>
+                  <a
+                    href={`tel:${client.telephone}`}
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-sombre bg-[#F7F7F5] hover:bg-white border border-sable/70 transition-all min-h-[40px] shadow-2xs"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-accent shrink-0" />
+                    <span>{isEn ? 'Call' : 'Appeler'}</span>
+                  </a>
+
+                  <a
+                    href={generateWhatsAppContactLink(client.telephone, '')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300/70 transition-all min-h-[40px] shadow-2xs"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>WhatsApp</span>
+                  </a>
+                </>
+              )}
+
+              <Link
+                href={`/commandes/nouvelle?clientId=${client.id}`}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold text-white bg-accent hover:bg-accent/90 transition-all min-h-[40px] shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5 shrink-0" />
+                <span>{isEn ? 'New Order' : 'Nouvelle Commande'}</span>
+              </Link>
             </div>
           </div>
 
@@ -152,21 +181,21 @@ export default function ClientDetailPage() {
         </Card>
 
         {/* Measurements Snapshot */}
-        <Card className="p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
+        <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-sable/40 pb-3">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2">
-              <Ruler className="w-5 h-5 text-accent" />
+              <Ruler className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
               <span>{dict.mesures.title}</span>
             </h3>
             {mesure && (
-              <span className="text-xs text-sombre/60 font-semibold">
-                {dict.mesures.lastUpdated} : {formatDateFR(mesure.date_maj, locale)} {mesure.prise_par ? `${dict.mesures.takenByLabel} ${mesure.prise_par}` : ''}
+              <span className="text-[11px] sm:text-xs text-sombre/60 font-semibold">
+                {dict.mesures.lastUpdated} : {formatDateFR(mesure.date_maj, locale)} {mesure.prise_par ? `• ${mesure.prise_par}` : ''}
               </span>
             )}
           </div>
 
           {mesure ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs sm:text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs sm:text-sm">
               {[
                 { label: dict.mesures.chest, val: mesure.tour_poitrine },
                 { label: dict.mesures.waist, val: mesure.tour_taille },
@@ -178,18 +207,18 @@ export default function ClientDetailPage() {
               ].map(
                 (item) =>
                   item.val != null && (
-                    <div key={item.label} className="p-3 bg-[#FAFAF8] rounded-2xl flex justify-between items-center border border-sable/50">
-                      <span className="text-sombre/70 font-semibold">{item.label} :</span>
-                      <strong className="font-bold text-sombre">{item.val} cm</strong>
+                    <div key={item.label} className="p-2.5 sm:p-3 bg-[#FAFAF8] rounded-2xl flex justify-between items-center border border-sable/50">
+                      <span className="text-sombre/70 font-semibold text-[11px] sm:text-xs">{item.label} :</span>
+                      <strong className="font-bold text-sombre text-xs sm:text-sm ml-1">{item.val} cm</strong>
                     </div>
                   )
               )}
 
               {mesure.champs_personnalises &&
                 Object.entries(mesure.champs_personnalises).map(([k, v]) => (
-                  <div key={k} className="p-3 bg-accent/10 rounded-2xl flex justify-between items-center border border-accent/20 col-span-2 sm:col-span-3">
-                    <span className="text-accent font-semibold">{k} :</span>
-                    <strong className="font-bold text-accent">{v} cm</strong>
+                  <div key={k} className="p-2.5 sm:p-3 bg-accent/10 rounded-2xl flex justify-between items-center border border-accent/20 col-span-2 sm:col-span-3">
+                    <span className="text-accent font-semibold text-xs">{k} :</span>
+                    <strong className="font-bold text-accent text-xs sm:text-sm">{v} cm</strong>
                   </div>
                 ))}
             </div>
@@ -206,13 +235,13 @@ export default function ClientDetailPage() {
         </Card>
 
         {/* Order History */}
-        <Card className="p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
+        <Card className="p-5 sm:p-6 space-y-4 bg-white border-sable/60 rounded-3xl shadow-xs">
           <div className="border-b border-sable/40 pb-3 flex items-center justify-between">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2">
-              <Scissors className="w-5 h-5 text-accent" />
+              <Scissors className="w-4 h-4 sm:w-5 sm:h-5 text-accent" />
               <span>{isEn ? `Order History (${commandes.length})` : `Historique des Commandes (${commandes.length})`}</span>
             </h3>
-            <Link href="/commandes/nouvelle">
+            <Link href={`/commandes/nouvelle?clientId=${client.id}`}>
               <span className="text-xs font-bold text-accent hover:underline">+ {dict.commandes.newOrderButton}</span>
             </Link>
           </div>
@@ -228,41 +257,46 @@ export default function ClientDetailPage() {
                 const isOverdue = isCommandeEnRetard(cmd.date_livraison_prevue, cmd.statut);
                 return (
                   <div key={cmd.id} className="p-4 bg-[#FAFAF8] rounded-2xl space-y-3 text-xs sm:text-sm border border-sable/60 hover:border-accent/40 transition-colors">
+                    {/* Header: Title + Status + Date */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-display font-bold text-base text-sombre">{cmd.description}</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-display font-bold text-sm sm:text-base text-sombre">{cmd.description}</span>
                           <MiniStatusBadge statut={cmd.statut} label={getStatusLabel(cmd.statut)} />
                         </div>
                         {cmd.tissu && (
-                          <p className="text-xs text-sombre/70 font-medium mt-0.5">
+                          <p className="text-[11px] sm:text-xs text-sombre/70 font-medium mt-0.5">
                             <strong className="text-sombre font-bold">{dict.commandes.fabric} :</strong> {cmd.tissu}
                           </p>
                         )}
                       </div>
 
-                      <div className="text-left sm:text-right">
-                        <span className="text-xs font-bold text-sombre/60 block">{dict.commandes.promisedFor}</span>
-                        <span className={`text-xs font-bold ${isOverdue ? 'text-accent' : 'text-sombre'}`}>
+                      <div className="text-left sm:text-right shrink-0">
+                        <span className="text-[10px] sm:text-xs font-bold text-sombre/60 block">{dict.commandes.promisedFor}</span>
+                        <span className={`text-[11px] sm:text-xs font-bold ${isOverdue ? 'text-accent' : 'text-sombre'}`}>
                           {formatDateFR(cmd.date_livraison_prevue, locale)}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-sable/40 text-xs">
-                      <div>
-                        <span className="text-sombre/60 font-semibold">{dict.commandes.totalPrice} : </span>
-                        <strong className="text-sombre font-bold">{formatFCFA(cmd.prix_total)}</strong>
-                        <span className="mx-2 text-sable">•</span>
-                        <span className="text-sombre/60 font-semibold">{dict.commandes.balanceRemaining} : </span>
-                        <strong className={`font-extrabold ${resteDu > 0 ? 'text-accent' : 'text-vertbouton'}`}>
-                          {resteDu > 0 ? formatFCFA(resteDu) : (isEn ? 'Paid ✓' : 'Soldé ✓')}
-                        </strong>
+                    {/* Financial Summary & Action */}
+                    <div className="pt-2 border-t border-sable/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="grid grid-cols-2 gap-2 text-xs w-full sm:w-auto">
+                        <div className="p-2 bg-white rounded-xl border border-sable/40">
+                          <span className="text-[10px] text-sombre/60 block font-semibold">{dict.commandes.totalPrice}</span>
+                          <strong className="text-xs sm:text-sm font-bold text-sombre">{formatFCFA(cmd.prix_total)}</strong>
+                        </div>
+                        <div className="p-2 bg-white rounded-xl border border-sable/40">
+                          <span className="text-[10px] text-sombre/60 block font-semibold">{dict.commandes.balanceRemaining}</span>
+                          <strong className={`text-xs sm:text-sm font-extrabold ${resteDu > 0 ? 'text-accent' : 'text-vertbouton'}`}>
+                            {resteDu > 0 ? formatFCFA(resteDu) : (isEn ? 'Paid ✓' : 'Soldé ✓')}
+                          </strong>
+                        </div>
                       </div>
 
                       <Link
                         href={`/commandes/${cmd.id}`}
-                        className="inline-flex items-center gap-1 text-xs font-bold text-accent hover:underline bg-accent/10 px-3 py-1 rounded-full border border-accent/20"
+                        className="inline-flex items-center justify-center gap-1 text-xs font-bold text-accent hover:text-white bg-accent/10 hover:bg-accent px-3.5 py-2 rounded-xl border border-accent/20 transition-all min-h-[38px] w-full sm:w-auto"
                       >
                         <span>{dict.commandes.viewDetails}</span>
                         <ChevronRight className="w-3.5 h-3.5" />

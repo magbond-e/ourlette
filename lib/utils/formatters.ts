@@ -56,6 +56,13 @@ export function calculSolde(prixTotal: number, acompte: number): number {
 }
 
 /**
+ * Coordonnées officielles de support Ourlette (Bénin)
+ */
+export const OURLETTE_SUPPORT_PHONE = '+229 01 40 87 28 36';
+export const OURLETTE_SUPPORT_WHATSAPP_NUMBER = '2290140872836';
+export const OURLETTE_SUPPORT_WHATSAPP_URL = 'https://wa.me/2290140872836?text=Bonjour%20Ourlette%2C%20j%27ai%20besoin%20d%27assistance';
+
+/**
  * Generate WhatsApp share link for workshop showcase
  */
 export function generateWhatsAppShareLink(nomAtelier: string, slug: string): string {
@@ -71,12 +78,16 @@ export function generateWhatsAppShareLink(nomAtelier: string, slug: string): str
  * Generate direct contact WhatsApp link for a client visiting showcase
  */
 export function generateWhatsAppContactLink(telephone: string, nomAtelier: string, nomModele?: string): string {
-  const cleanPhone = telephone.replace(/[^0-9+]/g, '');
+  let cleanPhone = (telephone || '').replace(/[^0-9]/g, '');
+  // Si le numéro est au format local béninois (8 ou 10 chiffres), préfixer avec l'indicatif 229
+  if (cleanPhone.length === 8 || (cleanPhone.length === 10 && cleanPhone.startsWith('01'))) {
+    cleanPhone = `229${cleanPhone}`;
+  }
   const textMsg = nomModele
     ? `Bonjour ${nomAtelier}, je visite votre vitrine Ourlette et je souhaiterais commander le modèle "${nomModele}".`
     : `Bonjour ${nomAtelier}, je visite votre vitrine Ourlette et je souhaiterais passer une commande.`;
   const message = encodeURIComponent(textMsg);
-  return `https://wa.me/${cleanPhone.replace('+', '')}?text=${message}`;
+  return `https://wa.me/${cleanPhone}?text=${message}`;
 }
 
 /**

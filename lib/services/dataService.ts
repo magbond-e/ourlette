@@ -802,12 +802,18 @@ export class DataService {
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const allKeys = Object.keys(localStorage);
+        const lowerSlug = slug.toLowerCase();
         for (const k of allKeys) {
           if (k.endsWith('_couturier')) {
             const raw = localStorage.getItem(k);
             if (raw) {
               const parsed = JSON.parse(raw);
-              if (parsed && (parsed.slug_vitrine === slug || parsed.id === slug)) {
+              if (
+                parsed &&
+                (parsed.slug_vitrine?.toLowerCase() === lowerSlug ||
+                  parsed.id === slug ||
+                  parsed.slug_vitrine === slug)
+              ) {
                 return { couturier: parsed, realisations: [] };
               }
             }

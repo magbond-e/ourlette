@@ -22,18 +22,30 @@ export async function GET(
       );
     }
 
-    // Recherche de l'atelier par son slug ou son ID
+    // Recherche de l'atelier par son slug ou son ID (insensible à la casse)
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(slug);
     let query = supabase.from('couturiers').select('*');
     if (isUuid) {
-      query = query.or(`id.eq.${slug},slug_vitrine.eq.${slug}`);
+      query = query.or(`id.eq.${slug},slug_vitrine.ilike.${slug}`);
     } else {
-      query = query.eq('slug_vitrine', slug);
+      query = query.or(`slug_vitrine.ilike.${slug},id.eq.${slug}`);
     }
 
-    const { data: rawCouturier, error: couturierError } = await query.limit(1).maybeSingle();
+    let { data: rawCouturier, error: couturierError } = await query.limit(1).maybeSingle();
 
-    if (couturierError) {
+    // Fallback si non trouvé et que le slug commence par "atelier-"
+    if (!rawCouturier && slug.startsWith('atelier-')) {
+      const stripped = slug.replace(/^atelier-/, '');
+      const { data: alt } = await supabase
+        .from('couturiers')
+        .select('*')
+        .or(`slug_vitrine.ilike.${stripped},id.ilike.${stripped}%`)
+        .limit(1)
+        .maybeSingle();
+      if (alt) rawCouturier = alt;
+    }
+
+    if (couturierError && !rawCouturier) {
       console.error('Erreur API vitrine getCouturier:', couturierError);
       return NextResponse.json({ couturier: null, realisations: [] }, { status: 500 });
     }

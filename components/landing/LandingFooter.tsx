@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Scissors, ShieldCheck, Mail, MapPin } from 'lucide-react';
+import { Scissors, ShieldCheck, Mail, MapPin, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { useLanguage } from '@/lib/i18n';
@@ -121,9 +121,13 @@ export const LandingFooter: React.FC = () => {
                 <Mail className="w-4 h-4 text-gold shrink-0" />
                 <a href="mailto:ourlette.app@gmail.com" className="hover:underline text-gold font-bold">ourlette.app@gmail.com</a>
               </div>
+              <div className="flex items-center gap-2 text-clair">
+                <Phone className="w-4 h-4 text-gold shrink-0" />
+                <a href="https://wa.me/2290140872836?text=Bonjour%20Ourlette" target="_blank" rel="noopener noreferrer" className="hover:underline text-gold font-bold">+229 01 40 87 28 36</a>
+              </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-gold shrink-0" />
-                <span>Abidjan · Dakar · Paris · Worldwide</span>
+                <span>Cotonou · Abidjan · Dakar · Paris</span>
               </div>
             </div>
           </div>
