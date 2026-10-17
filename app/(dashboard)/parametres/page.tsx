@@ -439,7 +439,7 @@ export default function ParametresPage() {
               }`}
             >
               <User className="w-4 h-4 mb-0.5 shrink-0" />
-              <span className="truncate max-w-full">{isEn ? 'Profile' : 'Profil'}</span>
+              <span className="truncate max-w-full">{locale === 'en' ? 'Profile' : 'Profil'}</span>
             </button>
 
             <button
@@ -452,7 +452,7 @@ export default function ParametresPage() {
               }`}
             >
               <Store className="w-4 h-4 mb-0.5 shrink-0" />
-              <span className="truncate max-w-full">{isEn ? 'Workshop' : 'Atelier'}</span>
+              <span className="truncate max-w-full">{locale === 'en' ? 'Workshop' : 'Atelier'}</span>
             </button>
 
             <button
@@ -465,7 +465,7 @@ export default function ParametresPage() {
               }`}
             >
               <Bell className="w-4 h-4 mb-0.5 shrink-0" />
-              <span className="truncate max-w-full">{isEn ? 'Alerts' : 'Alertes'}</span>
+              <span className="truncate max-w-full">{locale === 'en' ? 'Alerts' : 'Alertes'}</span>
             </button>
 
             <button
@@ -478,7 +478,7 @@ export default function ParametresPage() {
               }`}
             >
               <Globe className="w-4 h-4 mb-0.5 shrink-0" />
-              <span className="truncate max-w-full">{isEn ? 'Options' : 'Général'}</span>
+              <span className="truncate max-w-full">{locale === 'en' ? 'Options' : 'Général'}</span>
             </button>
 
             <button
@@ -491,7 +491,7 @@ export default function ParametresPage() {
               }`}
             >
               <Star className="w-4 h-4 mb-0.5 shrink-0" />
-              <span className="truncate max-w-full">{isEn ? 'Support' : 'Support'}</span>
+              <span className="truncate max-w-full">{locale === 'en' ? 'Support' : 'Support'}</span>
             </button>
           </div>
         </div>
