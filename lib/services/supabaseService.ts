@@ -205,7 +205,10 @@ export class SupabaseService {
         .select()
         .single();
 
-      if (error) return null;
+      if (error) {
+        console.error('Supabase saveMesures update error:', error);
+        return null;
+      }
       return data as Mesure;
     } else {
       const { data, error } = await supabase
@@ -218,7 +221,10 @@ export class SupabaseService {
         .select()
         .single();
 
-      if (error) return null;
+      if (error) {
+        console.error('Supabase saveMesures insert error:', error);
+        return null;
+      }
       return data as Mesure;
     }
   }

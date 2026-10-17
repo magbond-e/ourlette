@@ -32,7 +32,7 @@ function MiniStatusBadge({ statut, label }: { statut: StatutCommande; label: str
 
 export default function ClientDetailPage() {
   const params = useParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { dict, locale } = useLanguage();
   const isEn = locale === 'en';
   const clientId = params.id as string;
@@ -54,6 +54,7 @@ export default function ClientDetailPage() {
   };
 
   const loadData = useCallback(async () => {
+    if (authLoading) return;
     if (!user?.id || !clientId) {
       setLoading(false);
       return;
@@ -71,11 +72,13 @@ export default function ClientDetailPage() {
       if (m) setMesure(m);
     }
     setLoading(false);
-  }, [user?.id, clientId]);
+  }, [user?.id, clientId, authLoading]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!authLoading) {
+      loadData();
+    }
+  }, [loadData, authLoading]);
 
   if (loading) {
     return (

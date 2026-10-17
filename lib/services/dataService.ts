@@ -240,8 +240,28 @@ export class DataService {
   }
 
   static async getClientById(userId: string | undefined, id: string): Promise<Client | undefined> {
+    if (!id) return undefined;
     const clients = await this.getClients(userId);
-    return clients.find((c) => c.id === id);
+    const found = clients.find((c) => c.id === id);
+    if (found) return found;
+
+    // Fallback direct sur Supabase par ID si non présent dans le cache local
+    if (typeof window !== 'undefined' && navigator.onLine) {
+      try {
+        const remote = await SupabaseService.getClientById(id);
+        if (remote && (!userId || remote.couturier_id === userId)) {
+          if (userId) {
+            const updated = [...clients, remote];
+            this.setStore(userId, 'clients', updated);
+          }
+          return remote;
+        }
+      } catch (e) {
+        console.warn('Fallback getClientById remote error:', e);
+      }
+    }
+
+    return undefined;
   }
 
   static async addClient(

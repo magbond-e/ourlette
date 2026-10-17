@@ -18,7 +18,7 @@ import { useLanguage } from '@/lib/i18n';
 export default function FormulaireMesuresPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, couturier, loading: authLoading } = useAuth();
   const { dict, locale } = useLanguage();
   const isEn = locale === 'en';
   const clientId = params.id as string;
@@ -43,6 +43,7 @@ export default function FormulaireMesuresPage() {
   const [successMsg, setSuccessMsg] = useState('');
 
   const loadData = useCallback(async () => {
+    if (authLoading) return;
     if (!user?.id || !clientId) {
       setLoading(false);
       return;
@@ -60,7 +61,7 @@ export default function FormulaireMesuresPage() {
         setLongueurRobe(m.longueur_robe ?? '');
         setTourCou(m.tour_cou ?? '');
         setLargeurEpaules(m.largeur_epaules ?? '');
-        setPrisePar(m.prise_par ?? '');
+        setPrisePar(m.prise_par || couturier?.nom || '');
 
         if (m.champs_personnalises) {
           const list = Object.entries(m.champs_personnalises).map(([label, value]) => ({
@@ -69,14 +70,18 @@ export default function FormulaireMesuresPage() {
           }));
           setCustomFields(list);
         }
+      } else if (couturier?.nom) {
+        setPrisePar(couturier.nom);
       }
     }
     setLoading(false);
-  }, [user?.id, clientId]);
+  }, [user?.id, clientId, authLoading, couturier?.nom]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!authLoading) {
+      loadData();
+    }
+  }, [loadData, authLoading]);
 
   const handleAddCustomField = () => {
     setCustomFields([...customFields, { label: '', value: '' }]);
@@ -196,6 +201,8 @@ export default function FormulaireMesuresPage() {
               <Input
                 label={`${dict.mesures.chest} (cm)`}
                 type="number"
+                step="any"
+                inputMode="decimal"
                 placeholder="ex: 92"
                 value={tourPoitrine}
                 onChange={(e) => setTourPoitrine(e.target.value === '' ? '' : Number(e.target.value))}
@@ -204,6 +211,8 @@ export default function FormulaireMesuresPage() {
               <Input
                 label={`${dict.mesures.waist} (cm)`}
                 type="number"
+                step="any"
+                inputMode="decimal"
                 placeholder="ex: 74"
                 value={tourTaille}
                 onChange={(e) => setTourTaille(e.target.value === '' ? '' : Number(e.target.value))}
@@ -212,6 +221,8 @@ export default function FormulaireMesuresPage() {
               <Input
                 label={`${dict.mesures.hips} (cm)`}
                 type="number"
+                step="any"
+                inputMode="decimal"
                 placeholder="ex: 102"
                 value={tourHanches}
                 onChange={(e) => setTourHanches(e.target.value === '' ? '' : Number(e.target.value))}
@@ -220,6 +231,8 @@ export default function FormulaireMesuresPage() {
               <Input
                 label={`${dict.mesures.shoulders} (cm)`}
                 type="number"
+                step="any"
+                inputMode="decimal"
                 placeholder="ex: 40"
                 value={largeurEpaules}
                 onChange={(e) => setLargeurEpaules(e.target.value === '' ? '' : Number(e.target.value))}
@@ -228,6 +241,8 @@ export default function FormulaireMesuresPage() {
               <Input
                 label={`${dict.mesures.sleeveLength} (cm)`}
                 type="number"
+                step="any"
+                inputMode="decimal"
                 placeholder="ex: 60"
                 value={longueurManche}
                 onChange={(e) => setLongueurManche(e.target.value === '' ? '' : Number(e.target.value))}
@@ -236,6 +251,8 @@ export default function FormulaireMesuresPage() {
               <Input
                 label={`${dict.mesures.dressLength} (cm)`}
                 type="number"
+                step="any"
+                inputMode="decimal"
                 placeholder="ex: 140"
                 value={longueurRobe}
                 onChange={(e) => setLongueurRobe(e.target.value === '' ? '' : Number(e.target.value))}
@@ -244,6 +261,8 @@ export default function FormulaireMesuresPage() {
               <Input
                 label={`${dict.mesures.neck} (cm)`}
                 type="number"
+                step="any"
+                inputMode="decimal"
                 placeholder="ex: 38"
                 value={tourCou}
                 onChange={(e) => setTourCou(e.target.value === '' ? '' : Number(e.target.value))}
