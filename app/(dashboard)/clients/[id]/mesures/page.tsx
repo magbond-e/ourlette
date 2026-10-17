@@ -9,16 +9,18 @@ import { ArrowLeft, Ruler, Plus, Trash2, Check } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { BasteLine } from '@/components/ui/BasteLine';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { DataService } from '@/lib/services/dataService';
 import { Client } from '@/lib/types/database';
 import { useAuth } from '@/lib/context/AuthContext';
+import { useLanguage } from '@/lib/i18n';
 
 export default function FormulaireMesuresPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, couturier } = useAuth();
+  const { user } = useAuth();
+  const { dict, locale } = useLanguage();
+  const isEn = locale === 'en';
   const clientId = params.id as string;
 
   const [client, setClient] = useState<Client | null>(null);
@@ -58,7 +60,7 @@ export default function FormulaireMesuresPage() {
         setLongueurRobe(m.longueur_robe ?? '');
         setTourCou(m.tour_cou ?? '');
         setLargeurEpaules(m.largeur_epaules ?? '');
-        setPrisePar(m.prise_par || couturier?.nom || '');
+        setPrisePar(m.prise_par ?? '');
 
         if (m.champs_personnalises) {
           const list = Object.entries(m.champs_personnalises).map(([label, value]) => ({
@@ -67,12 +69,10 @@ export default function FormulaireMesuresPage() {
           }));
           setCustomFields(list);
         }
-      } else if (couturier?.nom) {
-        setPrisePar(couturier.nom);
       }
     }
     setLoading(false);
-  }, [user?.id, clientId, couturier?.nom]);
+  }, [user?.id, clientId]);
 
   useEffect(() => {
     loadData();
@@ -86,17 +86,18 @@ export default function FormulaireMesuresPage() {
     setCustomFields(customFields.filter((_, i) => i !== index));
   };
 
-  const handleCustomFieldChange = (index: number, key: 'label' | 'value', val: string) => {
+  const handleCustomFieldChange = (index: number, field: 'label' | 'value', val: string) => {
     const updated = [...customFields];
-    updated[index][key] = val;
+    updated[index][field] = val;
     setCustomFields(updated);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!client || !user?.id) return;
+    if (!user?.id || !client?.id) return;
 
     setSaving(true);
+    setSuccessMsg('');
 
     const customDict: Record<string, number | string> = {};
     customFields.forEach((item) => {
@@ -119,7 +120,7 @@ export default function FormulaireMesuresPage() {
     });
 
     setSaving(false);
-    setSuccessMsg('Mesures enregistrées avec succès !');
+    setSuccessMsg(dict.mesures.saveSuccess);
     setTimeout(() => {
       router.push(`/clients/${client.id}`);
     }, 600);
@@ -129,7 +130,7 @@ export default function FormulaireMesuresPage() {
     return (
       <div className="min-h-screen bg-clair pb-24 font-sans">
         <main className="max-w-4xl mx-auto px-4 pt-12">
-          <ThreadSpoolLoader label="Chargement du formulaire de mesures…" size="lg" />
+          <ThreadSpoolLoader label={dict.common.loading} size="lg" />
         </main>
       </div>
     );
@@ -139,9 +140,9 @@ export default function FormulaireMesuresPage() {
     return (
       <div className="min-h-screen bg-clair pb-24 font-sans">
         <main className="max-w-4xl mx-auto px-4 pt-12 text-center space-y-4">
-          <p className="text-base font-bold text-sombre/70">Client non trouvé.</p>
+          <p className="text-base font-bold text-sombre/70">{dict.clients.emptyTitle}</p>
           <Link href="/clients">
-            <Button variant="accent">Retour aux clients</Button>
+            <Button variant="accent">{dict.clients.title}</Button>
           </Link>
         </main>
       </div>
@@ -158,17 +159,19 @@ export default function FormulaireMesuresPage() {
             className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-sombre hover:text-accent"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Retour fiche client</span>
+            <span>{dict.mesures.backButton}</span>
           </Link>
           <div className="flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-accent bg-accent/10 px-3 py-1 rounded-full border border-accent/20">
             <Ruler className="w-4 h-4" />
-            <span>Unités en cm</span>
+            <span>{isEn ? 'Units in cm' : 'Unités en cm'}</span>
           </div>
         </div>
 
         <div className="space-y-1">
-          <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">Fiche Mesures : {client.nom}</h2>
-          <p className="text-xs sm:text-sm text-sombre/70 font-semibold">Saisie et mise à jour rapide des mensurations sur-mesure</p>
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">
+            {dict.mesures.title} : {client.nom}
+          </h2>
+          <p className="text-xs sm:text-sm text-sombre/70 font-semibold">{dict.mesures.subtitle}</p>
         </div>
 
         {successMsg && (
@@ -182,12 +185,12 @@ export default function FormulaireMesuresPage() {
           {/* SECTION 1: Standard Measurements */}
           <Card className="p-5 space-y-4 rounded-3xl bg-white border-sable/60 shadow-xs">
             <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-accent">
-              1. Mensurations Standards (cm)
+              {dict.mesures.standardMeasurementsTitle}
             </h3>
 
             <div className="grid grid-cols-2 gap-3">
               <Input
-                label="Tour de Poitrine (cm)"
+                label={`${dict.mesures.chest} (cm)`}
                 type="number"
                 placeholder="ex: 92"
                 value={tourPoitrine}
@@ -195,7 +198,7 @@ export default function FormulaireMesuresPage() {
               />
 
               <Input
-                label="Tour de Taille (cm)"
+                label={`${dict.mesures.waist} (cm)`}
                 type="number"
                 placeholder="ex: 74"
                 value={tourTaille}
@@ -203,7 +206,7 @@ export default function FormulaireMesuresPage() {
               />
 
               <Input
-                label="Tour de Hanches (cm)"
+                label={`${dict.mesures.hips} (cm)`}
                 type="number"
                 placeholder="ex: 102"
                 value={tourHanches}
@@ -211,7 +214,7 @@ export default function FormulaireMesuresPage() {
               />
 
               <Input
-                label="Longueur Manche (cm)"
+                label={`${dict.mesures.sleeveLength} (cm)`}
                 type="number"
                 placeholder="ex: 60"
                 value={longueurManche}
@@ -219,7 +222,7 @@ export default function FormulaireMesuresPage() {
               />
 
               <Input
-                label="Longueur Robe/Boubou"
+                label={`${dict.mesures.dressLength} (cm)`}
                 type="number"
                 placeholder="ex: 140"
                 value={longueurRobe}
@@ -227,7 +230,7 @@ export default function FormulaireMesuresPage() {
               />
 
               <Input
-                label="Tour de Cou (cm)"
+                label={`${dict.mesures.neck} (cm)`}
                 type="number"
                 placeholder="ex: 38"
                 value={tourCou}
@@ -235,57 +238,59 @@ export default function FormulaireMesuresPage() {
               />
 
               <Input
-                label="Largeur Épaules (cm)"
+                label={`${dict.mesures.shoulders} (cm)`}
                 type="number"
                 placeholder="ex: 40"
                 value={largeurEpaules}
                 onChange={(e) => setLargeurEpaules(e.target.value === '' ? '' : Number(e.target.value))}
-                className="col-span-2 sm:col-span-1"
               />
             </div>
           </Card>
 
           {/* SECTION 2: Custom Measurements */}
-          <Card className="p-5 space-y-3 bg-white border-sable/60 rounded-3xl shadow-xs">
+          <Card className="p-5 space-y-4 rounded-3xl bg-white border-sable/60 shadow-xs">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-accent">
-                2. Champs Sur-Mesure / Personnalisés
-              </h3>
-              <button
+              <div>
+                <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-accent">
+                  {dict.mesures.customMeasurementsTitle}
+                </h3>
+                <p className="text-xs text-sombre/60 mt-0.5">{dict.mesures.customMeasurementsDesc}</p>
+              </div>
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={handleAddCustomField}
-                className="inline-flex items-center gap-1 text-xs font-bold text-accent hover:underline"
+                className="gap-1.5 text-xs font-bold rounded-xl"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Ajouter un champ</span>
-              </button>
+                <span>{dict.mesures.addCustomFieldButton}</span>
+              </Button>
             </div>
 
-            {customFields.length === 0 ? (
-              <p className="text-xs text-sombre/60 italic py-1">
-                Aucun champ personnalisé (ex: Tour de poignet, Hauteur taille-sol, Longueur pantalon).
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {customFields.map((field, idx) => (
+            {customFields.length > 0 && (
+              <div className="space-y-3 pt-2">
+                {customFields.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <Input
-                      placeholder="Intitulé (ex: Tour poignet)"
+                    <input
                       type="text"
-                      value={field.label}
+                      placeholder={dict.mesures.customFieldPlaceholder}
+                      value={item.label}
                       onChange={(e) => handleCustomFieldChange(idx, 'label', e.target.value)}
+                      className="flex-1 p-3 bg-white border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre font-semibold focus:outline-none focus:ring-2 focus:ring-accent/20"
                     />
-                    <Input
-                      placeholder="Valeur (cm)"
+                    <input
                       type="text"
-                      value={field.value}
+                      placeholder={dict.mesures.customValuePlaceholder}
+                      value={item.value}
                       onChange={(e) => handleCustomFieldChange(idx, 'value', e.target.value)}
+                      className="w-24 sm:w-28 p-3 bg-white border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre font-semibold focus:outline-none focus:ring-2 focus:ring-accent/20"
                     />
                     <button
                       type="button"
                       onClick={() => handleRemoveCustomField(idx)}
-                      className="text-accent p-2 hover:bg-accent/10 rounded-full"
-                      title="Supprimer"
+                      className="p-3 text-sombre/40 hover:text-red-600 rounded-xl hover:bg-red-50 transition-colors"
+                      title={dict.mesures.removeField}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -295,25 +300,27 @@ export default function FormulaireMesuresPage() {
             )}
           </Card>
 
-          {/* SECTION 3: Traçabilité Atelier */}
-          <Card className="p-5 space-y-2 bg-white border-sable/60 rounded-3xl shadow-xs">
-            <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-accent">
-              3. Traçabilité Prise de Mesure
-            </h3>
+          {/* SECTION 3: Tailor Name */}
+          <Card className="p-5 rounded-3xl bg-white border-sable/60 shadow-xs space-y-3">
             <Input
-              label="Mesures prises par"
+              label={dict.mesures.takenByLabel}
               type="text"
-              placeholder="Nom de la personne ayant pris les mesures"
+              placeholder={dict.mesures.takenByPlaceholder}
               value={prisePar}
               onChange={(e) => setPrisePar(e.target.value)}
             />
           </Card>
 
-          <BasteLine color="accent" />
-
-          <Button type="submit" variant="accent" fullWidth size="lg" disabled={saving} className="gap-2 shadow-md rounded-full font-bold">
+          <Button
+            type="submit"
+            variant="accent"
+            fullWidth
+            size="lg"
+            disabled={saving}
+            className="gap-2 shadow-lg shadow-accent/20 font-bold rounded-full py-4 text-base"
+          >
             <Check className="w-5 h-5" />
-            <span>{saving ? 'Enregistrement…' : 'Enregistrer les mesures →'}</span>
+            <span>{saving ? dict.mesures.saving : dict.mesures.saveMeasurementsButton}</span>
           </Button>
         </form>
       </main>

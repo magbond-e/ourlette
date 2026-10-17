@@ -1,12 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  compress: true,
+  poweredByHeader: false,
+  swcMinify: true,
 
-  // ── PowerSync / WASM ────────────────────────────────────────────
-  // @powersync/web utilise un worker WASM (SQLite) qui a besoin de SharedArrayBuffer.
-  // SharedArrayBuffer nécessite Cross-Origin isolation (COOP + COEP).
+  // ── PowerSync / WASM & Optimisation des modules ──────────────────
   experimental: {
     serverComponentsExternalPackages: ['@powersync/web'],
+    optimizePackageImports: ['lucide-react', '@supabase/ssr', '@supabase/supabase-js'],
   },
 
   // ── Security Headers ────────────────────────────────────────────
@@ -32,8 +34,12 @@ const nextConfig = {
             value: 'camera=(), microphone=(), geolocation=()',
           },
           {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on',
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://images.unsplash.com https://*.supabase.co https://*.supabase.in; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://*.supabase.in https://*.powersync.journeyapps.com wss://*.powersync.journeyapps.com https://api.saspay.me https://*.saspay.me; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://*.saspay.me;",
           },
           // ── Cross-Origin Isolation (requis pour PowerSync SQLite worker) ──
           {
@@ -51,7 +57,7 @@ const nextConfig = {
 
   // ── Images ──────────────────────────────────────────────────────
   images: {
-    // Domaines autorisés explicitement (plus de wildcard **)
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
         protocol: 'https',

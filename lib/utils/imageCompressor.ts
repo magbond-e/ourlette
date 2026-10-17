@@ -15,9 +15,9 @@ export async function compressImageToWebP(
 ): Promise<File> {
   const { maxWidth = 1200, maxHeight = 1200, quality = 0.82 } = options;
 
-  // SVG files don't need raster compression
-  if (file.type === 'image/svg+xml') {
-    return file;
+  // Refus strict des fichiers SVG (vecteur potentiel XSS selon Invariant 8)
+  if (file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg')) {
+    throw new Error('Les fichiers SVG sont strictement interdits pour des raisons de sécurité.');
   }
 
   return new Promise((resolve, reject) => {

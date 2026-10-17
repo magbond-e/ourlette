@@ -21,9 +21,14 @@ export async function compressImage(
     outputFormat = 'image/webp',
   } = options;
 
-  // Don't attempt to compress non-image files or SVG
-  if (!file.type.startsWith('image/') || file.type.includes('svg')) {
-    return file;
+  // Refus strict des fichiers SVG (vecteur potentiel XSS selon Invariant 8)
+  if (file.type.includes('svg') || file.name.toLowerCase().endsWith('.svg')) {
+    throw new Error('Les fichiers SVG sont strictement interdits pour des raisons de sécurité.');
+  }
+
+  // Vérification de type MIME image
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Type de fichier non supporté. Veuillez choisir une image JPG, PNG ou WebP.');
   }
 
   return new Promise((resolve, reject) => {

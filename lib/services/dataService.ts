@@ -1,6 +1,7 @@
 import { Couturier, Client, Mesure, Commande, Realisation } from '../types/database';
 import { NotificationItem, CreateNotificationInput } from '../types/notification';
 import { SupabaseService } from './supabaseService';
+import { NotificationTemplates } from './notificationService';
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -187,7 +188,25 @@ export class DataService {
 
     let remote: Couturier | null = null;
     if (navigator.onLine) {
-      remote = await SupabaseService.updateCouturier(userId, updates);
+      try {
+        const res = await fetch('/api/couturier', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.couturier) {
+            remote = data.couturier;
+          }
+        }
+      } catch (e) {
+        console.warn('API couturier update fallback:', e);
+      }
+
+      if (!remote) {
+        remote = await SupabaseService.updateCouturier(userId, updates);
+      }
     }
 
     const existing = await this.getCouturier(userId);
@@ -270,6 +289,12 @@ export class DataService {
     const currentClients = this.getStore<Client[]>(userId, 'clients', []);
     const updatedClients = [finalClient, ...currentClients.filter((c) => c.id !== finalClient.id)];
     this.setStore(userId, 'clients', updatedClients);
+
+    // Notification instantanée nouveau client (dédupliquée)
+    this.addNotification(
+      userId,
+      NotificationTemplates.clientCreated(userId, { id: finalClient.id, nom: finalClient.nom })
+    ).catch(() => {});
 
     return finalClient;
   }
@@ -523,6 +548,16 @@ export class DataService {
     const cmds = [finalCmd, ...(await this.getCommandes(userId)).filter((c) => c.id !== finalCmd.id)];
     this.setStore(userId, 'commandes', cmds);
 
+    // Déclencher notification commande créée (dédupliquée)
+    this.addNotification(
+      userId,
+      NotificationTemplates.orderCreated(userId, {
+        id: finalCmd.id,
+        clientNom: finalCmd.client_nom,
+        description: finalCmd.description,
+      })
+    ).catch(() => {});
+
     return finalCmd;
   }
 
@@ -574,7 +609,31 @@ export class DataService {
 
     cmds[index] = { ...cmds[index], ...updates };
     this.setStore(userId, 'commandes', cmds);
-    return cmds[index];
+    const updatedCmd = cmds[index];
+
+    // Notification commande prête
+    if (updates.statut === 'prete') {
+      this.addNotification(
+        userId,
+        NotificationTemplates.orderReady(userId, {
+          id: updatedCmd.id,
+          clientNom: updatedCmd.client_nom,
+          description: updatedCmd.description,
+        })
+      ).catch(() => {});
+    }
+
+    // Si la commande est livrée : résoudre les alertes d'échéances et purger du cache
+    if (updates.statut === 'livree') {
+      SupabaseService.resolveOrderAlerts(userId, id).catch(() => {});
+      const notifs = this.getStore<NotificationItem[]>(userId, 'notifications', []);
+      const filtered = notifs.filter(
+        (n) => !(n.orderId === id || n.metadata?.orderId === id)
+      );
+      this.setStore(userId, 'notifications', filtered);
+    }
+
+    return updatedCmd;
   }
 
   static async deleteCommande(userId: string | undefined, id: string): Promise<boolean> {
@@ -587,6 +646,14 @@ export class DataService {
     } else {
       this.pushToQueue(userId, { type: 'DELETE_COMMANDE', payload: { id } });
     }
+
+    // Purger les alertes orphelines associées à cette commande
+    SupabaseService.resolveOrderAlerts(userId, id).catch(() => {});
+    const notifs = this.getStore<NotificationItem[]>(userId, 'notifications', []);
+    const filtered = notifs.filter(
+      (n) => !(n.orderId === id || n.metadata?.orderId === id)
+    );
+    this.setStore(userId, 'notifications', filtered);
 
     const cmds = this.getStore<Commande[]>(userId, 'commandes', []).filter((c) => c.id !== id);
     this.setStore(userId, 'commandes', cmds);
@@ -620,10 +687,23 @@ export class DataService {
     const updatedVersements = [...currentVersements, newVersement];
     const newTotalAcompte = updatedVersements.reduce((sum, v) => sum + v.montant, 0);
 
-    return this.updateCommande(userId, cmdId, {
+    const updated = await this.updateCommande(userId, cmdId, {
       acompte: newTotalAcompte,
       versements: updatedVersements,
     });
+
+    if (updated) {
+      this.addNotification(
+        userId,
+        NotificationTemplates.paymentReceived(
+          userId,
+          { id: updated.id, clientNom: updated.client_nom },
+          { id: newVersement.id, montant: newVersement.montant, devise: 'FCFA' }
+        )
+      ).catch(() => {});
+    }
+
+    return updated;
   }
 
   // ── Realisations ─────────────────────────────────────────────────
@@ -691,11 +771,50 @@ export class DataService {
   static async getPublicVitrine(slug: string): Promise<{ couturier: Couturier | null; realisations: Realisation[] }> {
     if (!slug) return { couturier: null, realisations: [] };
 
+    // 1. Tenter l'API Route Handler sécurisée (contourne les récursions RLS)
+    try {
+      const res = await fetch(`/api/vitrine/${encodeURIComponent(slug)}`, {
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.couturier) {
+          return {
+            couturier: json.couturier as Couturier,
+            realisations: (json.realisations || []) as Realisation[],
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('API getPublicVitrine fallback:', e);
+    }
+
+    // 2. Fallback direct Supabase
     if (navigator.onLine) {
       const c = await SupabaseService.getCouturier(slug);
       if (c) {
         const reals = await SupabaseService.getRealisations(c.id);
         return { couturier: c, realisations: reals };
+      }
+    }
+
+    // 3. Fallback cache local si l'atelier est stocké localement
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const allKeys = Object.keys(localStorage);
+        for (const k of allKeys) {
+          if (k.endsWith('_couturier')) {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed && (parsed.slug_vitrine === slug || parsed.id === slug)) {
+                return { couturier: parsed, realisations: [] };
+              }
+            }
+          }
+        }
+      } catch {
+        // Ignorer
       }
     }
 
@@ -724,6 +843,16 @@ export class DataService {
   ): Promise<NotificationItem | null> {
     if (!userId) return null;
 
+    const currentNotifs = this.getStore<NotificationItem[]>(userId, 'notifications', []);
+
+    // Vérifier si une notification avec cette dedupe_key existe déjà dans le cache local
+    if (notifData.dedupe_key) {
+      const existing = currentNotifs.find((n) => n.dedupe_key === notifData.dedupe_key);
+      if (existing) {
+        return existing;
+      }
+    }
+
     const validId = notifData.id && notifData.id.includes('-') && !notifData.id.startsWith('notif-')
       ? notifData.id
       : generateUUID();
@@ -738,8 +867,11 @@ export class DataService {
       message: notifData.message,
       date: new Date().toISOString(),
       read: notifData.read ?? false,
-      link: notifData.link,
+      link: notifData.action_url || notifData.link,
+      action_url: notifData.action_url || notifData.link,
+      dedupe_key: notifData.dedupe_key,
       metadata: notifData.metadata || {},
+      data: notifData.data || {},
       orderId: notifData.orderId,
     };
 
@@ -757,8 +889,10 @@ export class DataService {
     }
 
     const finalNotif = remote || newNotif;
-    const currentNotifs = this.getStore<NotificationItem[]>(userId, 'notifications', []);
-    const updatedNotifs = [finalNotif, ...currentNotifs.filter((n) => n.id !== finalNotif.id)];
+    const updatedNotifs = [
+      finalNotif,
+      ...currentNotifs.filter((n) => n.id !== finalNotif.id && (!finalNotif.dedupe_key || n.dedupe_key !== finalNotif.dedupe_key)),
+    ];
     this.setStore(userId, 'notifications', updatedNotifs);
 
     return finalNotif;
@@ -812,6 +946,20 @@ export class DataService {
     return true;
   }
 
+  static async dismissNotification(userId: string | undefined, id: string): Promise<boolean> {
+    if (!userId || !id) return false;
+
+    if (navigator.onLine) {
+      await SupabaseService.dismissNotification(id);
+    } else {
+      this.pushToQueue(userId, { type: 'DELETE_NOTIF', payload: { id } });
+    }
+
+    const notifs = this.getStore<NotificationItem[]>(userId, 'notifications', []).filter((n) => n.id !== id);
+    this.setStore(userId, 'notifications', notifs);
+    return true;
+  }
+
   static async clearAllNotifications(userId: string | undefined): Promise<boolean> {
     if (!userId) return false;
 
@@ -844,9 +992,57 @@ export class DataService {
       this.getNotifications(userId),
     ]);
 
+    const activeCmdMap = new Map<string, typeof commandes[0]>();
+    commandes.forEach((cmd) => activeCmdMap.set(cmd.id, cmd));
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // 1. Purge automatique des alertes orphelines, obsolètes ou pour commandes livrées
+    for (const notif of existingNotifs) {
+      if (notif.type === 'order_overdue' || notif.type === 'order_due_soon') {
+        const cmdId = notif.orderId || notif.metadata?.orderId;
+        const matchingCmd = cmdId ? activeCmdMap.get(cmdId) : null;
+
+        // Si la commande n'existe plus, ou est livrée, supprimer l'alerte
+        if (!matchingCmd || matchingCmd.statut === 'livree') {
+          await this.deleteNotification(userId, notif.id);
+          continue;
+        }
+
+        // Si la commande a une nouvelle date valide, vérifier si l'alerte est devenue obsolète
+        if (matchingCmd.date_livraison_prevue) {
+          const datePrev = new Date(matchingCmd.date_livraison_prevue);
+          if (!isNaN(datePrev.getTime())) {
+            datePrev.setHours(0, 0, 0, 0);
+            const diffDays = Math.round((datePrev.getTime() - today.getTime()) / (1000 * 3600 * 24));
+
+            // Si diffDays > 2, la commande n'est plus ni en retard ni imminente (échéance repoussée)
+            if (diffDays > 2) {
+              await this.deleteNotification(userId, notif.id);
+              continue;
+            }
+
+            // Si l'alerte était un retard alors que la commande est maintenant sous 0 <= diffDays <= 2
+            if (notif.type === 'order_overdue' && diffDays >= 0) {
+              await this.deleteNotification(userId, notif.id);
+              continue;
+            }
+
+            // Si l'alerte était une échéance proche alors que la commande est désormais en retard (diffDays < 0)
+            if (notif.type === 'order_due_soon' && diffDays < 0) {
+              await this.deleteNotification(userId, notif.id);
+              continue;
+            }
+          }
+        }
+      }
+    }
+
+    // Récupérer la liste nettoyée
+    const currentNotifs = await this.getNotifications(userId);
+
+    // 2. Générer les vraies alertes actuelles pour les commandes actives
     for (const cmd of commandes) {
       if (cmd.statut === 'livree' || !cmd.date_livraison_prevue) continue;
 
@@ -861,43 +1057,47 @@ export class DataService {
         year: 'numeric',
       });
 
-      // 1. Commande en retard (diffDays < 0)
+      const todayStr = today.toISOString().split('T')[0];
+
+      // Cas A : Commande en retard (diffDays < 0)
       if (diffDays < 0 && notifRetardEnabled) {
-        const alreadyAlerted = existingNotifs.some(
-          (n) => n.type === 'order_overdue' && (n.orderId === cmd.id || n.metadata?.orderId === cmd.id)
+        const daysOverdue = Math.abs(diffDays);
+        const dedupeKey = `order_overdue:${cmd.id}:${todayStr}`;
+        const alreadyAlerted = currentNotifs.some(
+          (n) => n.dedupe_key === dedupeKey || (n.type === 'order_overdue' && (n.orderId === cmd.id || n.metadata?.orderId === cmd.id) && !n.read)
         );
 
         if (!alreadyAlerted) {
+          const templ = NotificationTemplates.orderOverdue(
+            userId,
+            { id: cmd.id, clientNom: cmd.client_nom, description: cmd.description, dateLivraisonPrevue: formattedDate },
+            daysOverdue,
+            todayStr
+          );
           await this.addNotification(userId, {
-            type: 'order_overdue',
-            category: 'order',
-            priority: 'urgent',
-            title: '🚨 Commande en retard',
-            message: `La commande pour ${cmd.client_nom || 'un client'} ("${cmd.description}") accuse ${Math.abs(diffDays)} jour(s) de retard (Échéance: ${formattedDate}).`,
-            link: `/commandes?id=${cmd.id}`,
-            orderId: cmd.id,
-            metadata: { orderId: cmd.id, alertType: 'overdue' },
+            ...templ,
+            couturier_id: userId,
           });
         }
       }
 
-      // 2. Échéance proche (0 <= diffDays <= 2)
+      // Cas B : Échéance proche (0 <= diffDays <= 2)
       else if (diffDays >= 0 && diffDays <= 2 && notifRappelEnabled) {
-        const alreadyAlerted = existingNotifs.some(
-          (n) => n.type === 'order_due_soon' && (n.orderId === cmd.id || n.metadata?.orderId === cmd.id)
+        const dedupeKey = `order_due_soon:${cmd.id}:${todayStr}`;
+        const alreadyAlerted = currentNotifs.some(
+          (n) => n.dedupe_key === dedupeKey || (n.type === 'order_due_soon' && (n.orderId === cmd.id || n.metadata?.orderId === cmd.id) && !n.read)
         );
 
         if (!alreadyAlerted) {
-          const label = diffDays === 0 ? "Aujourd'hui" : diffDays === 1 ? "Demain" : `dans ${diffDays} jours`;
+          const templ = NotificationTemplates.orderDueSoon(
+            userId,
+            { id: cmd.id, clientNom: cmd.client_nom, description: cmd.description, dateLivraisonPrevue: formattedDate },
+            diffDays,
+            todayStr
+          );
           await this.addNotification(userId, {
-            type: 'order_due_soon',
-            category: 'order',
-            priority: 'high',
-            title: `⏰ Échéance proche (${label})`,
-            message: `La commande pour ${cmd.client_nom || 'un client'} ("${cmd.description}") doit être livrée le ${formattedDate}.`,
-            link: `/commandes?id=${cmd.id}`,
-            orderId: cmd.id,
-            metadata: { orderId: cmd.id, alertType: 'due_soon' },
+            ...templ,
+            couturier_id: userId,
           });
         }
       }

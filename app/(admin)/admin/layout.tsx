@@ -1,15 +1,41 @@
 'use client';
-
-import React from 'react';
+ 
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Shield, LayoutDashboard, Users, Tag, TrendingUp, ArrowLeft, LogOut } from 'lucide-react';
 import { useAuth } from '@/lib/context/AuthContext';
+import { AdminService } from '@/lib/services/adminService';
+import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
+  const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function verifyAdmin() {
+      if (authLoading) return;
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+      const adminAuthorized = await AdminService.isAdmin(user.id);
+      if (isMounted) {
+        if (!adminAuthorized) {
+          router.push('/commandes');
+        } else {
+          setIsAdminUser(true);
+        }
+      }
+    }
+    verifyAdmin();
+    return () => {
+      isMounted = false;
+    };
+  }, [user, authLoading, router]);
 
   const navItems = [
     { label: "Vue d'ensemble", href: '/admin', icon: LayoutDashboard },
@@ -17,6 +43,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'Codes Promo', href: '/admin/codes-promo', icon: Tag },
     { label: 'Finances & SaaS', href: '/admin/finances', icon: TrendingUp },
   ];
+
+  if (authLoading || isAdminUser === null) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F0] flex items-center justify-center p-6">
+        <ThreadSpoolLoader label="Vérification des autorisations administrateur…" size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F4F4F0] text-sombre font-sans flex flex-col">

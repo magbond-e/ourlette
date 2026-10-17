@@ -9,5 +9,11 @@ export function createClient() {
     return null;
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: {
+      maxAge: 365 * 24 * 60 * 60, // 365 jours de persistance
+      sameSite: 'lax',
+      path: '/',
+    },
+  });
 }

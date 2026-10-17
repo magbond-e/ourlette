@@ -6,6 +6,8 @@ import { DataService } from '../services/dataService';
 import { NotificationItem, CreateNotificationInput } from '../types/notification';
 import { createClient } from '../supabase/client';
 import { NotificationToast } from '@/components/ui/NotificationToast';
+import { NotificationTemplates } from '../services/notificationService';
+import { SupabaseService } from '../services/supabaseService';
 
 interface NotificationContextType {
   notifications: NotificationItem[];
@@ -13,6 +15,8 @@ interface NotificationContextType {
   loading: boolean;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  markAsSeen: (ids?: string[]) => Promise<void>;
+  dismissNotification: (id: string) => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
   clearAll: () => Promise<void>;
   createNotification: (input: CreateNotificationInput) => Promise<NotificationItem | null>;
@@ -26,6 +30,8 @@ const NotificationContext = createContext<NotificationContextType>({
   loading: false,
   markAsRead: async () => {},
   markAllAsRead: async () => {},
+  markAsSeen: async () => {},
+  dismissNotification: async () => {},
   deleteNotification: async () => {},
   clearAll: async () => {},
   createNotification: async () => null,
@@ -79,39 +85,35 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       return;
     }
 
-    setLoading(true);
     try {
-      // 1. Synchronize automated order alerts (overdue / due soon) once in backend
-      await DataService.syncOrderAlerts(user.id, couturier);
-
-      // 2. Fetch all persisted notifications for this account
-      let list = await DataService.getNotifications(user.id);
-
-      // 3. Ensure Welcome Notification exists once per account
-      if (!initializedWelcomeRef.current && list.length === 0) {
-        initializedWelcomeRef.current = true;
-        const hasWelcome = list.some((n) => n.type === 'welcome');
-        if (!hasWelcome) {
-          const welcomeNotif = await DataService.addNotification(user.id, {
-            type: 'welcome',
-            category: 'account',
-            priority: 'medium',
-            title: '🎉 Bienvenue sur Ourlette !',
-            message: `Heureux de vous compter parmi nous ${couturier?.nom_atelier ? `– ${couturier.nom_atelier}` : ''} ! Prenez en main la gestion de vos clients, commandes et vitrine d'atelier.`,
-            link: '/parametres',
-            read: false,
-          });
-          if (welcomeNotif) {
-            list = [welcomeNotif, ...list];
-          }
-        }
+      // 1. Charger immédiatement le cache local de notifications en 0ms
+      const initialList = await DataService.getNotifications(user.id);
+      if (initialList && initialList.length > 0) {
+        setNotifications(initialList);
       }
 
-      setNotifications(list);
+      // 2. Synchroniser les alertes d'atelier en arrière-plan
+      DataService.syncOrderAlerts(user.id, couturier).then((list) => {
+        if (list) {
+          // Welcome notification si nouveau compte (avec dedupe_key unique)
+          if (!initializedWelcomeRef.current && list.length === 0) {
+            initializedWelcomeRef.current = true;
+            const welcomePayload = NotificationTemplates.welcome(user.id, couturier?.nom_atelier);
+            DataService.addNotification(user.id, {
+              ...welcomePayload,
+              couturier_id: user.id,
+            }).then((welcomeNotif) => {
+              if (welcomeNotif) setNotifications([welcomeNotif, ...list]);
+            });
+          } else {
+            setNotifications(list);
+          }
+        }
+      }).catch((err) => {
+        console.warn('Sync notifications différé:', err);
+      });
     } catch (e) {
-      console.error('Failed to load notifications:', e);
-    } finally {
-      setLoading(false);
+      console.warn('Failed to load notifications cache:', e);
     }
   }, [user?.id, couturier]);
 
@@ -154,19 +156,34 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             message: newRow.message,
             date: newRow.created_at || new Date().toISOString(),
             read: Boolean(newRow.read),
-            link: newRow.link || undefined,
+            link: newRow.action_url || newRow.link || undefined,
+            action_url: newRow.action_url || newRow.link || undefined,
             metadata: newRow.metadata || {},
-            orderId: newRow.metadata?.orderId || undefined,
+            data: newRow.data || {},
+            orderId: (newRow.data?.orderId || newRow.metadata?.orderId) as string | undefined,
+            dedupe_key: newRow.dedupe_key || undefined,
+            seen_at: newRow.seen_at,
+            read_at: newRow.read_at,
+            dismissed_at: newRow.dismissed_at,
+            resolved_at: newRow.resolved_at,
+            expires_at: newRow.expires_at,
           };
 
+          // Ignorer immédiatement les notifications déjà rejetées ou résolues
+          if (item.dismissed_at || item.resolved_at) return;
+
           setNotifications((prev) => {
-            if (prev.some((n) => n.id === item.id)) return prev;
+            if (prev.some((n) => n.id === item.id || (item.dedupe_key && n.dedupe_key === item.dedupe_key))) return prev;
             return [item, ...prev];
           });
 
-          // Show Toast & Play audio chime for live incoming notifications
-          setActiveToast(item);
-          playNotificationChime();
+          // Show Toast & Play audio chime ONLY for live incoming notifications (< 15 secondes)
+          const createdAtMs = newRow.created_at ? new Date(newRow.created_at).getTime() : Date.now();
+          const isFresh = (Date.now() - createdAtMs) < 15000;
+          if (isFresh && !item.read) {
+            setActiveToast(item);
+            playNotificationChime();
+          }
         }
       )
       .on(
@@ -220,16 +237,33 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // ── 3. Actions ───────────────────────────────────────────────────────
   const markAsRead = async (id: string) => {
     if (!user?.id) return;
+    const now = new Date().toISOString();
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, read: true, read_at: n.read_at || now } : n))
     );
     await DataService.markNotificationAsRead(user.id, id);
   };
 
   const markAllAsRead = async () => {
     if (!user?.id) return;
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const now = new Date().toISOString();
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true, read_at: n.read_at || now })));
     await DataService.markAllNotificationsAsRead(user.id);
+  };
+
+  const markAsSeen = async (ids?: string[]) => {
+    if (!user?.id) return;
+    const now = new Date().toISOString();
+    setNotifications((prev) =>
+      prev.map((n) => (!ids || ids.includes(n.id) ? { ...n, seen_at: n.seen_at || now } : n))
+    );
+    await SupabaseService.markNotificationsAsSeen(user.id, ids);
+  };
+
+  const dismissNotification = async (id: string) => {
+    if (!user?.id) return;
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    await DataService.dismissNotification(user.id, id);
   };
 
   const deleteNotification = async (id: string) => {
@@ -280,6 +314,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         loading,
         markAsRead,
         markAllAsRead,
+        markAsSeen,
+        dismissNotification,
         deleteNotification,
         clearAll,
         createNotification,

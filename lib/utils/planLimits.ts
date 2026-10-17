@@ -1,5 +1,11 @@
 import { Couturier } from '../types/database';
 
+/**
+ * Feature flag: Controls visibility of account plans, tiers, badges, and limits.
+ * Set to false to hide Free/Pro distinctions, pricing tables, and limits when showcasing to users.
+ */
+export const SHOW_ACCOUNT_PLANS = false;
+
 export const FREE_PLAN_LIMITS = {
   maxActiveCommandes: 10,
   maxRealisations: 8,
@@ -37,7 +43,8 @@ export function checkCommandeLimit(
   couturier: Couturier | null | undefined,
   activeCommandesCount: number
 ): { allowed: boolean; message?: string } {
-  if (isProPlan(couturier)) {
+  // If plan limits are hidden/disabled for presentation, allow unlimited orders
+  if (!SHOW_ACCOUNT_PLANS || isProPlan(couturier)) {
     return { allowed: true };
   }
 
@@ -58,7 +65,8 @@ export function checkRealisationLimit(
   couturier: Couturier | null | undefined,
   realisationsCount: number
 ): { allowed: boolean; message?: string } {
-  if (isProPlan(couturier)) {
+  // If plan limits are hidden/disabled for presentation, allow unlimited photos
+  if (!SHOW_ACCOUNT_PLANS || isProPlan(couturier)) {
     return { allowed: true };
   }
 
@@ -76,5 +84,9 @@ export function checkRealisationLimit(
  * Check if custom slug personalization is allowed
  */
 export function canCustomizeSlug(couturier: Couturier | null | undefined): boolean {
+  // If plan limits are hidden/disabled, allow custom slug for all ateliers
+  if (!SHOW_ACCOUNT_PLANS) {
+    return true;
+  }
   return isProPlan(couturier);
 }

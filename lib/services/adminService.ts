@@ -36,6 +36,25 @@ export class AdminService {
   }
 
   /**
+   * Vérifie formellement si un utilisateur est bien enregistré dans la table admins
+   */
+  static async isAdmin(userId?: string): Promise<boolean> {
+    if (!userId) return false;
+    const supabase = this.getSupabase();
+    if (!supabase) return false;
+    try {
+      const { data, error } = await supabase
+        .from('admins')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      return !error && !!data;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Fetch overview KPIs for the admin dashboard
    */
   static async getDashboardKPIs(): Promise<AdminKPIs> {

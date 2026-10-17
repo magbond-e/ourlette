@@ -12,12 +12,16 @@ import { Client, TypeCommande } from '@/lib/types/database';
 import { calculSolde, formatFCFA } from '@/lib/utils/formatters';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useNotifications } from '@/lib/context/NotificationContext';
-import { checkCommandeLimit, FREE_PLAN_LIMITS } from '@/lib/utils/planLimits';
+import { checkCommandeLimit, SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
+import { useLanguage } from '@/lib/i18n';
 
 export default function NouvelleCommandePage() {
   const router = useRouter();
   const { user, couturier } = useAuth();
   const { createNotification } = useNotifications();
+  const { dict, locale } = useLanguage();
+  const isEn = locale === 'en';
+
   const [clients, setClients] = useState<Client[]>([]);
   const [activeCommandesCount, setActiveCommandesCount] = useState<number>(0);
   const [limitReached, setLimitReached] = useState<boolean>(false);
@@ -59,7 +63,6 @@ export default function NouvelleCommandePage() {
       const limitCheck = checkCommandeLimit(couturier, activeCount);
       if (!limitCheck.allowed) {
         setLimitReached(true);
-        setError(limitCheck.message || '');
       }
 
       setClients(list);
@@ -68,63 +71,49 @@ export default function NouvelleCommandePage() {
       }
     }
     init();
-
-    // Default delivery date: 7 days from today
-    const in7days = new Date();
-    in7days.setDate(in7days.getDate() + 7);
-    setDateLivraison(in7days.toISOString().split('T')[0]);
   }, [user?.id, couturier]);
 
-  const handleCreateClientOnTheFly = async (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleCreateClientOnTheFly = async () => {
     if (!newClientNom.trim() || !user?.id) return;
-
-    const created = await DataService.addClient(user.id, {
+    const added = await DataService.addClient(user.id, {
       nom: newClientNom.trim(),
       telephone: newClientTelephone.trim(),
     });
-
-    const updatedList = await DataService.getClients(user.id);
-    setClients(updatedList);
-    if (created) {
-      setSelectedClientId(created.id);
-      await createNotification({
-        type: 'client_created',
-        category: 'client',
-        priority: 'low',
-        title: '👤 Nouveau client ajouté',
-        message: `${created.nom} a été ajouté avec succès à votre liste de clients.`,
-        link: `/clients?id=${created.id}`,
-        metadata: { clientId: created.id },
-      });
+    if (added) {
+      setClients((prev) => [added, ...prev]);
+      setSelectedClientId(added.id);
+      setShowNewClientForm(false);
+      setNewClientNom('');
+      setNewClientTelephone('');
     }
-    setShowNewClientForm(false);
-    setNewClientNom('');
-    setNewClientTelephone('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!selectedClientId) {
-      setError('Veuillez sélectionner ou créer un client.');
-      return;
-    }
-    if (!description.trim()) {
-      setError('Veuillez décrire le modèle ou la retouche.');
-      return;
-    }
-    if (!prixTotal || Number(prixTotal) <= 0) {
-      setError('Le prix total doit être renseigné.');
-      return;
-    }
-    if (!dateLivraison) {
-      setError('La date de livraison prévue est obligatoire.');
-      return;
-    }
     if (!user?.id) return;
 
+    if (!selectedClientId) {
+      setError(isEn ? 'Please choose or create a client.' : 'Veuillez sélectionner ou créer un client.');
+      return;
+    }
+
+    if (!description.trim()) {
+      setError(dict.nouvelleCommande.validationError);
+      return;
+    }
+
+    if (!prixTotal || Number(prixTotal) <= 0) {
+      setError(isEn ? 'Please specify a valid total price.' : 'Veuillez spécifier un prix total valide.');
+      return;
+    }
+
+    if (!dateLivraison) {
+      setError(isEn ? 'Please choose a promised delivery date.' : 'Veuillez spécifier une date de livraison promise.');
+      return;
+    }
+
     setLoading(true);
+    setError('');
 
     const clientObj = clients.find((c) => c.id === selectedClientId);
 
@@ -144,8 +133,10 @@ export default function NouvelleCommandePage() {
         type: 'order_created',
         category: 'order',
         priority: 'medium',
-        title: '✨ Nouvelle commande enregistrée',
-        message: `Commande "${newCmd.description}" enregistrée pour ${clientObj?.nom || 'un client'} (${formatFCFA(newCmd.prix_total)}).`,
+        title: isEn ? '✨ New order logged' : '✨ Nouvelle commande enregistrée',
+        message: isEn
+          ? `Order "${newCmd.description}" saved for ${clientObj?.nom || 'client'} (${formatFCFA(newCmd.prix_total)}).`
+          : `Commande "${newCmd.description}" enregistrée pour ${clientObj?.nom || 'un client'} (${formatFCFA(newCmd.prix_total)}).`,
         link: `/commandes/${newCmd.id}`,
         orderId: newCmd.id,
         metadata: { orderId: newCmd.id, clientId: selectedClientId },
@@ -171,25 +162,27 @@ export default function NouvelleCommandePage() {
             className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-sombre/70 hover:text-accent transition-colors bg-white px-3 py-1.5 rounded-full border border-sable/70 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Annuler</span>
+            <span>{dict.common.cancel}</span>
           </Link>
-          <h2 className="text-xl sm:text-2xl font-display font-bold text-sombre">Nouvelle Commande</h2>
+          <h2 className="text-xl sm:text-2xl font-display font-bold text-sombre">{dict.nouvelleCommande.title}</h2>
           <div className="w-16" />
         </div>
 
-        {limitReached && (
+        {SHOW_ACCOUNT_PLANS && limitReached && (
           <Card className="p-6 bg-gradient-to-br from-sombre to-[#3D1A1E] text-white border-2 border-gold shadow-xl rounded-3xl space-y-4">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-gold/20 text-gold flex items-center justify-center shrink-0 border border-gold/40">
                 <Sparkles className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-gold">Limite Plan Gratuit Atteinte (10/10)</span>
+                <span className="text-xs font-extrabold uppercase tracking-wider text-gold">
+                  {dict.nouvelleCommande.limitBlockedTitle} ({activeCommandesCount}/10)
+                </span>
                 <h3 className="text-xl font-display font-bold text-white">
-                  Débloquez les commandes illimitées avec le Plan Pro
+                  {dict.nouvelleCommande.upgradeButton}
                 </h3>
                 <p className="text-xs sm:text-sm text-clair/80 font-medium leading-relaxed">
-                  Votre atelier a <strong>{activeCommandesCount} commandes en cours</strong> sur le Plan Gratuit. Pour ajouter de nouvelles commandes sans contrainte, basculez vers la formule Pro.
+                  {dict.nouvelleCommande.limitBlockedDesc}
                 </p>
               </div>
             </div>
@@ -197,7 +190,7 @@ export default function NouvelleCommandePage() {
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-white/10">
               <Link href="/parametres" className="w-full sm:w-auto">
                 <Button variant="gold" size="md" className="w-full sm:w-auto rounded-full font-bold text-xs sm:text-sm shadow-md">
-                  Activer le Plan Pro →
+                  {dict.landing.proPlanCta}
                 </Button>
               </Link>
             </div>
@@ -215,7 +208,7 @@ export default function NouvelleCommandePage() {
           <Card className="space-y-4 p-5 sm:p-6 rounded-3xl">
             <div className="flex items-center justify-between gap-2">
               <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">
-                1. Client
+                {dict.nouvelleCommande.clientSectionTitle}
               </label>
               {!showNewClientForm && (
                 <button
@@ -224,26 +217,26 @@ export default function NouvelleCommandePage() {
                   className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-accent hover:underline"
                 >
                   <UserPlus className="w-4 h-4" />
-                  <span>Nouveau Client</span>
+                  <span>{dict.nouvelleCommande.orAddNewClient}</span>
                 </button>
               )}
             </div>
 
             {showNewClientForm ? (
               <div className="p-4 bg-[#FAFAF8] rounded-2xl border border-sable/80 space-y-4">
-                <p className="text-xs sm:text-sm font-bold text-sombre">Créer un client à la volée</p>
+                <p className="text-xs sm:text-sm font-bold text-sombre">{isEn ? 'Create client profile' : 'Créer un client à la volée'}</p>
                 <Input
-                  label="Nom du client"
+                  label={dict.nouvelleCommande.newClientNameLabel}
                   type="text"
-                  placeholder="ex: Mariama Sow"
+                  placeholder={isEn ? 'e.g. Mariama Sow' : 'ex: Mariama Sow'}
                   value={newClientNom}
                   onChange={(e) => setNewClientNom(e.target.value)}
                   autoFocus
                 />
                 <Input
-                  label="Téléphone"
+                  label={dict.nouvelleCommande.newClientPhoneLabel}
                   type="tel"
-                  placeholder="ex: +229 77 123 45 67"
+                  placeholder={isEn ? 'e.g. +229 77 123 45 67' : 'ex: +229 77 123 45 67'}
                   value={newClientTelephone}
                   onChange={(e) => setNewClientTelephone(e.target.value)}
                 />
@@ -254,7 +247,7 @@ export default function NouvelleCommandePage() {
                     size="sm"
                     onClick={() => setShowNewClientForm(false)}
                   >
-                    Annuler
+                    {dict.common.cancel}
                   </Button>
                   <Button
                     type="button"
@@ -262,13 +255,13 @@ export default function NouvelleCommandePage() {
                     size="sm"
                     onClick={handleCreateClientOnTheFly}
                   >
-                    Enregistrer client
+                    {dict.clients.saveClientButton}
                   </Button>
                 </div>
               </div>
             ) : clients.length === 0 ? (
               <div className="p-4 bg-[#FAFAF8] rounded-2xl border border-dashed border-sable/80 text-center space-y-2">
-                <p className="text-xs sm:text-sm text-sombre/70 font-semibold">Aucun client enregistré.</p>
+                <p className="text-xs sm:text-sm text-sombre/70 font-semibold">{dict.clients.emptyTitle}</p>
                 <Button
                   type="button"
                   variant="accent"
@@ -276,7 +269,7 @@ export default function NouvelleCommandePage() {
                   onClick={() => setShowNewClientForm(true)}
                   className="rounded-full"
                 >
-                  + Créer le premier client
+                  + {dict.clients.createFirstClient}
                 </Button>
               </div>
             ) : (
@@ -297,7 +290,7 @@ export default function NouvelleCommandePage() {
           {/* SECTION 2: Type de commande */}
           <Card className="space-y-4 p-5 sm:p-6 rounded-3xl">
             <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">
-              2. Type de Commande
+              {dict.nouvelleCommande.orderDetailsTitle}
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -309,7 +302,7 @@ export default function NouvelleCommandePage() {
                   }`}
               >
                 <Scissors className="w-5 h-5 text-current" />
-                <span>Couture Complète</span>
+                <span>{dict.nouvelleCommande.typeComplete}</span>
               </button>
 
               <button
@@ -321,28 +314,24 @@ export default function NouvelleCommandePage() {
                   }`}
               >
                 <Sparkles className="w-5 h-5 text-current" />
-                <span>Retouche Tenue</span>
+                <span>{dict.nouvelleCommande.typeAlteration}</span>
               </button>
             </div>
 
             <div className="space-y-4 pt-2">
               <Input
-                label={typeCommande === 'couture_complete' ? 'Description du modèle' : 'Description de la retouche'}
+                label={dict.nouvelleCommande.descriptionLabel}
                 type="text"
-                placeholder={
-                  typeCommande === 'couture_complete'
-                    ? 'ex: Robe de mariée 3 pièces brodée avec col montant'
-                    : 'ex: Ourlet pantalon + reprise de taille 2cm'
-                }
+                placeholder={dict.nouvelleCommande.descriptionPlaceholder}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 required
               />
 
               <Input
-                label="Tissu (optionnel)"
+                label={`${dict.nouvelleCommande.fabricLabel} (${dict.common.optional})`}
                 type="text"
-                placeholder="ex: Bazin riche bleu nuit fourni par la cliente"
+                placeholder={dict.nouvelleCommande.fabricPlaceholder}
                 value={tissu}
                 onChange={(e) => setTissu(e.target.value)}
               />
@@ -352,12 +341,12 @@ export default function NouvelleCommandePage() {
           {/* SECTION 3: Prix & Acompte */}
           <Card className="space-y-4 p-5 sm:p-6 rounded-3xl">
             <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">
-              3. Tarifs & Règlement
+              {dict.nouvelleCommande.pricingTitle}
             </label>
 
             <div className="grid grid-cols-2 gap-4">
               <Input
-                label="Prix Total (FCFA)"
+                label={dict.nouvelleCommande.priceLabel}
                 type="number"
                 placeholder="ex: 50000"
                 value={prixTotal}
@@ -366,7 +355,7 @@ export default function NouvelleCommandePage() {
               />
 
               <Input
-                label="Acompte versé (FCFA)"
+                label={dict.nouvelleCommande.depositLabel}
                 type="number"
                 placeholder="ex: 25000"
                 value={acompte}
@@ -375,7 +364,7 @@ export default function NouvelleCommandePage() {
             </div>
 
             <div className="p-4 bg-[#FAFAF8] rounded-2xl flex items-center justify-between text-xs sm:text-sm border border-sable/60">
-              <span className="font-bold text-sombre">Solde restant à livraison :</span>
+              <span className="font-bold text-sombre">{dict.nouvelleCommande.balanceLabel} :</span>
               <span className={`font-extrabold text-sm sm:text-base ${currentSolde > 0 ? 'text-accent' : 'text-vertbouton'}`}>
                 {formatFCFA(currentSolde)}
               </span>
@@ -385,12 +374,12 @@ export default function NouvelleCommandePage() {
           {/* SECTION 4: Livraison & Responsable */}
           <Card className="space-y-4 p-5 sm:p-6 rounded-3xl">
             <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">
-              4. Date & Traçabilité Atelier
+              {dict.nouvelleCommande.planningTitle}
             </label>
 
             <div className="grid grid-cols-2 gap-4">
               <Input
-                label="Livraison Prévue"
+                label={dict.nouvelleCommande.deliveryDateLabel}
                 type="date"
                 value={dateLivraison}
                 onChange={(e) => setDateLivraison(e.target.value)}
@@ -398,9 +387,9 @@ export default function NouvelleCommandePage() {
               />
 
               <Input
-                label="Pris par / Responsable"
+                label={dict.nouvelleCommande.assignedToLabel}
                 type="text"
-                placeholder="Nom du couturier"
+                placeholder={dict.nouvelleCommande.assignedToPlaceholder}
                 value={responsable}
                 onChange={(e) => setResponsable(e.target.value)}
               />
@@ -409,7 +398,7 @@ export default function NouvelleCommandePage() {
 
           <Button type="submit" variant="accent" fullWidth size="lg" disabled={loading || limitReached} className="gap-2 shadow-lg shadow-accent/20">
             <Check className="w-5 h-5" />
-            <span>{loading ? 'Création en cours…' : 'Valider la commande'}</span>
+            <span>{loading ? dict.nouvelleCommande.submitting : dict.nouvelleCommande.submitButton}</span>
           </Button>
         </form>
       </main>

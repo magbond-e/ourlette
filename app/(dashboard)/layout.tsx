@@ -3,11 +3,10 @@
 import React from 'react';
 import { Header } from '@/components/ui/Header';
 import { CookieBanner } from '@/components/ui/CookieBanner';
-import { MandatoryOnboardingModal } from '@/components/ui/MandatoryOnboardingModal';
 import { NotificationProvider } from '@/lib/context/NotificationContext';
-import OfflineBanner from '@/components/ui/OfflineBanner';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { useAuth } from '@/lib/context/AuthContext';
+import { useLanguage } from '@/lib/i18n';
 import { PowerSyncProvider } from '@/lib/powersync/PowerSyncProvider';
 
 export default function DashboardLayout({
@@ -16,21 +15,13 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user, couturier, loading } = useAuth();
-
-  const isMissingOnboarding = Boolean(
-    !couturier ||
-    !couturier.nom || couturier.nom.trim() === '' || couturier.nom.trim() === 'Artisan Couturier' ||
-    !couturier.nom_atelier || couturier.nom_atelier.trim() === '' || couturier.nom_atelier.trim() === 'Mon Atelier' ||
-    (!couturier.telephone && !couturier.whatsapp_contact) ||
-    !couturier.ville || couturier.ville.trim() === '' ||
-    !couturier.pays || couturier.pays.trim() === '' ||
-    !couturier.cookie_consent_at
-  );
+  const { locale } = useLanguage();
+  const isEn = locale === 'en';
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-clair flex items-center justify-center font-sans">
-        <ThreadSpoolLoader label="Chargement de votre atelier…" size="lg" />
+      <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center font-sans">
+        <ThreadSpoolLoader label={isEn ? 'Loading your workshop…' : 'Chargement de votre atelier…'} size="lg" />
       </div>
     );
   }
@@ -41,23 +32,13 @@ export default function DashboardLayout({
         {/* Header fixe — monté une seule fois pour tout le dashboard */}
         <Header />
 
-        {/* Offline sync status banner */}
-        <OfflineBanner />
+        {/* Mandatory Cookie Acceptance Modal on Dashboard if not accepted yet */}
+        <CookieBanner isDashboard />
 
-        {/* If onboarding is incomplete, strictly block app children */}
-        {isMissingOnboarding ? (
-          <MandatoryOnboardingModal />
-        ) : (
-          <>
-            {/* Mandatory Cookie Acceptance Modal on Dashboard if not accepted yet */}
-            <CookieBanner isDashboard />
-
-            {/* Contenu : offset pour header fixe 64px */}
-            <div className="pt-[64px]">
-              {children}
-            </div>
-          </>
-        )}
+        {/* Contenu : offset pour header fixe 64px */}
+        <div className="pt-[64px]">
+          {children}
+        </div>
       </NotificationProvider>
     </PowerSyncProvider>
   );

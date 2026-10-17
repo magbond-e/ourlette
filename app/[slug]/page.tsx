@@ -5,13 +5,16 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Scissors, MapPin, Share2, Sparkles, Image as ImageIcon, PowerOff } from 'lucide-react';
+import { Scissors, MapPin, Share2, Sparkles, Image as ImageIcon, PowerOff, Crown } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { DataService } from '@/lib/services/dataService';
 import { Couturier, Realisation } from '@/lib/types/database';
 import { generateWhatsAppContactLink, generateWhatsAppShareLink, formatDateFR } from '@/lib/utils/formatters';
+import { useLanguage } from '@/lib/i18n';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
 
 const WhatsAppIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -22,6 +25,8 @@ const WhatsAppIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
 export default function VitrinePubliquePage() {
   const params = useParams();
   const slugParam = params.slug as string;
+  const { dict, locale } = useLanguage();
+  const isEn = locale === 'en';
 
   const [couturier, setCouturier] = useState<Couturier | null>(null);
   const [realisations, setRealisations] = useState<Realisation[]>([]);
@@ -51,7 +56,7 @@ export default function VitrinePubliquePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center font-sans">
-        <ThreadSpoolLoader label="Chargement de la vitrine d'atelier…" size="lg" />
+        <ThreadSpoolLoader label={isEn ? 'Loading atelier showcase…' : 'Chargement de la vitrine d’atelier…'} size="lg" />
       </div>
     );
   }
@@ -80,9 +85,12 @@ export default function VitrinePubliquePage() {
               <Scissors className="w-4 h-4 text-gold" />
               <span className="font-display font-bold text-sm text-white">{nomAtelierDisplay}</span>
             </div>
-            <span className="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/40 px-3 py-1 rounded-full font-bold">
-              Vitrine Désactivée
-            </span>
+            <div className="flex items-center gap-2">
+              <LanguageSwitcher isDark variant="compact" />
+              <span className="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/40 px-3 py-1 rounded-full font-bold">
+                {dict.common.inactive}
+              </span>
+            </div>
           </div>
         </header>
 
@@ -94,7 +102,7 @@ export default function VitrinePubliquePage() {
           <div className="space-y-2">
             <h1 className="text-3xl font-display font-bold text-sombre">{nomAtelierDisplay}</h1>
             <p className="text-sm text-sombre/70 font-medium leading-relaxed">
-              La vitrine publique de cet atelier est actuellement temporairement en pause ou indisponible.
+              {dict.publicVitrine.atelierNotFoundDesc}
             </p>
           </div>
 
@@ -108,7 +116,7 @@ export default function VitrinePubliquePage() {
                   className="gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-md text-sm py-3 rounded-full"
                 >
                   <WhatsAppIcon className="w-5 h-5 fill-current" />
-                  <span>Contacter l'atelier sur WhatsApp</span>
+                  <span>{dict.publicVitrine.orderOnWhatsApp}</span>
                 </Button>
               </a>
             </div>
@@ -118,7 +126,7 @@ export default function VitrinePubliquePage() {
         <footer className="text-center py-6 border-t border-dashed border-sable max-w-4xl mx-auto font-sans">
           <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-sombre/70 font-bold">
             <Scissors className="w-4 h-4 text-accent" />
-            <span>Propulsé par <strong className="font-display font-extrabold text-accent">Ourlette.</strong></span>
+            <span>{dict.publicVitrine.poweredBy} <strong className="font-display font-extrabold text-accent">Ourlette.</strong></span>
           </Link>
         </footer>
       </div>
@@ -143,7 +151,7 @@ export default function VitrinePubliquePage() {
       {/* Schema.org Structured Data */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema).replace(/</g, '\\u003c') }}
       />
 
       {/* Fixed Header Navigation */}
@@ -160,12 +168,15 @@ export default function VitrinePubliquePage() {
             <span className="font-display font-bold text-sm tracking-tight text-white">{couturier.nom_atelier}</span>
           </div>
 
-          <a href={whatsappShareUrl} target="_blank" rel="noopener noreferrer" title="Partager cette vitrine">
-            <Button size="sm" variant="accent" className="text-xs py-1 px-3 min-h-[34px] font-bold gap-1 shadow-sm rounded-full">
-              <Share2 className="w-3.5 h-3.5" />
-              <span>Partager</span>
-            </Button>
-          </a>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher isDark variant="compact" />
+            <a href={whatsappShareUrl} target="_blank" rel="noopener noreferrer" title={dict.common.share}>
+              <Button size="sm" variant="accent" className="text-xs py-1 px-3 min-h-[34px] font-bold gap-1 shadow-sm rounded-full">
+                <Share2 className="w-3.5 h-3.5" />
+                <span>{dict.common.share}</span>
+              </Button>
+            </a>
+          </div>
         </div>
       </header>
       <div className="h-[57px] shrink-0 pointer-events-none" aria-hidden="true" />
@@ -201,9 +212,16 @@ export default function VitrinePubliquePage() {
           )}
 
           <div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-black text-white leading-tight">
-              {couturier.nom_atelier}
-            </h1>
+            <div className="flex items-center justify-center gap-2">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-black text-white leading-tight">
+                {couturier.nom_atelier}
+              </h1>
+              {SHOW_ACCOUNT_PLANS && couturier.plan === 'pro' && (
+                <span className="p-1 rounded-full bg-gold/20 border border-gold/40 text-gold" title={dict.publicVitrine.certifiedBadge}>
+                  <Crown className="w-5 h-5 text-gold" />
+                </span>
+              )}
+            </div>
             {(couturier.ville || couturier.pays) && (
               <p className="text-xs sm:text-sm font-bold text-gold flex items-center justify-center gap-1 mt-1 font-sans">
                 <MapPin className="w-4 h-4 text-gold" />
@@ -217,7 +235,7 @@ export default function VitrinePubliquePage() {
           </div>
 
           <p className="text-xs sm:text-sm text-white/90 leading-relaxed font-sans font-medium max-w-md mx-auto">
-            {couturier.bio || "Maison de couture sur-mesure & créations d'exception. Contactez l'atelier directement sur WhatsApp."}
+            {couturier.bio || (isEn ? 'Bespoke tailoring house & fine garment designs. Contact the atelier directly on WhatsApp.' : "Maison de couture sur-mesure & créations d'exception. Contactez l'atelier directement sur WhatsApp.")}
           </p>
 
           <div className="pt-2 max-w-xs mx-auto">
@@ -229,7 +247,7 @@ export default function VitrinePubliquePage() {
                 className="gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold shadow-lg text-sm py-3.5 rounded-full"
               >
                 <WhatsAppIcon className="w-5 h-5 fill-current" />
-                <span>Contacter sur WhatsApp</span>
+                <span>{dict.publicVitrine.orderOnWhatsApp}</span>
               </Button>
             </a>
           </div>
@@ -242,17 +260,17 @@ export default function VitrinePubliquePage() {
           <div className="flex items-center justify-between px-1">
             <h2 className="text-base sm:text-lg font-display font-bold uppercase tracking-wider text-sombre flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-accent" />
-              <span>Réalisations & Modèles ({realisations.length})</span>
+              <span>{dict.publicVitrine.galleryTitle} ({realisations.length})</span>
             </h2>
             <span className="text-xs font-bold text-accent font-sans bg-accent/10 px-3 py-1 rounded-full border border-accent/20">
-              Couture Sur-Mesure
+              {isEn ? 'Bespoke Craftsmanship' : 'Couture Sur-Mesure'}
             </span>
           </div>
 
           {realisations.length === 0 ? (
             <Card className="py-12 text-center text-xs text-sombre/60 border-dashed border-2 border-sable bg-white rounded-3xl">
               <ImageIcon className="w-10 h-10 mx-auto text-sombre/40 mb-2" />
-              <p className="font-semibold">Aucune réalisation publiée pour l'instant.</p>
+              <p className="font-semibold">{dict.publicVitrine.noPhotosYet}</p>
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
@@ -260,7 +278,7 @@ export default function VitrinePubliquePage() {
                 const modelWhatsappUrl = generateWhatsAppContactLink(
                   couturier.whatsapp_contact || couturier.telephone || '+2290140872836',
                   couturier.nom_atelier,
-                  real.description || 'Création sur-mesure'
+                  real.description || (isEn ? 'Bespoke creation' : 'Création sur-mesure')
                 );
 
                 return (
@@ -277,10 +295,12 @@ export default function VitrinePubliquePage() {
                         }}
                       />
                       <div className="p-4 space-y-1.5">
-                        <p className="text-sm font-bold font-sans text-sombre leading-snug">{real.description || 'Création sur-mesure'}</p>
+                        <p className="text-sm font-bold font-sans text-sombre leading-snug">
+                          {real.description || (isEn ? 'Bespoke Creation' : 'Création sur-mesure')}
+                        </p>
                         {real.date_publication && (
                           <p className="text-xs text-sombre/60 font-medium font-sans">
-                            Publié le {formatDateFR(real.date_publication)}
+                            {formatDateFR(real.date_publication, locale)}
                           </p>
                         )}
                       </div>
@@ -295,7 +315,7 @@ export default function VitrinePubliquePage() {
                           className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm py-2.5 rounded-2xl"
                         >
                           <WhatsAppIcon className="w-4 h-4 fill-current" />
-                          <span>Commander ce modèle</span>
+                          <span>{dict.publicVitrine.orderThisModel}</span>
                         </Button>
                       </a>
                     </div>
@@ -311,7 +331,7 @@ export default function VitrinePubliquePage() {
       <footer className="mt-16 text-center py-6 border-t border-dashed border-sable max-w-4xl mx-auto font-sans">
         <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-sombre/70 hover:text-accent font-bold">
           <Scissors className="w-4 h-4 text-accent" />
-          <span>Propulsé par <strong className="font-display font-extrabold text-accent">Ourlette.</strong></span>
+          <span>{dict.publicVitrine.poweredBy} <strong className="font-display font-extrabold text-accent">Ourlette.</strong></span>
         </Link>
       </footer>
     </div>

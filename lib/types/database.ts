@@ -27,6 +27,15 @@ export interface Couturier {
   notif_rappel_livraison?: boolean;
   notif_retard?: boolean;
   notif_nouveautes?: boolean;
+  onboarding_emails_enabled?: boolean;
+  relance_j2_sent_at?: string | null;
+  relance_j5_sent_at?: string | null;
+  relance_j7_sent_at?: string | null;
+  email_opt_out?: boolean;
+  unsubscribe_token?: string;
+  device?: string;
+  last_ip?: string;
+  timezone?: string;
   date_creation?: string;
   updated_at?: string;
 }
@@ -151,8 +160,27 @@ export interface DbNotification {
   link?: string | null;
   read: boolean;
   metadata?: Record<string, any>;
+  dedupe_key?: string | null;
+  seen_at?: string | null;
+  read_at?: string | null;
+  dismissed_at?: string | null;
+  resolved_at?: string | null;
+  expires_at?: string | null;
+  action_url?: string | null;
+  data?: Record<string, any>;
   created_at: string;
   updated_at?: string;
 }
+
+export interface DbNotificationPreference {
+  id: string;
+  couturier_id: string;
+  category: string;
+  in_app: boolean;
+  email: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 
 

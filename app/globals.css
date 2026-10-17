@@ -3,19 +3,16 @@
   src: url('/fonts/Violense.woff') format('woff');
   font-weight: normal;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
-
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Serif+Text:ital@0;1&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
-@import url('https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --font-violense: 'Violense', serif;
-  --font-playfair: 'Playfair Display', Georgia, serif;
+  --font-violense: 'Violense', Georgia, serif;
+  --font-playfair: Georgia, serif;
   --color-sombre: #2B1215;
   --color-fonce: #5F1C25;
   --color-accent: #AC0C21;
@@ -30,8 +27,8 @@ html {
   scroll-behavior: smooth;
 }
 
-html, body {
-  overflow-x: hidden;
+body {
+  overflow-x: clip;
   max-width: 100vw;
   font-size: 16px;
 }
@@ -39,21 +36,21 @@ html, body {
 body {
   background-color: #FAFAF8;
   color: var(--color-sombre);
-  font-family: 'Satoshi', var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
   font-size: 1rem;
   line-height: 1.55;
 }
 
-/* Display Font Utility */
-.font-display {
-  font-family: var(--font-violense), var(--font-playfair), "Playfair Display", Georgia, serif;
+/* Règle Fondamentale Ourlette : Police Display / Titres éditoriaux en Violense */
+.font-display, .hero-title, .font-violense, h1.font-display, h2.font-display {
+  font-family: 'Violense', Georgia, serif;
+  font-feature-settings: "liga" 0, "clig" 0;
 }
 
 /* Hero Title Headlines */
 .hero-title {
-  font-family: var(--font-violense), var(--font-playfair), "Playfair Display", Georgia, serif;
   font-size: clamp(28px, 5vw, 56px);
   font-weight: 700;
   line-height: 1.15;

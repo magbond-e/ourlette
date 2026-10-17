@@ -1,12 +1,9 @@
 // Ourlette Service Worker — Mode Hors Ligne & PWA (Cache-First Assets & Network-First Pages)
 const CACHE_NAME = 'ourlette-pwa-v2';
 
+// Assets strictement publics et statiques (exclusion formelle des pages privées /commandes, /clients, /parametres)
 const PRECACHE_ASSETS = [
   '/',
-  '/commandes',
-  '/clients',
-  '/vitrine/gerer',
-  '/parametres',
   '/offline',
   '/manifest.json',
   '/favicon.svg',
@@ -163,11 +160,23 @@ self.addEventListener('fetch', (event) => {
   // Ignorer les requêtes non-HTTP (extensions, etc.)
   if (!url.protocol.startsWith('http')) return;
 
-  // Ignorer les appels API backend / WebSockets externes (Supabase, PowerSync Cloud)
+  // Ignorer impérativement les zones sensibles et API (défense en profondeur : Invariant 5 & 9)
+  if (
+    url.pathname.startsWith('/admin') ||
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/auth') ||
+    url.pathname.startsWith('/pro/confirmation')
+  ) {
+    return;
+  }
+
+  // Ignorer les appels API backend / WebSockets externes (Supabase, PowerSync Cloud, SasPay)
   // PowerSync et Supabase gèrent leur propre persistance locale (SQLite / LocalStorage)
   if (
     url.hostname.includes('supabase.co') ||
-    url.hostname.includes('powersync')
+    url.hostname.includes('supabase.in') ||
+    url.hostname.includes('powersync') ||
+    url.hostname.includes('saspay.me')
   ) {
     return;
   }
@@ -186,22 +195,17 @@ self.addEventListener('fetch', (event) => {
   if (isStaticAsset) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
-        // Si présent dans le cache, on retourne immédiatement
         if (cachedResponse) {
-          // Revalidation en tâche de fond pour mettre à jour si le réseau est disponible
           fetch(request)
             .then((networkResponse) => {
               if (networkResponse && networkResponse.status === 200) {
                 caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
               }
             })
-            .catch(() => {
-              // Réseau inaccessible — ignoré silencieusement car on a déjà le cache
-            });
+            .catch(() => {});
           return cachedResponse;
         }
 
-        // Sinon, on va chercher sur le réseau et on met en cache
         return fetch(request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
@@ -222,14 +226,21 @@ self.addEventListener('fetch', (event) => {
     (request.headers.get('accept') && request.headers.get('accept').includes('text/html'));
 
   if (isNavigation) {
+    const isPrivateRoute =
+      url.pathname.startsWith('/commandes') ||
+      url.pathname.startsWith('/clients') ||
+      url.pathname.startsWith('/vitrine/gerer') ||
+      url.pathname.startsWith('/parametres') ||
+      url.pathname.startsWith('/pro');
+
     event.respondWith(
       fetch(request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
+          // Pour les routes publiques uniquement, on met en cache le HTML
+          if (!isPrivateRoute && networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(request, responseClone);
-              // Mettre en cache également sans query string pour les correspondances futures
               if (url.search) {
                 cache.put(url.pathname, networkResponse.clone());
               }
@@ -238,27 +249,29 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(async () => {
-          // 1. Chercher la requête exacte en cache
+          // Si hors-ligne sur route privée : renvoyer fallback offline contrôlé
+          if (isPrivateRoute) {
+            const offlinePage = await caches.match('/offline');
+            if (offlinePage) return offlinePage;
+            return new Response(OFFLINE_FALLBACK_HTML, {
+              headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              status: 200,
+            });
+          }
+
+          // Routes publiques : chercher le cache
           const exactMatch = await caches.match(request);
           if (exactMatch) return exactMatch;
 
-          // 2. Chercher le chemin sans paramètre d'URL
           const pathMatch = await caches.match(url.pathname, { ignoreSearch: true });
           if (pathMatch) return pathMatch;
 
-          // 3. Chercher la page dashboard principale '/commandes'
-          const commandesMatch = await caches.match('/commandes');
-          if (commandesMatch) return commandesMatch;
-
-          // 4. Chercher la racine '/'
           const rootMatch = await caches.match('/');
           if (rootMatch) return rootMatch;
 
-          // 5. Chercher la page dédiée /offline
           const offlineMatch = await caches.match('/offline');
           if (offlineMatch) return offlineMatch;
 
-          // 6. Ultime fallback HTML inline (évite l'écran d'erreur natif du navigateur)
           return new Response(OFFLINE_FALLBACK_HTML, {
             headers: { 'Content-Type': 'text/html; charset=utf-8' },
             status: 200,
@@ -288,4 +301,13 @@ self.addEventListener('fetch', (event) => {
         return new Response(null, { status: 503, statusText: 'Offline' });
       })
   );
+});
+
+// ── 4. Message Event — Purge sécurisée lors de la déconnexion (Invariant 9) ──
+self.addEventListener('message', (event) => {
+  if (event.data && (event.data.type === 'CLEAR_USER_CACHE' || event.data.action === 'LOGOUT')) {
+    caches.delete(CACHE_NAME).then(() => {
+      console.info('[SW] Cache PWA réinitialisé suite à la déconnexion.');
+    });
+  }
 });

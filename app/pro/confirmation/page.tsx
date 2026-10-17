@@ -18,6 +18,9 @@ import { Button } from '@/components/ui/Button';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useNotifications } from '@/lib/context/NotificationContext';
+import { useLanguage } from '@/lib/i18n';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
 
 type ActivationState = 'loading' | 'success' | 'already_pro' | 'error' | 'unauthorized';
 
@@ -26,6 +29,15 @@ function ProConfirmationContent() {
   const searchParams = useSearchParams();
   const { user, refreshProfile } = useAuth();
   const { createNotification } = useNotifications();
+  const { dict, locale } = useLanguage();
+  const isEn = locale === 'en';
+
+  useEffect(() => {
+    if (!SHOW_ACCOUNT_PLANS) {
+      router.replace('/commandes');
+    }
+  }, [router]);
+
   const [state, setState] = useState<ActivationState>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -36,8 +48,10 @@ function ProConfirmationContent() {
         return;
       }
 
-      // Récupérer les paramètres envoyés par MakeTou dans l'URL de retour
-      const orderId =
+      // Récupérer les paramètres envoyés dans l'URL de retour
+      const paymentId =
+        searchParams.get('payment_id') ||
+        searchParams.get('paymentId') ||
         searchParams.get('order_id') ||
         searchParams.get('orderId') ||
         searchParams.get('id') ||
@@ -50,12 +64,19 @@ function ProConfirmationContent() {
         searchParams.get('reference') ||
         undefined;
 
-      // Appel sécurisé côté serveur pour vérifier et activer
+      // Appel sécurisé côté serveur pour vérifier et activer via SasPay API v1
       try {
-        const response = await fetch('/api/pro/verify-payment', {
+        const idToVerify = paymentId || ref;
+        if (!idToVerify) {
+          setErrorMessage(isEn ? 'Payment ID not found.' : 'Identifiant de paiement introuvable.');
+          setState('error');
+          return;
+        }
+
+        const response = await fetch('/api/pro/saspay/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, ref }),
+          body: JSON.stringify({ paymentId: idToVerify }),
         });
 
         const data = await response.json();
@@ -68,9 +89,10 @@ function ProConfirmationContent() {
               type: 'feature_update',
               category: 'account',
               priority: 'high',
-              title: '🎉 Félicitations ! Votre Plan Pro est actif',
-              message:
-                'Votre atelier est désormais configuré avec toutes les fonctionnalités illimitées sur Ourlette.',
+              title: isEn ? '🎉 Congratulations! Your Pro Plan is Active' : '🎉 Félicitations ! Votre Plan Pro est actif',
+              message: isEn
+                ? 'Your workshop now has unlimited orders, showcase gallery, and branded link.'
+                : 'Votre atelier est désormais configuré avec toutes les fonctionnalités illimitées sur Ourlette.',
               link: '/commandes',
             });
           }
@@ -81,13 +103,13 @@ function ProConfirmationContent() {
         } else {
           setErrorMessage(
             data.error ||
-              'Une erreur est survenue lors de la validation de votre paiement.'
+              (isEn ? 'An error occurred while validating your payment.' : 'Une erreur est survenue lors de la validation de votre paiement.')
           );
           setState('error');
         }
       } catch (err) {
         console.error('[ProConfirmation] Erreur réseau:', err);
-        setErrorMessage('Impossible de contacter le serveur. Veuillez réessayer.');
+        setErrorMessage(isEn ? 'Unable to reach server. Please check your connection.' : 'Impossible de contacter le serveur. Veuillez réessayer.');
         setState('error');
       }
     }
@@ -100,7 +122,7 @@ function ProConfirmationContent() {
   if (state === 'loading') {
     return (
       <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 font-sans">
-        <ThreadSpoolLoader label="Validation de votre abonnement Pro MakeTou…" size="lg" />
+        <ThreadSpoolLoader label={isEn ? 'Validating your secure Pro subscription…' : 'Validation de votre abonnement Pro sécurisé…'} size="lg" />
       </div>
     );
   }
@@ -108,18 +130,21 @@ function ProConfirmationContent() {
   // ── Non authentifié ───────────────────────────────────────────
   if (state === 'unauthorized') {
     return (
-      <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 font-sans">
+      <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 font-sans relative">
+        <div className="absolute top-4 right-4">
+          <LanguageSwitcher />
+        </div>
         <Card className="w-full max-w-md p-8 bg-white border border-red-200 shadow-xl rounded-3xl text-center space-y-5">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center">
             <AlertCircle className="w-8 h-8 text-red-500" />
           </div>
-          <h1 className="text-xl font-bold text-sombre">Connexion requise</h1>
+          <h1 className="text-xl font-bold text-sombre">{isEn ? 'Authentication Required' : 'Connexion requise'}</h1>
           <p className="text-sm text-sombre/70">
-            Vous devez être connecté à votre compte Ourlette pour valider votre abonnement.
+            {isEn ? 'You must be logged in to confirm your workshop subscription.' : 'Vous devez être connecté à votre compte Ourlette pour valider votre abonnement.'}
           </p>
-          <Link href="/auth/login?redirect=/pro/confirmation">
+          <Link href="/login?redirect=/pro/confirmation">
             <Button variant="accent" fullWidth className="rounded-full font-bold">
-              Se connecter
+              {dict.nav.login}
             </Button>
           </Link>
         </Card>
@@ -130,26 +155,30 @@ function ProConfirmationContent() {
   // ── Erreur ────────────────────────────────────────────────────
   if (state === 'error') {
     return (
-      <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 font-sans">
+      <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 font-sans relative">
+        <div className="absolute top-4 right-4">
+          <LanguageSwitcher />
+        </div>
         <Card className="w-full max-w-md p-8 bg-white border border-amber-200 shadow-xl rounded-3xl text-center space-y-5">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center">
             <XCircle className="w-8 h-8 text-amber-500" />
           </div>
-          <h1 className="text-xl font-bold text-sombre">Validation en attente</h1>
+          <h1 className="text-xl font-bold text-sombre">{isEn ? 'Pending Validation' : 'Validation en attente'}</h1>
           <p className="text-sm text-sombre/70">{errorMessage}</p>
           <p className="text-xs text-sombre/50">
-            Si vous avez bien effectué le paiement, votre plan sera activé automatiquement dans quelques minutes.
-            Vous pouvez contacter le support si le problème persiste.
+            {isEn
+              ? 'If you completed your payment, your plan will activate automatically in a few moments. Contact support if this persists.'
+              : 'Si vous avez bien effectué le paiement, votre plan sera activé automatiquement dans quelques minutes. Vous pouvez contacter le support si le problème persiste.'}
           </p>
           <div className="flex gap-3">
             <Link href="/commandes" className="flex-1">
               <Button variant="outline" fullWidth className="rounded-full font-semibold text-sm">
-                Mon atelier
+                {dict.nav.commandes}
               </Button>
             </Link>
             <Link href="/pro" className="flex-1">
               <Button variant="accent" fullWidth className="rounded-full font-semibold text-sm">
-                Réessayer
+                {dict.common.retry}
               </Button>
             </Link>
           </div>
@@ -160,7 +189,10 @@ function ProConfirmationContent() {
 
   // ── Succès ────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 sm:p-6 font-sans">
+    <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 sm:p-6 font-sans relative">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
       <Card className="w-full max-w-lg p-6 sm:p-9 bg-white border border-gold/40 shadow-2xl rounded-3xl text-center space-y-6 animate-in fade-in zoom-in-95">
         {/* Gold Crown Badge */}
         <div className="relative mx-auto w-20 h-20 rounded-3xl bg-gradient-to-br from-sombre to-[#4A151C] flex items-center justify-center shadow-xl border-2 border-gold text-gold">
@@ -174,49 +206,47 @@ function ProConfirmationContent() {
         <div className="space-y-2">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gold/15 text-sombre rounded-full text-xs font-bold border border-gold/40">
             <Sparkles className="w-3.5 h-3.5 text-gold" />
-            <span>Paiement MakeTou Confirmé</span>
+            <span>{isEn ? 'SasPay Payment Confirmed' : 'Paiement SasPay Confirmé'}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-display font-bold text-sombre">
-            {state === 'already_pro' ? 'Plan Pro déjà actif !' : 'Bienvenue sur le Plan Pro !'}
+            {state === 'already_pro'
+              ? (isEn ? 'Pro Plan Already Active!' : 'Plan Pro déjà actif !')
+              : (isEn ? 'Welcome to Ourlette Pro!' : 'Bienvenue sur le Plan Pro !')}
           </h1>
           <p className="text-xs sm:text-sm text-sombre/70 font-semibold max-w-sm mx-auto">
             {state === 'already_pro'
-              ? 'Votre atelier bénéficie déjà de toutes les fonctionnalités illimitées.'
-              : 'Votre paiement de '}
-            {state !== 'already_pro' && (
-              <>
-                <span className="text-sombre font-extrabold">1 999 FCFA</span> a été validé avec
-                succès. Votre atelier bénéficie désormais de la formule illimitée.
-              </>
-            )}
+              ? (isEn ? 'Your workshop already enjoys all unlimited features.' : 'Votre atelier bénéficie déjà de toutes les fonctionnalités illimitées.')
+              : (isEn
+                  ? 'Your payment of 1,999 FCFA has been verified successfully. Your atelier now enjoys unlimited orders and gallery.'
+                  : 'Votre paiement de 1 999 FCFA a été validé avec succès. Votre atelier bénéficie désormais de la formule illimitée.')}
           </p>
         </div>
 
         {/* Unlocked Features Summary */}
         <div className="p-4 sm:p-5 bg-[#FAF9F6] border border-sable/70 rounded-2xl text-left space-y-3">
           <p className="text-xs font-bold uppercase tracking-wider text-accent">
-            Vos avantages actifs dès maintenant :
+            {dict.pro.featuresTitle} :
           </p>
           <div className="space-y-2 text-xs sm:text-sm font-semibold text-sombre">
             <div className="flex items-center gap-2.5">
               <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
-                Carnet de commandes <strong>100% illimité</strong>
+                {isEn ? 'Order book ' : 'Carnet de commandes '}<strong>{isEn ? '100% unlimited' : '100% illimité'}</strong>
               </span>
             </div>
             <div className="flex items-center gap-2.5">
               <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
-                Galerie de réalisations vitrine <strong>illimitée</strong>
+                {isEn ? 'Showcase gallery ' : 'Galerie de réalisations vitrine '}<strong>{isEn ? 'unlimited' : 'illimitée'}</strong>
               </span>
             </div>
             <div className="flex items-center gap-2.5">
               <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Lien personnalisé de vitrine d&apos;atelier</span>
+              <span>{dict.pro.featCustomSlug}</span>
             </div>
             <div className="flex items-center gap-2.5">
               <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Sauvegarde continue &amp; support prioritaire 7j/7</span>
+              <span>{dict.pro.featDirectSupport}</span>
             </div>
           </div>
         </div>
@@ -230,7 +260,7 @@ function ProConfirmationContent() {
               fullWidth
               className="rounded-full font-extrabold text-sm gap-2 shadow-lg shadow-accent/20"
             >
-              <span>Accéder à mon Atelier</span>
+              <span>{isEn ? 'Access My Workshop' : 'Accéder à mon Atelier'}</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
           </Link>
@@ -245,7 +275,7 @@ export default function ProConfirmationPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 font-sans">
-          <ThreadSpoolLoader label="Validation de votre abonnement Pro MakeTou…" size="lg" />
+          <ThreadSpoolLoader label="Validation de votre abonnement Pro SasPay…" size="lg" />
         </div>
       }
     >

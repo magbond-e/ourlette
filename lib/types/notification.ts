@@ -26,6 +26,14 @@ export interface NotificationItem {
   link?: string;
   metadata?: Record<string, any>;
   orderId?: string;
+  dedupe_key?: string;
+  seen_at?: string | null;
+  read_at?: string | null;
+  dismissed_at?: string | null;
+  resolved_at?: string | null;
+  expires_at?: string | null;
+  action_url?: string;
+  data?: Record<string, any>;
 }
 
 export interface CreateNotificationInput {
@@ -39,6 +47,14 @@ export interface CreateNotificationInput {
   read?: boolean;
   metadata?: Record<string, any>;
   orderId?: string;
+  dedupe_key?: string;
+  seen_at?: string | null;
+  read_at?: string | null;
+  dismissed_at?: string | null;
+  resolved_at?: string | null;
+  expires_at?: string | null;
+  action_url?: string;
+  data?: Record<string, any>;
 }
 
 export interface NotificationSettings {

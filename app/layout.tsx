@@ -1,23 +1,10 @@
 import type { Metadata } from 'next';
-import { Playfair_Display, DM_Serif_Text, Inter } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/lib/context/AuthContext';
+import { LanguageProvider } from '@/lib/i18n';
 import { CookieBanner } from '@/components/ui/CookieBanner';
 import PwaRegister from '@/components/PwaRegister';
-import OfflineBanner from '@/components/ui/OfflineBanner';
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  variable: '--font-playfair',
-  display: 'swap',
-});
-
-const dmSerif = DM_Serif_Text({
-  weight: '400',
-  subsets: ['latin'],
-  variable: '--font-dm-serif',
-  display: 'swap',
-});
 
 const inter = Inter({
   subsets: ['latin'],
@@ -123,19 +110,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={`${playfair.variable} ${dmSerif.variable} ${inter.variable}`}>
+    <html lang="fr" className={inter.variable}>
       <head>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdData) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdData).replace(/</g, '\\u003c') }}
         />
       </head>
-      <body className="antialiased bg-clair text-sombre selection:bg-accent selection:text-white min-h-screen font-sans">
+      <body className="antialiased bg-[#FAFAF8] text-sombre selection:bg-accent selection:text-white min-h-screen font-sans">
         <AuthProvider>
-          <PwaRegister />
-          <OfflineBanner />
-          <main className="min-h-screen pb-12">{children}</main>
-          <CookieBanner />
+          <LanguageProvider>
+            <PwaRegister />
+            <main className="min-h-screen bg-[#FAFAF8]">{children}</main>
+            <CookieBanner />
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>

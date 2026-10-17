@@ -19,14 +19,20 @@ import {
 } from 'lucide-react';
 import { useNotifications } from '@/lib/context/NotificationContext';
 import { NotificationItem, NotificationType } from '@/lib/types/notification';
+import { useLanguage } from '@/lib/i18n';
 
 export const NotificationDropdown: React.FC = () => {
   const router = useRouter();
+  const { dict, locale } = useLanguage();
+  const isEn = locale === 'en';
+
   const {
     notifications,
     unreadCount,
     markAsRead,
     markAllAsRead,
+    markAsSeen,
+    dismissNotification,
     deleteNotification,
     clearAll,
   } = useNotifications();
@@ -34,6 +40,13 @@ export const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'orders' | 'payments'>('all');
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Marquer comme vu à l'ouverture du menu déroulant
+  useEffect(() => {
+    if (isOpen) {
+      markAsSeen();
+    }
+  }, [isOpen, markAsSeen]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -72,9 +85,10 @@ export const NotificationDropdown: React.FC = () => {
     if (!item.read) {
       await markAsRead(item.id);
     }
-    if (item.link) {
+    const targetUrl = item.action_url || item.link;
+    if (targetUrl) {
       setIsOpen(false);
-      router.push(item.link);
+      router.push(targetUrl);
     }
   };
 
@@ -127,19 +141,21 @@ export const NotificationDropdown: React.FC = () => {
       const diffMins = Math.floor(diffMs / 60000);
       const diffHours = Math.floor(diffMins / 60);
 
-      if (diffMins < 2) return "À l'instant";
-      if (diffMins < 60) return `Il y a ${diffMins} min`;
+      if (diffMins < 2) return dict.notifications.justNow;
+      if (diffMins < 60) return isEn ? `${diffMins}m ago` : `Il y a ${diffMins} min`;
       if (diffHours < 24 && d.toDateString() === now.toDateString()) {
-        return `Aujourd'hui à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+        const timeStr = d.toLocaleTimeString(isEn ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' });
+        return isEn ? `Today at ${timeStr}` : `Aujourd'hui à ${timeStr}`;
       }
 
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       if (d.toDateString() === yesterday.toDateString()) {
-        return `Hier à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+        const timeStr = d.toLocaleTimeString(isEn ? 'en-US' : 'fr-FR', { hour: '2-digit', minute: '2-digit' });
+        return isEn ? `Yesterday at ${timeStr}` : `Hier à ${timeStr}`;
       }
 
-      return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      return d.toLocaleDateString(isEn ? 'en-US' : 'fr-FR', { day: 'numeric', month: 'short' });
     } catch {
       return '';
     }
@@ -152,14 +168,14 @@ export const NotificationDropdown: React.FC = () => {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 sm:p-2.5 rounded-full bg-[#F7F7F5] border border-sable/50 text-sombre/80 hover:text-sombre hover:bg-white hover:border-accent/40 transition-all duration-200 shadow-xs focus:outline-none focus:ring-2 focus:ring-accent/20"
-        title="Notifications"
-        aria-label="Notifications"
+        title={dict.notifications.title}
+        aria-label={dict.notifications.title}
       >
         <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
 
-        {/* Badge Count */}
+        {/* Badge Count élégant sans tremblement fatiguant */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-extrabold text-white bg-red-600 rounded-full border-2 border-white shadow-xs animate-bounce">
+          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black text-white bg-accent rounded-full border-2 border-white shadow-xs">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -167,14 +183,14 @@ export const NotificationDropdown: React.FC = () => {
 
       {/* Popover Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-[340px] sm:w-[420px] max-w-[calc(100vw-24px)] bg-white border border-sable/60 rounded-3xl shadow-2xl z-50 overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute -right-2 sm:right-0 mt-2 w-[calc(100vw-24px)] sm:w-[420px] max-w-[420px] bg-white border border-sable/60 rounded-3xl shadow-2xl z-50 overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-150">
           {/* Header */}
           <div className="p-4 bg-[#FAF9F6] border-b border-sable/50 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-sombre font-display">Notifications</h3>
+              <h3 className="text-sm font-bold text-sombre font-display">{dict.notifications.title}</h3>
               {unreadCount > 0 && (
                 <span className="px-2 py-0.5 text-[11px] font-extrabold bg-accent/15 text-accent rounded-full border border-accent/20">
-                  {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
+                  {unreadCount} {dict.notifications.unreadBadge}
                 </span>
               )}
             </div>
@@ -183,16 +199,16 @@ export const NotificationDropdown: React.FC = () => {
                 <button
                   onClick={markAllAsRead}
                   className="p-1.5 text-xs text-sombre/60 hover:text-accent font-semibold flex items-center gap-1 transition-colors rounded-lg hover:bg-white"
-                  title="Tout marquer comme lu"
+                  title={dict.notifications.markAllRead}
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Tout lire</span>
+                  <span className="hidden sm:inline">{dict.notifications.markAllRead}</span>
                 </button>
               )}
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-1 text-sombre/40 hover:text-sombre rounded-full hover:bg-sable/30 transition-colors"
-                title="Fermer"
+                title={dict.common.close}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -209,7 +225,7 @@ export const NotificationDropdown: React.FC = () => {
                   : 'bg-[#F5F5F3] text-sombre/70 hover:bg-sable/40'
               }`}
             >
-              Toutes ({notifications.length})
+              {dict.notifications.filterAll} ({notifications.length})
             </button>
             <button
               onClick={() => setFilter('unread')}
@@ -219,7 +235,7 @@ export const NotificationDropdown: React.FC = () => {
                   : 'bg-[#F5F5F3] text-sombre/70 hover:bg-sable/40'
               }`}
             >
-              Non lues ({unreadCount})
+              {dict.notifications.filterUnread} ({unreadCount})
             </button>
             <button
               onClick={() => setFilter('orders')}
@@ -229,7 +245,7 @@ export const NotificationDropdown: React.FC = () => {
                   : 'bg-[#F5F5F3] text-sombre/70 hover:bg-sable/40'
               }`}
             >
-              Commandes
+              {dict.notifications.filterOrders}
             </button>
             <button
               onClick={() => setFilter('payments')}
@@ -239,7 +255,7 @@ export const NotificationDropdown: React.FC = () => {
                   : 'bg-[#F5F5F3] text-sombre/70 hover:bg-sable/40'
               }`}
             >
-              Paiements
+              {dict.notifications.filterPayments}
             </button>
           </div>
 
@@ -250,9 +266,9 @@ export const NotificationDropdown: React.FC = () => {
                 <div className="w-12 h-12 mx-auto rounded-full bg-[#FAFAF8] border border-sable/50 flex items-center justify-center text-sombre/40">
                   <Bell className="w-6 h-6" />
                 </div>
-                <p className="text-xs font-bold text-sombre/70">Aucune notification pour le moment</p>
+                <p className="text-xs font-bold text-sombre/70">{dict.notifications.emptyTitle}</p>
                 <p className="text-[11px] text-sombre/50">
-                  Vos commandes, alertes et paiements apparaîtront ici en temps réel.
+                  {dict.notifications.emptyDesc}
                 </p>
               </div>
             ) : (
@@ -297,7 +313,7 @@ export const NotificationDropdown: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Action buttons (Delete / Mark as Read) on hover */}
+                    {/* Action buttons on hover */}
                     <div className="flex items-center gap-1 self-center shrink-0">
                       {!item.read && (
                         <button
@@ -307,7 +323,7 @@ export const NotificationDropdown: React.FC = () => {
                             markAsRead(item.id);
                           }}
                           className="p-1 text-sombre/30 hover:text-accent rounded-full hover:bg-sable/30 transition-colors"
-                          title="Marquer comme lu"
+                          title={isEn ? 'Mark as read' : 'Marquer comme lu'}
                         >
                           <Check className="w-3.5 h-3.5" />
                         </button>
@@ -316,10 +332,10 @@ export const NotificationDropdown: React.FC = () => {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteNotification(item.id);
+                          dismissNotification(item.id);
                         }}
                         className="p-1 text-sombre/30 hover:text-red-600 rounded-full hover:bg-red-50 transition-colors"
-                        title="Supprimer"
+                        title={isEn ? 'Dismiss' : 'Masquer'}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -341,7 +357,7 @@ export const NotificationDropdown: React.FC = () => {
                 className="text-[11px] text-sombre/50 hover:text-red-600 font-semibold flex items-center gap-1 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Effacer tout</span>
+                <span>{dict.notifications.clearAll}</span>
               </button>
               <button
                 onClick={() => {
@@ -350,7 +366,7 @@ export const NotificationDropdown: React.FC = () => {
                 }}
                 className="text-[11px] text-accent hover:underline font-bold"
               >
-                Gérer les alertes
+                {isEn ? 'Manage Alerts' : 'Gérer les alertes'}
               </button>
             </div>
           )}

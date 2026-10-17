@@ -68,7 +68,7 @@ export default function AdminFinancesPage() {
           <div className="text-3xl font-display font-extrabold text-sombre font-mono">
             {formatFCFA(metrics?.totalRevenue || 0)}
           </div>
-          <p className="text-[11px] text-sombre/60 font-medium">Historique complet des encaissements KKiaPay</p>
+          <p className="text-[11px] text-sombre/60 font-medium">Historique complet des encaissements SasPay</p>
         </Card>
 
         {/* Panier Moyen */}

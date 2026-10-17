@@ -8,8 +8,10 @@ import { LandingHeader } from '@/components/landing/LandingHeader';
 import { LandingFooter } from '@/components/landing/LandingFooter';
 import { FaqAccordion } from '@/components/landing/FaqAccordion';
 import { Button } from '@/components/ui/Button';
+import { useLanguage } from '@/lib/i18n';
+import { SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
 
-const allFaqItems = [
+const allFaqItemsFr = [
   {
     id: "gratuit",
     category: "Gratuité & Tarifs",
@@ -84,7 +86,7 @@ const allFaqItems = [
     category: "Technique & Données",
     question: "Ourlette est-il disponible dans mon pays ?",
     answer:
-      "Ourlette s'adresse aux couturiers du monde entier. L'interface est en français pour le moment.",
+      "Ourlette s'adresse aux couturiers du monde entier. L'interface est disponible en français et en anglais.",
   },
   {
     id: "vitrine-contact",
@@ -116,14 +118,132 @@ const allFaqItems = [
   },
 ];
 
-export default function FaqPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Toutes');
+const allFaqItemsEn = [
+  {
+    id: "gratuit",
+    category: "Free & Pricing",
+    question: "Is Ourlette truly free?",
+    answer:
+      "Yes. The Starter Plan is 100% free with no commitment. It includes the order book (up to 10 active orders simultaneously), complete client measurement sheets, search, balance tracking, and a public WhatsApp showcase (up to 8 photos).",
+  },
+  {
+    id: "plan-pro",
+    category: "Free & Pricing",
+    question: "How much is the Pro Plan and what does it unlock?",
+    answer:
+      "The Pro Plan costs 1,999 FCFA / month. It unlocks unlimited active orders, unlimited photos in your public showcase, a custom web link for your atelier (e.g. ourlette.app/your-brand), and direct priority support.",
+  },
+  {
+    id: "carte",
+    category: "Free & Pricing",
+    question: "Do I need a credit card to sign up?",
+    answer: "No. Signing up is completely free and requires zero payment information.",
+  },
+  {
+    id: "notifications",
+    category: "Workshop Features",
+    question: "How do workshop notifications work?",
+    answer:
+      "A bell icon in your workshop header alerts you in real time about delivery deadlines, fitting reminders, and platform updates.",
+  },
+  {
+    id: "3g",
+    category: "Tech & Data",
+    question: "Does Ourlette work with weak Internet or offline?",
+    answer:
+      "Yes. Ourlette is mobile-first and supports offline mode for viewing and logging garments and measurements. Your changes sync automatically as soon as your signal returns.",
+  },
+  {
+    id: "multi",
+    category: "Workshop Features",
+    question: "Can multiple tailors use Ourlette in the same workshop?",
+    answer:
+      "Yes. Every order and measurement sheet has a free-text 'Assigned to / Taken by' field, so you always know who handles which outfit without needing separate accounts.",
+  },
+  {
+    id: "retouche",
+    category: "Workshop Features",
+    question: "Can I distinguish alterations from bespoke tailoring?",
+    answer:
+      "Yes. Every order clearly specifies whether it is a full bespoke creation or an alteration of an existing garment, with tailored input fields for each.",
+  },
+  {
+    id: "recherche",
+    category: "Workshop Features",
+    question: "How quickly can I find an order?",
+    answer:
+      "From your dashboard, a search bar lets you filter by client name, garment description, fabric, or tailor. You can also filter by status (Received, In Progress, Overdue, Ready, Delivered) with one tap.",
+  },
+  {
+    id: "encaissements",
+    category: "Workshop Features",
+    question: "How do I track payments and unpaid balances?",
+    answer:
+      "Your dashboard constantly displays the total unpaid balance to collect. On each garment, upfront deposits are logged and the remaining balance is computed automatically.",
+  },
+  {
+    id: "donnees",
+    category: "Tech & Data",
+    question: "Is my workshop data sold to third parties?",
+    answer:
+      "Never. Your atelier data remains strictly private and confidential, reserved exclusively for your professional use.",
+  },
+  {
+    id: "pays",
+    category: "Tech & Data",
+    question: "Is Ourlette available in my country?",
+    answer:
+      "Ourlette is designed for fashion tailors and dressmakers worldwide, with multilingual support in English and French.",
+  },
+  {
+    id: "vitrine-contact",
+    category: "Showcase & WhatsApp",
+    question: "How do potential clients contact me from my showcase?",
+    answer:
+      "Via a 1-tap WhatsApp or phone call button on your public showcase, without needing them to download any application or register.",
+  },
+  {
+    id: "competences",
+    category: "Tech & Data",
+    question: "Do I need technical skills to use Ourlette?",
+    answer:
+      "None at all. The interface is intuitive, designed to be used effortlessly in a few taps directly from any smartphone.",
+  },
+  {
+    id: "ordinateur",
+    category: "Tech & Data",
+    question: "Can I use Ourlette on a computer or only on a phone?",
+    answer:
+      "Ourlette is mobile-first, but it runs smoothly on any desktop computer, tablet, or laptop through your web browser.",
+  },
+  {
+    id: "logo-banniere",
+    category: "Showcase & WhatsApp",
+    question: "Can I customize my workshop banner and logo?",
+    answer:
+      "Yes! In the Showcase Studio tab, you can upload a custom cover banner and your workshop logo directly from your camera roll.",
+  },
+];
 
-  const categories = ['Toutes', 'Gratuité & Tarifs', 'Fonctionnalités Atelier', 'Vitrine & WhatsApp', 'Technique & Données'];
+export default function FaqPage() {
+  const { dict, locale } = useLanguage();
+  const isEn = locale === 'en';
+
+  const rawFaqItems = isEn ? allFaqItemsEn : allFaqItemsFr;
+  const allFaqItems = SHOW_ACCOUNT_PLANS
+    ? rawFaqItems
+    : rawFaqItems.filter((item) => item.category !== 'Free & Pricing' && item.category !== 'Gratuité & Tarifs');
+
+  const categories = isEn
+    ? ['All', ...(SHOW_ACCOUNT_PLANS ? ['Free & Pricing'] : []), 'Workshop Features', 'Showcase & WhatsApp', 'Tech & Data']
+    : ['Toutes', ...(SHOW_ACCOUNT_PLANS ? ['Gratuité & Tarifs'] : []), 'Fonctionnalités Atelier', 'Vitrine & WhatsApp', 'Technique & Données'];
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(categories[0]);
 
   const filteredItems = allFaqItems.filter((item) => {
-    const matchesCategory = selectedCategory === 'Toutes' || item.category === selectedCategory;
+    const isAll = selectedCategory === categories[0] || selectedCategory === 'Toutes' || selectedCategory === 'All';
+    const matchesCategory = isAll || item.category === selectedCategory;
     const matchesSearch =
       item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.answer.toLowerCase().includes(searchQuery.toLowerCase());
@@ -149,13 +269,13 @@ export default function FaqPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center space-y-4">
           <div className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-white/10 border border-white/20 rounded-full text-xs sm:text-sm font-bold text-gold">
             <HelpCircle className="w-4 h-4" />
-            <span>Foire aux Questions Complète</span>
+            <span>{dict.faqPage.badge}</span>
           </div>
           <h1 className="font-display text-3xl sm:text-5xl font-bold text-white tracking-tight">
-            Toutes les réponses à vos questions
+            {dict.faqPage.title}
           </h1>
           <p className="text-base sm:text-lg text-white/85 max-w-2xl mx-auto font-medium">
-            Trouvez instantanément l'information qu'il vous faut pour utiliser Ourlette au quotidien.
+            {dict.faqPage.subtitle}
           </p>
         </div>
       </section>
@@ -168,7 +288,7 @@ export default function FaqPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher une question (ex: gratuit, carte, mesures, vitrine...)"
+            placeholder={isEn ? 'Search any question (free, measurements, offline, showcase…)' : 'Rechercher une question (ex: gratuit, carte, mesures, vitrine...)'}
             className="w-full bg-white border border-sable/80 rounded-full pl-12 pr-4 py-3 text-sm sm:text-base text-sombre shadow-sm focus:outline-none focus:border-accent"
           />
         </div>
@@ -179,10 +299,11 @@ export default function FaqPage() {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${selectedCategory === cat
+              className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${
+                selectedCategory === cat
                   ? 'bg-accent text-white shadow-md'
                   : 'bg-white text-sombre/70 hover:text-accent border border-sable/60'
-                }`}
+              }`}
             >
               {cat}
             </button>
@@ -194,30 +315,38 @@ export default function FaqPage() {
           <FaqAccordion items={filteredItems} defaultOpenId="gratuit" />
         ) : (
           <div className="text-center py-12 bg-white rounded-3xl border border-sable/60 p-8 space-y-3">
-            <p className="text-base font-bold text-sombre">Aucune question ne correspond à votre recherche.</p>
-            <p className="text-xs text-sombre/70">Essayez avec d'autres mots-clés ou réinitialisez les filtres.</p>
+            <p className="text-base font-bold text-sombre">
+              {isEn ? 'No question matches your search.' : 'Aucune question ne correspond à votre recherche.'}
+            </p>
+            <p className="text-xs text-sombre/70">
+              {isEn ? 'Try different keywords or reset your filters.' : 'Essayez avec d’autres mots-clés ou réinitialisez les filtres.'}
+            </p>
             <button
               onClick={() => {
                 setSearchQuery('');
-                setSelectedCategory('Toutes');
+                setSelectedCategory(categories[0]);
               }}
               className="text-accent font-bold text-sm hover:underline"
             >
-              Réinitialiser la recherche
+              {isEn ? 'Reset search' : 'Réinitialiser la recherche'}
             </button>
           </div>
         )}
 
         {/* Bottom Contact CTA */}
         <div className="bg-white rounded-3xl border border-sable/60 p-8 text-center space-y-4 shadow-xs">
-          <h3 className="text-xl font-display font-bold text-sombre">Une question sans réponse ?</h3>
+          <h3 className="text-xl font-display font-bold text-sombre">
+            {isEn ? 'Have a specific question?' : 'Une question sans réponse ?'}
+          </h3>
           <p className="text-sm text-sombre/70 font-medium">
-            Notre équipe est disponible pour répondre directement aux questions de votre atelier.
+            {isEn
+              ? 'Our team is ready to answer questions directly for your fashion atelier.'
+              : 'Notre équipe est disponible pour répondre directement aux questions de votre atelier.'}
           </p>
           <div>
             <a href="mailto:ourlette.app@gmail.com">
               <Button variant="accent" size="md" className="rounded-full px-6 font-bold shadow-md">
-                Nous contacter par email
+                {isEn ? 'Contact Us by Email' : 'Nous contacter par email'}
               </Button>
             </a>
           </div>

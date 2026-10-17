@@ -9,23 +9,44 @@ import { MockStorageService } from '@/lib/services/mockStorage';
 import { Couturier } from '@/lib/types/database';
 import { Button } from '@/components/ui/Button';
 import { NotificationDropdown } from '@/components/ui/NotificationDropdown';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { useLanguage } from '@/lib/i18n';
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
   const { couturier: authCouturier } = useAuth();
+  const { dict } = useLanguage();
   const [localCouturier, setLocalCouturier] = useState<Couturier>(() => MockStorageService.getCouturier());
 
   useEffect(() => {
     setLocalCouturier(MockStorageService.getCouturier());
   }, []);
 
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const couturier = authCouturier || localCouturier;
 
   const navItems = [
-    { href: '/commandes', label: 'Commandes', icon: ClipboardList },
-    { href: '/clients', label: 'Clients', icon: Ruler },
-    { href: '/vitrine/gerer', label: 'Vitrine', icon: Store },
-    { href: '/parametres', label: 'Paramètres', icon: Settings },
+    { href: '/commandes', label: dict.nav.commandes, icon: ClipboardList },
+    { href: '/clients', label: dict.nav.clients, icon: Ruler },
+    { href: '/vitrine/gerer', label: dict.nav.vitrine, icon: Store },
+    { href: '/parametres', label: dict.nav.parametres, icon: Settings },
   ];
 
   return (
@@ -34,14 +55,17 @@ export const Header: React.FC = () => {
           HEADER FIXE MODERN — BARRE UNIQUE INTEGREE (64px)
           ═══════════════════════════════════════════════════════ */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-sable/60 shadow-xs h-16 transition-all">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-3 sm:gap-4">
 
           {/* Left: Brand Identity & Atelier Name */}
-          <Link href="/commandes" className="flex items-center gap-2.5 group shrink-0">
+          <Link href="/commandes" className="flex items-center gap-2 sm:gap-2.5 group shrink-0">
             {couturier.logo_url ? (
               <img
                 src={couturier.logo_url}
                 alt="Logo Atelier"
+                width={36}
+                height={36}
+                decoding="async"
                 className="w-9 h-9 rounded-xl object-cover border border-sable/80 shadow-xs group-hover:scale-105 transition-transform"
               />
             ) : (
@@ -53,7 +77,7 @@ export const Header: React.FC = () => {
               <span className="text-xl sm:text-2xl font-display font-bold text-sombre tracking-tight block leading-none">
                 Ourlette<span className="text-gold title-highlight font-normal">.</span>
               </span>
-              <span suppressHydrationWarning className="text-[10px] sm:text-xs text-sombre/60 font-semibold truncate max-w-[140px] sm:max-w-[180px] block leading-tight mt-0.5">
+              <span suppressHydrationWarning className="text-[10px] sm:text-xs text-sombre/60 font-semibold truncate max-w-[100px] sm:max-w-[160px] block leading-tight mt-0.5">
                 {couturier.nom_atelier || 'Atelier Couture'}
               </span>
             </div>
@@ -83,12 +107,29 @@ export const Header: React.FC = () => {
             })}
           </nav>
 
-          {/* Right: Quick Action CTA & Atelier Status & Notifications */}
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            <div className="hidden lg:flex items-center gap-1.5 bg-emerald-50/80 border border-emerald-200/60 px-3 py-1 rounded-full text-[11px] font-bold text-emerald-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>En ligne</span>
+          {/* Right: Quick Action CTA & Atelier Status & Notifications & Language */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Statut de connexion dynamique : En ligne (vert) / Hors ligne (rouge) */}
+            <div
+              className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                isOnline
+                  ? 'bg-emerald-50/90 border-emerald-200/80 text-emerald-800'
+                  : 'bg-rose-50/90 border-rose-300 text-rose-700 shadow-xs'
+              }`}
+              title={isOnline ? dict.common.online : dict.common.offline}
+            >
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  isOnline
+                    ? 'bg-emerald-500 animate-pulse'
+                    : 'bg-rose-500'
+                }`}
+              />
+              <span className="leading-none">{isOnline ? dict.common.online : dict.common.offline}</span>
             </div>
+
+            {/* Language Switcher */}
+            <LanguageSwitcher />
 
             {/* Notification Dropdown Icon */}
             <NotificationDropdown />
@@ -97,7 +138,7 @@ export const Header: React.FC = () => {
             <Link href="/commandes/nouvelle" className="hidden md:inline-flex">
               <Button variant="accent" size="sm" className="rounded-full text-xs font-bold px-4 py-1.5 shadow-sm gap-1.5">
                 <Plus className="w-3.5 h-3.5" />
-                <span>Nouvelle commande</span>
+                <span>{dict.nav.newOrder}</span>
               </Button>
             </Link>
           </div>
@@ -133,4 +174,3 @@ export const Header: React.FC = () => {
     </>
   );
 };
-

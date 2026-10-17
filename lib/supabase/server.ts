@@ -12,7 +12,16 @@ export function createClient() {
     throw new Error('Supabase environment variables (URL or Anon Key) are missing.');
   }
 
+  const ONE_YEAR_IN_SECONDS = 365 * 24 * 60 * 60; // 365 jours
+  const isProd = process.env.NODE_ENV === 'production';
+
   return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: {
+      maxAge: ONE_YEAR_IN_SECONDS,
+      sameSite: 'lax',
+      path: '/',
+      secure: isProd,
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -20,11 +29,17 @@ export function createClient() {
       setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
         try {
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
+            cookieStore.set(name, value, {
+              ...options,
+              maxAge: ONE_YEAR_IN_SECONDS,
+              sameSite: 'lax',
+              path: '/',
+              httpOnly: true,
+              secure: isProd,
+            });
           });
         } catch {
-          // The `setAll` method was called from a Server Component or route handler context
-          // where cookie modification might be handled differently.
+          // The `setAll` method was called from a Server Component context
         }
       },
     },

@@ -33,15 +33,17 @@ import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { DataService } from '@/lib/services/dataService';
 import { Realisation, Couturier } from '@/lib/types/database';
 import { generateWhatsAppShareLink, formatDateFR } from '@/lib/utils/formatters';
-import { canCustomizeSlug, checkRealisationLimit, isProPlan, FREE_PLAN_LIMITS } from '@/lib/utils/planLimits';
+import { canCustomizeSlug, checkRealisationLimit, isProPlan, FREE_PLAN_LIMITS, SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useNotifications } from '@/lib/context/NotificationContext';
+import { useLanguage } from '@/lib/i18n';
 
 type VitrineTab = 'identite' | 'galerie' | 'preview' | 'partage';
 
 export default function GererVitrinePage() {
   const { user, couturier: authCouturier, refreshProfile } = useAuth();
   const { createNotification } = useNotifications();
+  const { dict, locale } = useLanguage();
   const [couturier, setCouturier] = useState<Couturier | null>(null);
   const [realisations, setRealisations] = useState<Realisation[]>([]);
 
@@ -124,38 +126,88 @@ export default function GererVitrinePage() {
     setTogglingStatus(false);
   };
 
+  const isValidSecureImageUrl = (urlStr: string): boolean => {
+    if (!urlStr) return true;
+    if (urlStr.startsWith('data:image/')) {
+      return !urlStr.startsWith('data:image/svg');
+    }
+    try {
+      const parsed = new URL(urlStr);
+      if (parsed.protocol !== 'https:') return false;
+      const hostname = parsed.hostname.toLowerCase();
+      if (
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '::1' ||
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('172.16.') ||
+        hostname.startsWith('169.254.')
+      ) {
+        return false;
+      }
+      if (parsed.pathname.toLowerCase().endsWith('.svg')) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleImageFileChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: (url: string) => void
   ) => {
     const rawFile = e.target.files?.[0];
-    if (rawFile) {
-      try {
-        const { compressImage } = await import('@/lib/utils/imageCompression');
-        const compressed = await compressImage(rawFile, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 });
+    if (!rawFile) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            setter(event.target.result as string);
-          }
-        };
-        reader.readAsDataURL(compressed);
-      } catch {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            setter(event.target.result as string);
-          }
-        };
-        reader.readAsDataURL(rawFile);
-      }
+    // Refus strict des SVG et formats non autorisés (Invariant 8)
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const isSvg = rawFile.type.includes('svg') || rawFile.name.toLowerCase().endsWith('.svg');
+    if (isSvg || !allowedTypes.includes(rawFile.type)) {
+      alert('Format non autorisé. Seules les images JPG, PNG et WebP sont acceptées (SVG interdit).');
+      e.target.value = '';
+      return;
+    }
+
+    // Limite de taille max (5 Mo)
+    if (rawFile.size > 5 * 1024 * 1024) {
+      alert('La taille du fichier dépasse la limite maximale autorisée (5 Mo).');
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      const { compressImage } = await import('@/lib/utils/imageCompression');
+      const compressed = await compressImage(rawFile, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 });
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setter(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(compressed);
+    } catch (err: any) {
+      alert(err?.message || 'Erreur lors de l’optimisation de l’image.');
+      e.target.value = '';
     }
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) return;
+
+    if (coverUrl && !isValidSecureImageUrl(coverUrl)) {
+      alert('L’URL de la bannière doit être une URL HTTPS sécurisée vers une image (SVG interdit).');
+      return;
+    }
+    if (logoUrl && !isValidSecureImageUrl(logoUrl)) {
+      alert('L’URL du logo doit être une URL HTTPS sécurisée vers une image (SVG interdit).');
+      return;
+    }
+
     setSavingProfile(true);
     setSavedSuccessMsg('');
 
@@ -186,6 +238,12 @@ export default function GererVitrinePage() {
   const handleAddRealisation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!photoUrl.trim() || !user?.id) return;
+
+    if (!isValidSecureImageUrl(photoUrl.trim())) {
+      alert('L’URL de l’image doit être une adresse HTTPS sécurisée valide (formats JPG, PNG, WebP uniquement).');
+      return;
+    }
+
     setUploadingPhoto(true);
 
     const created = await DataService.addRealisation(user.id, {
@@ -199,15 +257,6 @@ export default function GererVitrinePage() {
       setShowAddModal(false);
       setPhotoUrl('');
       setDescription('');
-
-      await createNotification({
-        type: 'feature_update',
-        category: 'order',
-        priority: 'low',
-        title: '📸 Photo ajoutée à votre vitrine',
-        message: `Votre nouvelle réalisation "${created.description}" est désormais visible sur votre vitrine.`,
-        link: '/vitrine/gerer',
-      });
     }
     setUploadingPhoto(false);
   };
@@ -235,7 +284,7 @@ export default function GererVitrinePage() {
     return (
       <div className="min-h-screen bg-clair pb-28 font-sans">
         <main className="max-w-5xl mx-auto px-4 pt-12">
-          <ThreadSpoolLoader label="Chargement du Studio Vitrine…" size="lg" />
+          <ThreadSpoolLoader label={locale === 'fr' ? 'Chargement du Studio Vitrine…' : 'Loading Showcase Studio…'} size="lg" />
         </main>
       </div>
     );
@@ -243,199 +292,249 @@ export default function GererVitrinePage() {
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] pb-28 font-sans">
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-5 space-y-6">
-
-        {/* ── 1. Top Studio Header with Status & Quick Preview ────────── */}
-        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-sable/70 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-sombre text-gold flex items-center justify-center shadow-sm shrink-0 border border-gold/30">
-              <Store className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-display font-bold text-sombre">
-                  Studio Vitrine
-                </h1>
-                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${
-                  vitrineActive
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : 'bg-rose-50 text-rose-800 border-rose-300'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${vitrineActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-                  {vitrineActive ? 'En ligne' : 'En pause'}
-                </span>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-3 space-y-5">
+        {/* ── 1. Compact Sticky Studio Header ─────────────────────────── */}
+        <div className="sticky top-[64px] z-20 bg-[#FAFAF8]/95 backdrop-blur-md pt-2 pb-2.5 -mx-4 px-4 sm:-mx-6 sm:px-6 space-y-2.5 border-b border-sable/30 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white px-4 py-3 rounded-2xl border border-sable/70 shadow-xs">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-sombre text-gold flex items-center justify-center shadow-xs shrink-0 border border-gold/30">
+                <Store className="w-5 h-5" />
               </div>
-              <p className="text-xs sm:text-sm text-sombre/70 font-semibold mt-0.5">
-                Personnalisez votre boutique en ligne et exposez vos créations aux clients.
-              </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base sm:text-lg font-display font-bold text-sombre truncate">
+                    {dict.vitrine.title}
+                  </h1>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold border shrink-0 ${
+                    vitrineActive
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : 'bg-rose-50 text-rose-800 border-rose-300'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${vitrineActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                    {vitrineActive ? dict.vitrine.statusActive : dict.vitrine.statusInactive}
+                  </span>
+                </div>
+                <p className="text-xs text-sombre/60 font-semibold truncate hidden sm:block">
+                  {dict.vitrine.subtitle}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleToggleVitrineActive}
+                disabled={togglingStatus}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 border shadow-xs cursor-pointer ${
+                  vitrineActive
+                    ? 'bg-[#F7F7F5] text-sombre/80 border-sable/80 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
+                    : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                <Power className="w-3.5 h-3.5" />
+                <span>
+                  {togglingStatus
+                    ? (locale === 'fr' ? 'Mise à jour…' : 'Updating…')
+                    : vitrineActive
+                    ? (locale === 'fr' ? 'Mettre en pause' : 'Pause showcase')
+                    : (locale === 'fr' ? 'Publier la vitrine' : 'Publish showcase')}
+                </span>
+              </button>
+
+              <Link href={`/${activeSlug}`} target="_blank">
+                <Button variant="accent" size="sm" className="rounded-full gap-1.5 text-xs font-bold shadow-xs px-3.5 py-1.5">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>{dict.vitrine.previewLiveButton}</span>
+                </Button>
+              </Link>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Quick Status Toggle Button */}
+          {/* Segmented Navigation Tabs */}
+          <div className="flex items-center gap-1.5 p-1 bg-white border border-sable/60 rounded-xl shadow-xs overflow-x-auto no-scrollbar">
             <button
-              type="button"
-              onClick={handleToggleVitrineActive}
-              disabled={togglingStatus}
-              className={`px-3.5 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 border shadow-xs ${
-                vitrineActive
-                  ? 'bg-[#F7F7F5] text-sombre/80 border-sable/80 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
-                  : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+              onClick={() => setActiveTab('identite')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'identite'
+                  ? 'bg-sombre text-white shadow-xs'
+                  : 'text-sombre/70 hover:text-sombre hover:bg-[#F7F7F5]'
               }`}
             >
-              <Power className="w-3.5 h-3.5" />
-              <span>{togglingStatus ? 'Mise à jour…' : vitrineActive ? 'Mettre en pause' : 'Publier la vitrine'}</span>
+              <Palette className="w-3.5 h-3.5" />
+              <span>1. {dict.vitrine.tabIdentity}</span>
             </button>
 
-            {/* Public Link Preview CTA */}
-            <Link href={`/${activeSlug}`} target="_blank">
-              <Button variant="accent" size="sm" className="rounded-full gap-1.5 text-xs sm:text-sm font-bold shadow-md">
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>Voir en direct</span>
-              </Button>
-            </Link>
+            <button
+              onClick={() => setActiveTab('galerie')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'galerie'
+                  ? 'bg-sombre text-white shadow-xs'
+                  : 'text-sombre/70 hover:text-sombre hover:bg-[#F7F7F5]'
+              }`}
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span>2. {dict.vitrine.tabGallery} ({realisations.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('preview')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'preview'
+                  ? 'bg-sombre text-white shadow-xs'
+                  : 'text-sombre/70 hover:text-sombre hover:bg-[#F7F7F5]'
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>3. {dict.vitrine.tabPreview}</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('partage')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'partage'
+                  ? 'bg-sombre text-white shadow-xs'
+                  : 'text-sombre/70 hover:text-sombre hover:bg-[#F7F7F5]'
+              }`}
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>4. {dict.vitrine.tabShare}</span>
+            </button>
           </div>
-        </div>
-
-        {/* ── 2. Segmented Navigation Tabs ───────────────────────────── */}
-        <div className="flex items-center gap-2 p-1.5 bg-white border border-sable/60 rounded-2xl shadow-xs overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveTab('identite')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeTab === 'identite'
-                ? 'bg-sombre text-white shadow-sm'
-                : 'text-sombre/70 hover:text-sombre hover:bg-[#F7F7F5]'
-            }`}
-          >
-            <Palette className="w-4 h-4" />
-            <span>1. Identité & Visuel</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('galerie')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeTab === 'galerie'
-                ? 'bg-sombre text-white shadow-sm'
-                : 'text-sombre/70 hover:text-sombre hover:bg-[#F7F7F5]'
-            }`}
-          >
-            <Camera className="w-4 h-4" />
-            <span>2. Galerie & Modèles ({realisations.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('preview')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeTab === 'preview'
-                ? 'bg-sombre text-white shadow-sm'
-                : 'text-sombre/70 hover:text-sombre hover:bg-[#F7F7F5]'
-            }`}
-          >
-            <Smartphone className="w-4 h-4" />
-            <span>3. Aperçu Mobile Live</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('partage')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeTab === 'partage'
-                ? 'bg-sombre text-white shadow-sm'
-                : 'text-sombre/70 hover:text-sombre hover:bg-[#F7F7F5]'
-            }`}
-          >
-            <Share2 className="w-4 h-4" />
-            <span>4. Partage & QR Code</span>
-          </button>
         </div>
 
         {/* Success Alert */}
         {savedSuccessMsg && (
-          <div className="p-4 bg-vertbouton/15 border border-vertbouton/40 rounded-2xl text-sm text-vertbouton font-bold flex items-center gap-2 shadow-xs animate-in fade-in">
-            <Check className="w-5 h-5" />
+          <div className="p-3.5 bg-vertbouton/15 border border-vertbouton/40 rounded-2xl text-xs sm:text-sm text-vertbouton font-bold flex items-center gap-2 shadow-xs animate-in fade-in">
+            <Check className="w-4 h-4" />
             <span>{savedSuccessMsg}</span>
           </div>
         )}
 
         {/* ── TAB 1: IDENTITÉ & VISUEL ──────────────────────────────── */}
         {activeTab === 'identite' && (
-          <form onSubmit={handleSaveProfile} className="space-y-6">
-            {/* Visual Cover & Logo Customizer */}
-            <Card className="p-5 sm:p-7 bg-white border border-sable/70 rounded-3xl shadow-xs space-y-6">
-              <div className="border-b border-sable/40 pb-3 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm sm:text-base font-display font-bold text-sombre">
-                    Bannière & Logo de l'Atelier
-                  </h3>
-                  <p className="text-xs text-sombre/60 font-semibold mt-0.5">
-                    Images d’en-tête présentées en haut de votre vitrine publique.
-                  </p>
+          <form onSubmit={handleSaveProfile} className="space-y-5">
+            {/* Visual Cover & Logo Customizer (Separate cards to fix clipping) */}
+            <Card className="p-5 sm:p-6 bg-white border border-sable/70 rounded-2xl shadow-xs space-y-5">
+              <div className="border-b border-sable/40 pb-2.5">
+                <h3 className="text-sm sm:text-base font-display font-bold text-sombre">
+                  {locale === 'fr' ? 'Bannière de Couverture & Logo' : 'Cover Banner & Workshop Logo'}
+                </h3>
+                <p className="text-xs text-sombre/60 font-semibold mt-0.5">
+                  {locale === 'fr'
+                    ? 'Images de marque présentées en haut de votre vitrine publique pour vos clients.'
+                    : 'Branding images displayed at the top of your public showcase.'}
+                </p>
+              </div>
+
+              {/* 1. Cover Banner Section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-sombre">
+                  <span>{locale === 'fr' ? '1. Photo de Couverture (Bannière)' : '1. Showcase Cover Photo'}</span>
+                  <span className="text-sombre/50 text-[11px] font-normal">
+                    {locale === 'fr' ? 'Recommandé : 1200 × 400px' : 'Recommended: 1200 × 400px'}
+                  </span>
+                </div>
+
+                <div className="relative rounded-2xl overflow-hidden border-2 border-dashed border-sable/80 bg-[#FAFAF8] group min-h-[160px] sm:min-h-[190px]">
+                  {coverUrl ? (
+                    <div className="relative h-44 sm:h-52 w-full">
+                      <img src={coverUrl} alt="Bannière atelier" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-sombre/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                        <label className="cursor-pointer bg-white text-sombre font-bold text-xs px-4 py-2 rounded-full shadow-lg hover:bg-gold hover:text-sombre transition-colors flex items-center gap-1.5">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{locale === 'fr' ? 'Remplacer' : 'Replace'}</span>
+                          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleImageFileChange(e, setCoverUrl)} className="hidden" />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setCoverUrl('')}
+                          className="bg-rose-600 text-white font-bold text-xs px-3.5 py-2 rounded-full shadow-lg hover:bg-rose-700 transition-colors cursor-pointer"
+                        >
+                          {dict.common.delete}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-44 sm:h-48 flex flex-col items-center justify-center p-5 text-center space-y-2">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-sable/80 flex items-center justify-center text-sombre/40 shadow-xs">
+                        <ImageIcon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-sombre">
+                          {locale === 'fr' ? 'Aucune bannière définie' : 'No cover banner yet'}
+                        </p>
+                        <p className="text-[11px] text-sombre/50">
+                          {locale === 'fr' ? 'Format recommandé : 1200 x 400px (JPG, PNG)' : 'Recommended: 1200 x 400px (JPG, PNG)'}
+                        </p>
+                      </div>
+                      <label className="cursor-pointer bg-accent hover:bg-fonce text-white font-bold text-xs px-4 py-2 rounded-full shadow-xs inline-flex items-center gap-1.5 transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{locale === 'fr' ? 'Ajouter une bannière' : 'Upload banner'}</span>
+                        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleImageFileChange(e, setCoverUrl)} className="hidden" />
+                      </label>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Cover Banner Interactive Area */}
-              <div className="relative rounded-2xl overflow-hidden border-2 border-dashed border-sable/80 bg-[#FAFAF8] group">
-                {coverUrl ? (
-                  <div className="relative h-44 sm:h-56 w-full">
-                    <img src={coverUrl} alt="Bannière atelier" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-sombre/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                      <label className="cursor-pointer bg-white text-sombre font-bold text-xs px-4 py-2 rounded-full shadow-lg hover:bg-gold hover:text-sombre transition-colors flex items-center gap-1.5">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Remplacer la bannière</span>
-                        <input type="file" accept="image/*" onChange={(e) => handleImageFileChange(e, setCoverUrl)} className="hidden" />
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setCoverUrl('')}
-                        className="bg-rose-600 text-white font-bold text-xs px-3.5 py-2 rounded-full shadow-lg hover:bg-rose-700 transition-colors"
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-44 sm:h-52 flex flex-col items-center justify-center p-6 text-center space-y-2">
-                    <div className="w-12 h-12 rounded-2xl bg-white border border-sable/80 flex items-center justify-center text-sombre/40 shadow-xs">
-                      <ImageIcon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="text-xs sm:text-sm font-bold text-sombre">Photo de couverture de votre vitrine</p>
-                      <p className="text-[11px] text-sombre/50">Format recommandé : 1200 x 400px (JPG, PNG)</p>
-                    </div>
-                    <label className="cursor-pointer bg-accent hover:bg-fonce text-white font-bold text-xs px-4 py-2 rounded-full shadow-xs inline-flex items-center gap-1.5 transition-colors">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Ajouter une bannière</span>
-                      <input type="file" accept="image/*" onChange={(e) => handleImageFileChange(e, setCoverUrl)} className="hidden" />
-                    </label>
-                  </div>
-                )}
+              {/* 2. Distinct Square Logo Section (Fixes clipping 100%) */}
+              <div className="space-y-2 pt-2 border-t border-sable/30">
+                <div className="flex items-center justify-between text-xs font-bold text-sombre">
+                  <span>{locale === 'fr' ? '2. Logo de l’Atelier' : '2. Workshop Logo'}</span>
+                  <span className="text-sombre/50 text-[11px] font-normal">
+                    {locale === 'fr' ? 'Format carré : 500 × 500px' : 'Square format: 500 × 500px'}
+                  </span>
+                </div>
 
-                {/* Floating Logo Badge overlapping banner */}
-                <div className="absolute -bottom-2 left-6 transform translate-y-1/2 flex items-center gap-3">
-                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white border-4 border-white shadow-xl overflow-hidden flex items-center justify-center group/logo">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl bg-[#FAFAF8] border border-sable/60">
+                  {/* Square Logo Box */}
+                  <div className="relative w-24 h-24 rounded-2xl bg-white border-2 border-sable/80 shadow-xs overflow-hidden flex items-center justify-center shrink-0 group/logo">
                     {logoUrl ? (
                       <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-accent/10 flex flex-col items-center justify-center text-accent text-xs font-extrabold">
-                        <Scissors className="w-6 h-6" />
-                        <span className="text-[9px] mt-0.5">LOGO</span>
+                        <Scissors className="w-7 h-7" />
+                        <span className="text-[10px] mt-1 font-bold">LOGO</span>
                       </div>
                     )}
                     <label className="absolute inset-0 bg-sombre/60 opacity-0 group-hover/logo:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white">
                       <Upload className="w-5 h-5" />
-                      <input type="file" accept="image/*" onChange={(e) => handleImageFileChange(e, setLogoUrl)} className="hidden" />
+                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleImageFileChange(e, setLogoUrl)} className="hidden" />
                     </label>
                   </div>
-                </div>
-              </div>
 
-              {/* Logo text tip */}
-              <div className="pt-6 sm:pt-8 flex items-center justify-between text-xs text-sombre/60">
-                <span className="font-semibold">Logo carré recommandé (500 x 500px).</span>
-                {logoUrl && (
-                  <button type="button" onClick={() => setLogoUrl('')} className="text-rose-600 font-bold hover:underline">
-                    Supprimer logo
-                  </button>
-                )}
+                  {/* Logo Actions and Tips */}
+                  <div className="flex-1 space-y-2">
+                    <p className="text-xs sm:text-sm font-bold text-sombre">
+                      {logoUrl
+                        ? (locale === 'fr' ? 'Logo configuré pour votre vitrine' : 'Logo configured for your showcase')
+                        : (locale === 'fr' ? 'Ajoutez le logo ou emblème de votre atelier' : 'Add your workshop logo or badge')}
+                    </p>
+                    <p className="text-xs text-sombre/60">
+                      {locale === 'fr'
+                        ? 'Ce logo apparaît dans l’en-tête de votre vitrine publique et sur les fiches de vos clients.'
+                        : 'This logo appears on your public showcase and on client receipts.'}
+                    </p>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <label className="cursor-pointer bg-sombre hover:bg-black text-white font-bold text-xs px-3.5 py-1.5 rounded-full shadow-xs inline-flex items-center gap-1.5 transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{logoUrl ? (locale === 'fr' ? 'Changer logo' : 'Change logo') : (locale === 'fr' ? 'Choisir un logo' : 'Select logo')}</span>
+                        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleImageFileChange(e, setLogoUrl)} className="hidden" />
+                      </label>
+
+                      {logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setLogoUrl('')}
+                          className="text-xs text-rose-600 font-bold hover:underline px-2.5 py-1 rounded-full cursor-pointer"
+                        >
+                          {locale === 'fr' ? 'Supprimer' : 'Remove'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </Card>
 
@@ -443,16 +542,18 @@ export default function GererVitrinePage() {
             <Card className="p-5 sm:p-7 bg-white border border-sable/70 rounded-3xl shadow-xs space-y-4">
               <div className="border-b border-sable/40 pb-3">
                 <h3 className="text-sm sm:text-base font-display font-bold text-sombre">
-                  Coordonnées & Présentation
+                  {locale === 'fr' ? 'Coordonnées & Présentation' : 'Contact & Workshop Bio'}
                 </h3>
                 <p className="text-xs text-sombre/60 font-semibold mt-0.5">
-                  Informations affichées aux clients pour découvrir votre savoir-faire et vous contacter.
+                  {locale === 'fr'
+                    ? 'Informations affichées aux clients pour découvrir votre savoir-faire et vous contacter.'
+                    : 'Details shown to clients to discover your expertise and contact you.'}
                 </p>
               </div>
 
               <div className="space-y-4">
                 <Input
-                  label="Nom officiel de l'atelier de couture"
+                  label={dict.vitrine.workshopName}
                   type="text"
                   placeholder="ex: Maison Adia Couture"
                   value={nomAtelier}
@@ -462,14 +563,14 @@ export default function GererVitrinePage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Ville"
+                    label={dict.vitrine.city}
                     type="text"
                     placeholder="ex: Dakar"
                     value={ville}
                     onChange={(e) => setVille(e.target.value)}
                   />
                   <Input
-                    label="Pays"
+                    label={dict.vitrine.country}
                     type="text"
                     placeholder="ex: Sénégal"
                     value={pays}
@@ -478,21 +579,25 @@ export default function GererVitrinePage() {
                 </div>
 
                 <Input
-                  label="Numéro WhatsApp de contact client"
+                  label={dict.vitrine.phoneWhatsApp}
                   type="tel"
                   placeholder="ex: +221 77 123 45 67"
                   value={telephone}
                   onChange={(e) => setTelephone(e.target.value)}
-                  helperText="Les clients qui cliquent sur 'Commander' sur votre vitrine seront redirigés directement vers ce numéro WhatsApp."
+                  helperText={
+                    locale === 'fr'
+                      ? "Les clients qui cliquent sur 'Commander' sur votre vitrine seront redirigés directement vers ce numéro WhatsApp."
+                      : "Clients clicking 'Order' on your showcase will be directly connected to this WhatsApp number."
+                  }
                 />
 
                 <div className="space-y-1.5">
                   <label className="block text-xs sm:text-sm font-bold text-sombre">
-                    Bio & Spécialités de l'atelier
+                    {dict.vitrine.bioDescription}
                   </label>
                   <textarea
                     rows={3}
-                    placeholder="Présentez votre atelier, vos spécialités (Bazin riche, Robes de mariée, Broderies fines, Prêt-à-porter sur-mesure)..."
+                    placeholder={dict.vitrine.bioPlaceholder}
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     className="w-full p-3.5 bg-white border border-sable/80 rounded-2xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent font-sans shadow-xs"
@@ -503,7 +608,7 @@ export default function GererVitrinePage() {
                 <div className="p-4 bg-[#FAF9F6] rounded-2xl border border-sable/70 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs sm:text-sm font-bold text-sombre flex items-center gap-1.5">
-                      <span>Lien personnalisé de votre vitrine (Slug)</span>
+                      <span>{dict.vitrine.slugLabel}</span>
                       {!canCustomizeSlug(couturier) && (
                         <span className="text-[10px] bg-gold/20 text-sombre px-2 py-0.5 rounded-full font-bold border border-gold/40 flex items-center gap-1">
                           <Crown className="w-3 h-3 text-gold" /> Plan Pro
@@ -513,7 +618,7 @@ export default function GererVitrinePage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs sm:text-sm font-mono text-sombre/60 font-bold select-none">
-                      ourlette.app/
+                      {dict.vitrine.slugPrefix}
                     </span>
                     <input
                       type="text"
@@ -526,8 +631,12 @@ export default function GererVitrinePage() {
                   </div>
                   <p className="text-[11px] text-sombre/60 font-semibold">
                     {canCustomizeSlug(couturier)
-                      ? "Vos clients accèderont à votre vitrine via cette adresse personnalisée."
-                      : "La personnalisation du slug est réservée aux abonnés Pro. Sur le plan gratuit, un lien sécurisé unique est attribué automatiquement."}
+                      ? (locale === 'fr'
+                          ? "Vos clients accèderont à votre vitrine via cette adresse personnalisée."
+                          : "Your clients will access your showcase via this personalized signature URL.")
+                      : (locale === 'fr'
+                          ? "La personnalisation du slug est réservée aux abonnés Pro. Sur le plan gratuit, un lien sécurisé unique est attribué automatiquement."
+                          : "Custom slug is reserved for Pro subscribers. A secure unique link is automatically assigned on the free plan.")}
                   </p>
                 </div>
               </div>
@@ -542,7 +651,7 @@ export default function GererVitrinePage() {
                   className="rounded-full font-bold shadow-lg shadow-accent/20 text-sm gap-2"
                 >
                   <Check className="w-4 h-4" />
-                  <span>{savingProfile ? 'Enregistrement…' : 'Enregistrer les modifications'}</span>
+                  <span>{savingProfile ? dict.common.saving : dict.vitrine.saveIdentityButton}</span>
                 </Button>
               </div>
             </Card>
@@ -558,12 +667,22 @@ export default function GererVitrinePage() {
                 <div>
                   <h3 className="text-sm sm:text-base font-display font-bold text-sombre flex items-center gap-2">
                     <Camera className="w-5 h-5 text-accent" />
-                    <span>Catalogue de Créations ({realisations.length} photos publiées)</span>
+                    <span>{dict.vitrine.galleryTitle} ({realisations.length} {dict.vitrine.galleryCount})</span>
                   </h3>
                   <p className="text-xs text-sombre/60 font-semibold mt-0.5">
-                    {isProPlan(couturier)
-                      ? '👑 Vous bénéficiez d’un nombre illimité de créations exposées sur votre vitrine.'
-                      : `Plan Gratuit : ${realisations.length} sur ${FREE_PLAN_LIMITS.maxRealisations} photos autorisées.`}
+                    {SHOW_ACCOUNT_PLANS ? (
+                      isProPlan(couturier)
+                        ? (locale === 'fr'
+                            ? '👑 Vous bénéficiez d’un nombre illimité de créations exposées sur votre vitrine.'
+                            : '👑 You enjoy unlimited creations displayed on your public showcase.')
+                        : (locale === 'fr'
+                            ? `Plan Gratuit : ${realisations.length} sur ${FREE_PLAN_LIMITS.maxRealisations} photos autorisées.`
+                            : `Free Plan: ${realisations.length} of ${FREE_PLAN_LIMITS.maxRealisations} photos allowed.`)
+                    ) : (
+                      locale === 'fr'
+                        ? 'Exposez vos plus belles créations sur votre vitrine publique.'
+                        : 'Showcase your finest bespoke creations on your public storefront.'
+                    )}
                   </p>
                 </div>
 
@@ -579,16 +698,16 @@ export default function GererVitrinePage() {
                     }
                     setShowAddModal(true);
                   }}
-                  disabled={!isProPlan(couturier) && realisations.length >= FREE_PLAN_LIMITS.maxRealisations}
+                  disabled={SHOW_ACCOUNT_PLANS && !isProPlan(couturier) && realisations.length >= FREE_PLAN_LIMITS.maxRealisations}
                   className="rounded-full font-bold text-xs sm:text-sm gap-1.5 shadow-md shrink-0"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Ajouter une création</span>
+                  <span>{dict.vitrine.addPhotoButton}</span>
                 </Button>
               </div>
 
               {/* Progress bar on free plan */}
-              {!isProPlan(couturier) && (
+              {SHOW_ACCOUNT_PLANS && !isProPlan(couturier) && (
                 <div className="space-y-1.5 pt-1">
                   <div className="h-2 w-full bg-sable/30 rounded-full overflow-hidden">
                     <div
@@ -610,9 +729,13 @@ export default function GererVitrinePage() {
                 <div className="w-16 h-16 rounded-full bg-[#FAF9F6] border border-sable/60 flex items-center justify-center mx-auto text-sombre/40">
                   <ImageIcon className="w-8 h-8" />
                 </div>
-                <h4 className="text-sm sm:text-base font-bold text-sombre">Aucun modèle exposé pour l'instant</h4>
+                <h4 className="text-sm sm:text-base font-bold text-sombre">
+                  {locale === 'fr' ? 'Aucun modèle exposé pour l’instant' : 'No creations published yet'}
+                </h4>
                 <p className="text-xs text-sombre/60 max-w-sm mx-auto">
-                  Publiez vos plus belles confections pour donner envie aux visiteurs de vous contacter sur WhatsApp !
+                  {locale === 'fr'
+                    ? 'Publiez vos plus belles confections pour donner envie aux visiteurs de vous contacter sur WhatsApp !'
+                    : 'Publish your finest tailored garments so visitors can order directly on WhatsApp!'}
                 </p>
                 <Button
                   type="button"
@@ -622,7 +745,7 @@ export default function GererVitrinePage() {
                   className="rounded-full text-xs font-bold gap-1.5 mt-2"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Ajouter ma première photo</span>
+                  <span>{locale === 'fr' ? 'Ajouter ma première photo' : 'Add first photo'}</span>
                 </Button>
               </Card>
             ) : (
@@ -648,7 +771,7 @@ export default function GererVitrinePage() {
                         type="button"
                         onClick={() => handleDeleteRealisation(real.id)}
                         className="absolute top-3 right-3 p-2 bg-white/90 hover:bg-rose-600 text-sombre/70 hover:text-white rounded-full shadow-md backdrop-blur-xs transition-colors"
-                        title="Supprimer la photo"
+                        title={dict.common.delete}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -658,12 +781,14 @@ export default function GererVitrinePage() {
                     <div className="p-4 space-y-1.5 flex-1 flex flex-col justify-between bg-white">
                       <div>
                         <h4 className="text-xs sm:text-sm font-bold text-sombre line-clamp-2 leading-snug">
-                          {real.description || 'Création sur-mesure'}
+                          {real.description || (locale === 'fr' ? 'Création sur-mesure' : 'Custom Tailored Creation')}
                         </h4>
                       </div>
                       <div className="pt-2 border-t border-sable/30 flex items-center justify-between text-[11px] text-sombre/50 font-semibold">
-                        <span>{formatDateFR(real.date_publication)}</span>
-                        <span className="text-accent font-bold">Exposé</span>
+                        <span>{formatDateFR(real.date_publication, locale)}</span>
+                        <span className="text-accent font-bold">
+                          {locale === 'fr' ? 'Exposé' : 'Public'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -680,17 +805,19 @@ export default function GererVitrinePage() {
               <div>
                 <h3 className="text-sm sm:text-base font-display font-bold text-sombre flex items-center gap-2">
                   <Smartphone className="w-5 h-5 text-accent" />
-                  <span>Aperçu Interactif Écran Smartphone</span>
+                  <span>{locale === 'fr' ? 'Aperçu Interactif Écran Smartphone' : 'Interactive Mobile Preview'}</span>
                 </h3>
                 <p className="text-xs text-sombre/60 font-semibold mt-0.5">
-                  Visualisez exactement le rendu de votre vitrine telle qu'un client la découvre sur son téléphone.
+                  {locale === 'fr'
+                    ? 'Visualisez exactement le rendu de votre vitrine telle qu’un client la découvre sur son téléphone.'
+                    : 'Preview exactly how potential clients see your atelier on their smartphones.'}
                 </p>
               </div>
 
               <Link href={`/${activeSlug}`} target="_blank">
                 <Button variant="outline" size="sm" className="rounded-full text-xs font-bold gap-1.5 border-accent text-accent">
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Ouvrir dans un onglet</span>
+                  <span>{locale === 'fr' ? 'Ouvrir dans un onglet' : 'Open in new tab'}</span>
                 </Button>
               </Link>
             </Card>
@@ -711,7 +838,7 @@ export default function GererVitrinePage() {
                       <img src={coverUrl} alt="Bannière" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-r from-sombre to-[#4A151C] flex items-center justify-center text-white/30 text-xs font-bold">
-                        Bannière d'atelier
+                        {locale === 'fr' ? 'Bannière d’atelier' : 'Workshop Banner'}
                       </div>
                     )}
                     {/* Logo */}
@@ -727,7 +854,7 @@ export default function GererVitrinePage() {
                   {/* Profile Header */}
                   <div className="pt-7 px-4 space-y-1.5">
                     <h4 className="text-base font-display font-bold text-sombre leading-tight">
-                      {nomAtelier || 'Maison Adia Couture'}
+                      {nomAtelier || (locale === 'fr' ? 'Maison Adia Couture' : 'Adia Fashion House')}
                     </h4>
                     {(ville || pays) && (
                       <p className="text-[11px] font-semibold text-sombre/60 flex items-center gap-1">
@@ -747,7 +874,7 @@ export default function GererVitrinePage() {
                         type="button"
                         className="w-full py-2 px-3 bg-[#25D366] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
                       >
-                        <span>💬 Commander sur WhatsApp</span>
+                        <span>💬 {dict.publicVitrine.orderOnWhatsApp}</span>
                       </button>
                     </div>
                   </div>
@@ -755,11 +882,11 @@ export default function GererVitrinePage() {
                   {/* Showcase Gallery */}
                   <div className="p-4 space-y-2">
                     <h5 className="text-xs font-bold uppercase tracking-wider text-accent">
-                      Créations ({realisations.length})
+                      {dict.publicVitrine.galleryTitle} ({realisations.length})
                     </h5>
                     {realisations.length === 0 ? (
                       <div className="p-6 text-center text-xs text-sombre/50 border border-dashed border-sable rounded-2xl">
-                        Aucun modèle publié
+                        {dict.publicVitrine.noPhotosYet}
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
@@ -767,7 +894,7 @@ export default function GererVitrinePage() {
                           <div key={r.id} className="rounded-xl overflow-hidden bg-white border border-sable/50 shadow-xs">
                             <img src={r.photo_url} alt="Modèle" className="w-full h-24 object-cover" />
                             <p className="p-1.5 text-[10px] font-bold text-sombre truncate">
-                              {r.description || 'Modèle sur-mesure'}
+                              {r.description || (locale === 'fr' ? 'Modèle sur-mesure' : 'Custom piece')}
                             </p>
                           </div>
                         ))}
@@ -788,10 +915,10 @@ export default function GererVitrinePage() {
               <div className="border-b border-sable/40 pb-3">
                 <h3 className="text-sm sm:text-base font-display font-bold text-sombre flex items-center gap-2">
                   <Share2 className="w-5 h-5 text-accent" />
-                  <span>Partager votre Vitrine Publique</span>
+                  <span>{dict.vitrine.shareSectionTitle}</span>
                 </h3>
                 <p className="text-xs text-sombre/60 font-semibold mt-0.5">
-                  Envoyez ce lien à vos clients sur WhatsApp, Instagram, TikTok et vos cartes de visite.
+                  {dict.vitrine.shareSectionDesc}
                 </p>
               </div>
 
@@ -808,7 +935,7 @@ export default function GererVitrinePage() {
                   }`}
                 >
                   {copiedLink ? <Check className="w-4 h-4 text-emerald-200" /> : <Copy className="w-4 h-4 text-gold" />}
-                  <span>{copiedLink ? 'Lien copié !' : 'Copier le lien'}</span>
+                  <span>{copiedLink ? dict.common.copied : dict.vitrine.copyLinkBtn}</span>
                 </button>
               </div>
 
@@ -820,7 +947,7 @@ export default function GererVitrinePage() {
                   size="md"
                   className="rounded-2xl gap-2 bg-[#25D366] hover:bg-emerald-600 text-white font-extrabold text-xs sm:text-sm shadow-sm"
                 >
-                  <span>💬 Diffuser la vitrine sur WhatsApp en 1 clic</span>
+                  <span>💬 {dict.vitrine.shareWhatsAppBtn}</span>
                 </Button>
               </a>
             </Card>
@@ -831,10 +958,10 @@ export default function GererVitrinePage() {
                 <div>
                   <h3 className="text-sm sm:text-base font-display font-bold text-sombre flex items-center gap-2">
                     <QrCode className="w-5 h-5 text-gold" />
-                    <span>QR Code Officiel de l’Atelier</span>
+                    <span>{dict.vitrine.qrCodeTitle}</span>
                   </h3>
                   <p className="text-xs text-sombre/60 font-semibold mt-0.5">
-                    Imprimez ce QR Code pour l’afficher au comptoir ou sur la vitrine physique de votre boutique.
+                    {dict.vitrine.qrCodeDesc}
                   </p>
                 </div>
               </div>
@@ -846,10 +973,12 @@ export default function GererVitrinePage() {
 
                 <div className="space-y-3 text-center sm:text-left max-w-sm">
                   <h4 className="text-sm font-bold text-sombre">
-                    Scannez pour ouvrir la vitrine
+                    {locale === 'fr' ? 'Scannez pour ouvrir la vitrine' : 'Scan to open showcase'}
                   </h4>
                   <p className="text-xs text-sombre/70 leading-relaxed font-medium">
-                    Vos clients peuvent scanner ce code avec l’appareil photo de leur smartphone pour voir instantanément vos modèles et passer commande.
+                    {locale === 'fr'
+                      ? 'Vos clients peuvent scanner ce code avec l’appareil photo de leur smartphone pour voir instantanément vos modèles et passer commande.'
+                      : 'Clients can scan this QR code with their smartphone camera to browse your gallery and order instantly.'}
                   </p>
                   <a
                     href={qrCodeUrl}
@@ -860,7 +989,7 @@ export default function GererVitrinePage() {
                   >
                     <Button variant="outline" size="sm" className="rounded-full text-xs font-bold gap-1.5 border-sombre text-sombre hover:bg-sombre hover:text-white">
                       <QrCode className="w-3.5 h-3.5" />
-                      <span>Télécharger l'image QR Code</span>
+                      <span>{locale === 'fr' ? 'Télécharger l’image QR Code' : 'Download QR Code'}</span>
                     </Button>
                   </a>
                 </div>
@@ -876,7 +1005,7 @@ export default function GererVitrinePage() {
               <div className="flex items-center justify-between border-b border-sable/40 pb-3">
                 <h3 className="text-base font-display font-bold text-sombre flex items-center gap-2">
                   <Camera className="w-5 h-5 text-accent" />
-                  <span>Ajouter une Réalisation</span>
+                  <span>{dict.vitrine.uploadModalTitle}</span>
                 </h3>
                 <button
                   type="button"
@@ -891,7 +1020,7 @@ export default function GererVitrinePage() {
                 {/* Photo preview or dropzone */}
                 <div className="space-y-2">
                   <label className="block text-xs sm:text-sm font-bold text-sombre">
-                    Photo du modèle
+                    {locale === 'fr' ? 'Photo du modèle' : 'Model photo'}
                   </label>
 
                   {photoUrl ? (
@@ -908,11 +1037,13 @@ export default function GererVitrinePage() {
                   ) : (
                     <label className="cursor-pointer bg-[#FAF9F6] hover:bg-sable/20 text-accent font-bold text-xs sm:text-sm p-6 rounded-2xl border-2 border-dashed border-sable/80 flex flex-col items-center justify-center gap-2 transition-colors">
                       <Upload className="w-6 h-6 text-accent" />
-                      <span>Uploader une photo depuis votre appareil</span>
-                      <span className="text-[11px] text-sombre/50 font-normal">JPG, PNG ou WebP compressé automatiquement</span>
+                      <span>{dict.vitrine.selectImageBtn}</span>
+                      <span className="text-[11px] text-sombre/50 font-normal">
+                        {locale === 'fr' ? 'JPG, PNG ou WebP compressé automatiquement' : 'JPG, PNG or WebP automatically compressed'}
+                      </span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp"
                         onChange={(e) => handleImageFileChange(e, setPhotoUrl)}
                         className="hidden"
                       />
@@ -921,7 +1052,7 @@ export default function GererVitrinePage() {
                 </div>
 
                 <Input
-                  label="OU Coller un lien d'image web (URL)"
+                  label={locale === 'fr' ? 'OU Coller un lien d’image web (URL)' : 'OR Paste an image web URL'}
                   type="text"
                   placeholder="https://images.unsplash.com/..."
                   value={photoUrl}
@@ -929,9 +1060,9 @@ export default function GererVitrinePage() {
                 />
 
                 <Input
-                  label="Description / Nom du modèle"
+                  label={dict.vitrine.photoTitleLabel}
                   type="text"
-                  placeholder="ex: Robe de soirée brodée en soie"
+                  placeholder={locale === 'fr' ? 'ex: Robe de soirée brodée en soie' : 'ex: Silk embroidered evening gown'}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   required
@@ -945,7 +1076,7 @@ export default function GererVitrinePage() {
                     onClick={() => setShowAddModal(false)}
                     className="rounded-full text-xs font-bold"
                   >
-                    Annuler
+                    {dict.common.cancel}
                   </Button>
                   <Button
                     type="submit"
@@ -955,7 +1086,7 @@ export default function GererVitrinePage() {
                     className="rounded-full text-xs font-bold gap-1.5"
                   >
                     <Check className="w-3.5 h-3.5" />
-                    <span>{uploadingPhoto ? 'Publication…' : 'Publier sur la vitrine'}</span>
+                    <span>{uploadingPhoto ? (locale === 'fr' ? 'Publication…' : 'Publishing…') : dict.vitrine.savePhotoBtn}</span>
                   </Button>
                 </div>
               </form>

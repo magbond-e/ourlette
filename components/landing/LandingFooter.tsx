@@ -2,10 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Scissors, ShieldCheck, Mail, MapPin, Heart } from 'lucide-react';
+import { Scissors, ShieldCheck, Mail, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { useLanguage } from '@/lib/i18n';
+import { SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
 
 export const LandingFooter: React.FC = () => {
+  const { dict } = useLanguage();
+
   return (
     <footer className="bg-sombre text-white relative overflow-hidden border-t border-accent/20">
       {/* Top Farata Colored Pattern Accent Bar */}
@@ -26,86 +31,89 @@ export const LandingFooter: React.FC = () => {
             </Link>
 
             <p className="text-xs sm:text-sm text-clair/80 font-sans leading-relaxed">
-              Ton atelier, organisé et visible. La plateforme gratuite dédiée aux artisans couturiers du monde entier.
+              {dict.footer.tagline}
             </p>
 
-            <div className="pt-1">
+            <div className="flex items-center gap-3 pt-1">
               <Link href="/login">
-                <Button variant="accent" size="sm" className="rounded-full px-6 font-extrabold shadow-md hover:scale-105 transition-transform">
-                  Rejoindre Ourlette →
+                <Button variant="accent" size="sm" className="rounded-full px-5 font-extrabold shadow-md hover:scale-105 transition-transform">
+                  {dict.footer.joinButton}
                 </Button>
               </Link>
+              <LanguageSwitcher isDark />
             </div>
 
-            {/* RGPD Badge inspired by Farata screenshot #4 */}
+            {/* RGPD Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-emerald-950/60 border border-emerald-500/30 rounded-2xl text-xs text-emerald-300 font-bold shadow-xs">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>RGPD 100% Conforme & Privé</span>
+              <span>{dict.footer.rgpdBadge}</span>
             </div>
           </div>
 
           {/* Column 2: Navigation Links */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-gold uppercase tracking-widest">Navigation</h4>
+            <h4 className="text-xs font-bold text-gold uppercase tracking-widest">{dict.footer.navColTitle}</h4>
             <ul className="space-y-2 text-sm font-medium text-clair/80">
               <li>
-                <Link href="/#hero" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Accueil</Link>
+                <Link href="/#hero" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.home}</Link>
               </li>
               <li>
-                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Comment ça marche ?</Link>
+                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.howItWorks}</Link>
+              </li>
+              {SHOW_ACCOUNT_PLANS && (
+                <li>
+                  <Link href="/#tarifs" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.pricing}</Link>
+                </li>
+              )}
+              <li>
+                <Link href="/faq" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.faq}</Link>
               </li>
               <li>
-                <Link href="/#tarifs" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Tarifs</Link>
-              </li>
-              <li>
-                <Link href="/faq" className="hover:text-gold hover:translate-x-1 transition-all inline-block">FAQ</Link>
-              </li>
-              <li>
-                <Link href="/#contact" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Contact</Link>
+                <Link href="/#contact" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.contact}</Link>
               </li>
             </ul>
           </div>
 
           {/* Column 3: Solutions Couture SEO */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-gold uppercase tracking-widest">Solutions Couture</h4>
+            <h4 className="text-xs font-bold text-gold uppercase tracking-widest">{dict.footer.solutionsColTitle}</h4>
             <ul className="space-y-2 text-sm font-medium text-clair/80">
               <li>
-                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Logiciel pour couturier</Link>
+                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.softwareTailor}</Link>
               </li>
               <li>
-                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Carnet de commandes couture</Link>
+                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.orderBook}</Link>
               </li>
               <li>
-                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Application couturier gratuite</Link>
+                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.freeApp}</Link>
               </li>
               <li>
-                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Gestion d'atelier de couture</Link>
+                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.workshopManagement}</Link>
               </li>
               <li>
-                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Vitrine en ligne WhatsApp</Link>
+                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.onlineShowcase}</Link>
               </li>
               <li>
-                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Fiche mesures client numérique</Link>
+                <Link href="/comment-ca-marche" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.digitalMeasurements}</Link>
               </li>
             </ul>
           </div>
 
           {/* Column 4: Legal & Contact */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-gold uppercase tracking-widest">Légal & Contact</h4>
+            <h4 className="text-xs font-bold text-gold uppercase tracking-widest">{dict.footer.legalColTitle}</h4>
             <ul className="space-y-2 text-sm font-medium text-clair/80">
               <li>
-                <Link href="/politique-confidentialite" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Politique de confidentialité</Link>
+                <Link href="/politique-confidentialite" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.privacyPolicy}</Link>
               </li>
               <li>
-                <Link href="/mentions-legales" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Mentions légales</Link>
+                <Link href="/mentions-legales" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.legalMentions}</Link>
               </li>
               <li>
-                <Link href="/cgu" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Conditions Générales (CGU)</Link>
+                <Link href="/cgu" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.termsOfService}</Link>
               </li>
               <li>
-                <Link href="/cookies" className="hover:text-gold hover:translate-x-1 transition-all inline-block">Politique de cookies</Link>
+                <Link href="/cookies" className="hover:text-gold hover:translate-x-1 transition-all inline-block">{dict.footer.cookiePolicy}</Link>
               </li>
             </ul>
             <div className="pt-3 space-y-2 text-xs text-clair/70 border-t border-white/10">
@@ -123,11 +131,10 @@ export const LandingFooter: React.FC = () => {
 
         {/* Separator Line */}
         <div className="border-t border-white/10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-clair/60">
-          <p>© 2026 Ourlette. Tous droits réservés.</p>
+          <p>{dict.footer.rightsReserved}</p>
           <p className="flex items-center gap-1.5 font-medium">
-            <span>Fait avec</span>
-            <span className="text-accent text-sm animate-pulse">🧵</span>
-            <span>pour les couturiers et ateliers du monde entier</span>
+            <span>{dict.footer.madeWithLove}</span>
+            <span>{dict.footer.worldwideTailors}</span>
           </p>
           <p className="text-[10px] font-mono text-clair/40">v1.0.0</p>
         </div>

@@ -13,17 +13,9 @@ import { DataService } from '@/lib/services/dataService';
 import { Client, Commande, Mesure, StatutCommande } from '@/lib/types/database';
 import { formatFCFA, formatDateFR, calculSolde, isCommandeEnRetard } from '@/lib/utils/formatters';
 import { useAuth } from '@/lib/context/AuthContext';
+import { useLanguage } from '@/lib/i18n';
 
-const STATUTS_ORDER: { id: StatutCommande; label: string }[] = [
-  { id: 'recue', label: 'Reçue' },
-  { id: 'en_cours', label: 'En cours' },
-  { id: 'essayage', label: 'Essayage' },
-  { id: 'prete', label: 'Prête' },
-  { id: 'livree', label: 'Livrée' },
-];
-
-function MiniStatusBadge({ statut }: { statut: StatutCommande }) {
-  const info = STATUTS_ORDER.find(s => s.id === statut);
+function MiniStatusBadge({ statut, label }: { statut: StatutCommande; label: string }) {
   const colorMap: Record<StatutCommande, string> = {
     recue: 'bg-sable/30 text-sombre border-sable/60',
     en_cours: 'bg-accent/15 text-accent border-accent/30',
@@ -33,7 +25,7 @@ function MiniStatusBadge({ statut }: { statut: StatutCommande }) {
   };
   return (
     <span className={`inline-flex items-center text-xs font-bold px-2.5 py-0.5 rounded-full border ${colorMap[statut] ?? 'bg-sable/30 text-sombre'}`}>
-      {info?.label ?? statut}
+      {label}
     </span>
   );
 }
@@ -41,12 +33,25 @@ function MiniStatusBadge({ statut }: { statut: StatutCommande }) {
 export default function ClientDetailPage() {
   const params = useParams();
   const { user } = useAuth();
+  const { dict, locale } = useLanguage();
+  const isEn = locale === 'en';
   const clientId = params.id as string;
 
   const [client, setClient] = useState<Client | null>(null);
   const [commandes, setCommandes] = useState<Commande[]>([]);
   const [mesure, setMesure] = useState<Mesure | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const getStatusLabel = (statut: StatutCommande): string => {
+    switch (statut) {
+      case 'recue': return dict.commandes.statusReceived;
+      case 'en_cours': return dict.commandes.statusInProgress;
+      case 'essayage': return dict.commandes.statusFitting;
+      case 'prete': return dict.commandes.statusReady;
+      case 'livree': return dict.commandes.statusDelivered;
+      default: return statut;
+    }
+  };
 
   const loadData = useCallback(async () => {
     if (!user?.id || !clientId) {
@@ -76,7 +81,7 @@ export default function ClientDetailPage() {
     return (
       <div className="min-h-screen bg-clair pb-24 font-sans">
         <main className="max-w-4xl mx-auto px-4 pt-12">
-          <ThreadSpoolLoader label="Chargement de la fiche client…" size="lg" />
+          <ThreadSpoolLoader label={dict.common.loading} size="lg" />
         </main>
       </div>
     );
@@ -86,9 +91,9 @@ export default function ClientDetailPage() {
     return (
       <div className="min-h-screen bg-clair pb-24 font-sans">
         <main className="max-w-4xl mx-auto px-4 pt-12 text-center space-y-4">
-          <p className="text-base font-bold text-sombre/70">Client non trouvé.</p>
+          <p className="text-base font-bold text-sombre/70">{dict.clients.emptyTitle}</p>
           <Link href="/clients">
-            <Button variant="accent">Retour aux clients</Button>
+            <Button variant="accent">{dict.clients.title}</Button>
           </Link>
         </main>
       </div>
@@ -104,12 +109,12 @@ export default function ClientDetailPage() {
             className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-sombre/70 hover:text-accent bg-white px-3.5 py-1.5 rounded-full border border-sable/70 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Tous les clients</span>
+            <span>{dict.clients.title}</span>
           </Link>
           <Link href={`/clients/${client.id}/mesures`}>
             <Button variant="outline" size="sm" className="gap-2 text-xs sm:text-sm font-bold rounded-2xl">
               <Ruler className="w-4 h-4 text-accent" />
-              <span>{mesure ? 'Modifier mesures' : '+ Prendre mesures'}</span>
+              <span>{mesure ? (isEn ? 'Edit measurements' : 'Modifier mesures') : (isEn ? '+ Take measurements' : '+ Prendre mesures')}</span>
             </Button>
           </Link>
         </div>
@@ -119,7 +124,7 @@ export default function ClientDetailPage() {
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div className="space-y-1">
               <span className="text-xs font-bold uppercase tracking-wider text-accent block">
-                Fiche Client
+                {isEn ? 'Client Profile' : 'Fiche Client'}
               </span>
               <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre leading-tight">{client.nom}</h2>
               {client.telephone && (
@@ -134,14 +139,14 @@ export default function ClientDetailPage() {
             </div>
 
             <div className="text-left sm:text-right shrink-0">
-              <span className="text-xs text-sombre/60 block font-semibold">Inscrit le</span>
-              <span className="text-xs sm:text-sm font-bold text-sombre">{formatDateFR(client.date_creation)}</span>
+              <span className="text-xs text-sombre/60 block font-semibold">{isEn ? 'Registered on' : 'Inscrit le'}</span>
+              <span className="text-xs sm:text-sm font-bold text-sombre">{formatDateFR(client.date_creation, locale)}</span>
             </div>
           </div>
 
           {client.notes && (
             <div className="p-3.5 bg-[#FAFAF8] rounded-2xl text-xs sm:text-sm text-sombre/80 border border-sable/50 font-medium">
-              <strong className="text-sombre font-bold">Notes / Préférences :</strong> {client.notes}
+              <strong className="text-sombre font-bold">{dict.clients.notesLabel} :</strong> {client.notes}
             </div>
           )}
         </Card>
@@ -151,11 +156,11 @@ export default function ClientDetailPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-sable/40 pb-3">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2">
               <Ruler className="w-5 h-5 text-accent" />
-              <span>Fiche Mesures</span>
+              <span>{dict.mesures.title}</span>
             </h3>
             {mesure && (
               <span className="text-xs text-sombre/60 font-semibold">
-                Mis à jour le {formatDateFR(mesure.date_maj)} {mesure.prise_par ? `par ${mesure.prise_par}` : ''}
+                {dict.mesures.lastUpdated} : {formatDateFR(mesure.date_maj, locale)} {mesure.prise_par ? `${dict.mesures.takenByLabel} ${mesure.prise_par}` : ''}
               </span>
             )}
           </div>
@@ -163,13 +168,13 @@ export default function ClientDetailPage() {
           {mesure ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs sm:text-sm">
               {[
-                { label: 'Poitrine', val: mesure.tour_poitrine },
-                { label: 'Taille', val: mesure.tour_taille },
-                { label: 'Hanches', val: mesure.tour_hanches },
-                { label: 'Manche', val: mesure.longueur_manche },
-                { label: 'Longueur Robe/Boubou', val: mesure.longueur_robe },
-                { label: 'Cou', val: mesure.tour_cou },
-                { label: 'Épaules', val: mesure.largeur_epaules },
+                { label: dict.mesures.chest, val: mesure.tour_poitrine },
+                { label: dict.mesures.waist, val: mesure.tour_taille },
+                { label: dict.mesures.hips, val: mesure.tour_hanches },
+                { label: dict.mesures.sleeveLength, val: mesure.longueur_manche },
+                { label: dict.mesures.dressLength, val: mesure.longueur_robe },
+                { label: dict.mesures.neck, val: mesure.tour_cou },
+                { label: dict.mesures.shoulders, val: mesure.largeur_epaules },
               ].map(
                 (item) =>
                   item.val != null && (
@@ -190,10 +195,10 @@ export default function ClientDetailPage() {
             </div>
           ) : (
             <div className="text-center py-6 text-xs sm:text-sm text-sombre/60 space-y-3">
-              <p className="font-medium">Aucune mesure enregistrée pour ce client.</p>
+              <p className="font-medium">{isEn ? 'No measurements recorded for this client.' : 'Aucune mesure enregistrée pour ce client.'}</p>
               <Link href={`/clients/${client.id}/mesures`}>
                 <Button variant="accent" size="sm" className="rounded-full">
-                  + Saisir les mesures
+                  + {isEn ? 'Enter measurements' : 'Saisir les mesures'}
                 </Button>
               </Link>
             </div>
@@ -205,19 +210,21 @@ export default function ClientDetailPage() {
           <div className="border-b border-sable/40 pb-3 flex items-center justify-between">
             <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent flex items-center gap-2">
               <Scissors className="w-5 h-5 text-accent" />
-              <span>Historique des Commandes ({commandes.length})</span>
+              <span>{isEn ? `Order History (${commandes.length})` : `Historique des Commandes (${commandes.length})`}</span>
             </h3>
             <Link href="/commandes/nouvelle">
-              <span className="text-xs font-bold text-accent hover:underline">+ Nouvelle</span>
+              <span className="text-xs font-bold text-accent hover:underline">+ {dict.commandes.newOrderButton}</span>
             </Link>
           </div>
 
           {commandes.length === 0 ? (
-            <p className="text-xs sm:text-sm text-sombre/60 text-center py-6 font-medium">Aucune commande enregistrée pour ce client.</p>
+            <p className="text-xs sm:text-sm text-sombre/60 text-center py-6 font-medium">
+              {isEn ? 'No orders recorded for this client yet.' : 'Aucune commande enregistrée pour ce client.'}
+            </p>
           ) : (
             <div className="space-y-3">
               {commandes.map((cmd) => {
-                const resteDû = calculSolde(cmd.prix_total, cmd.acompte);
+                const resteDu = calculSolde(cmd.prix_total, cmd.acompte);
                 const isOverdue = isCommandeEnRetard(cmd.date_livraison_prevue, cmd.statut);
                 return (
                   <div key={cmd.id} className="p-4 bg-[#FAFAF8] rounded-2xl space-y-3 text-xs sm:text-sm border border-sable/60 hover:border-accent/40 transition-colors">
@@ -225,31 +232,31 @@ export default function ClientDetailPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-display font-bold text-base text-sombre">{cmd.description}</span>
-                          <MiniStatusBadge statut={cmd.statut} />
+                          <MiniStatusBadge statut={cmd.statut} label={getStatusLabel(cmd.statut)} />
                         </div>
                         {cmd.tissu && (
                           <p className="text-xs text-sombre/70 font-medium mt-0.5">
-                            <strong className="text-sombre font-bold">Tissu :</strong> {cmd.tissu}
+                            <strong className="text-sombre font-bold">{dict.commandes.fabric} :</strong> {cmd.tissu}
                           </p>
                         )}
                       </div>
 
                       <div className="text-left sm:text-right">
-                        <span className="text-xs font-bold text-sombre/60 block">Livr. prévue</span>
+                        <span className="text-xs font-bold text-sombre/60 block">{dict.commandes.promisedFor}</span>
                         <span className={`text-xs font-bold ${isOverdue ? 'text-accent' : 'text-sombre'}`}>
-                          {formatDateFR(cmd.date_livraison_prevue)}
+                          {formatDateFR(cmd.date_livraison_prevue, locale)}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-sable/40 text-xs">
                       <div>
-                        <span className="text-sombre/60 font-semibold">Prix : </span>
+                        <span className="text-sombre/60 font-semibold">{dict.commandes.totalPrice} : </span>
                         <strong className="text-sombre font-bold">{formatFCFA(cmd.prix_total)}</strong>
                         <span className="mx-2 text-sable">•</span>
-                        <span className="text-sombre/60 font-semibold">Reste dû : </span>
-                        <strong className={`font-extrabold ${resteDû > 0 ? 'text-accent' : 'text-vertbouton'}`}>
-                          {resteDû > 0 ? formatFCFA(resteDû) : 'Soldé ✓'}
+                        <span className="text-sombre/60 font-semibold">{dict.commandes.balanceRemaining} : </span>
+                        <strong className={`font-extrabold ${resteDu > 0 ? 'text-accent' : 'text-vertbouton'}`}>
+                          {resteDu > 0 ? formatFCFA(resteDu) : (isEn ? 'Paid ✓' : 'Soldé ✓')}
                         </strong>
                       </div>
 
@@ -257,7 +264,7 @@ export default function ClientDetailPage() {
                         href={`/commandes/${cmd.id}`}
                         className="inline-flex items-center gap-1 text-xs font-bold text-accent hover:underline bg-accent/10 px-3 py-1 rounded-full border border-accent/20"
                       >
-                        <span>Détails</span>
+                        <span>{dict.commandes.viewDetails}</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </Link>
                     </div>

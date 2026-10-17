@@ -44,8 +44,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ["Violense", "var(--font-playfair)", "Georgia", "serif"],
-        sans: ["var(--font-inter)", "Satoshi", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        display: ["Violense", "Georgia", "serif"],
+        sans: ["'Satoshi'", "var(--font-inter)", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
       borderRadius: {
         atelier: "12px",

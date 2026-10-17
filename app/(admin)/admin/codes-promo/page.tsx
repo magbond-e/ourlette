@@ -84,7 +84,7 @@ export default function AdminCodesPromoPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-display font-bold text-sombre">Gestion des Codes Promo</h1>
           <p className="text-xs sm:text-sm text-sombre/70 font-semibold mt-0.5">
-            Créez et suivez l’utilisation des remises appliquées au checkout KKiaPay
+            Créez et suivez l’utilisation des remises appliquées au checkout SasPay
           </p>
         </div>
 

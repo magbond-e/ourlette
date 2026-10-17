@@ -12,12 +12,15 @@ export class SupabaseService {
     const supabase = this.getClient();
     if (!supabase || !slugOrId) return null;
 
-    const { data, error } = await supabase
-      .from('couturiers')
-      .select('*')
-      .or(`id.eq.${slugOrId},slug_vitrine.eq.${slugOrId}`)
-      .limit(1)
-      .maybeSingle();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(slugOrId);
+    let query = supabase.from('couturiers').select('*');
+    if (isUuid) {
+      query = query.or(`id.eq.${slugOrId},slug_vitrine.eq.${slugOrId}`);
+    } else {
+      query = query.eq('slug_vitrine', slugOrId);
+    }
+
+    const { data, error } = await query.limit(1).maybeSingle();
 
     if (error || !data) return null;
     return data as Couturier;
@@ -71,10 +74,19 @@ export class SupabaseService {
     const supabase = this.getClient();
     if (!supabase) return null;
 
+    // Protection de sécurité : Filtrage strict des champs système sensibles (gérés exclusivement par le serveur)
+    const {
+      plan: _forbiddenPlan,
+      statut_compte: _forbiddenStatut,
+      plan_change_manuel: _forbiddenManual,
+      id: _forbiddenId,
+      ...safeUpdates
+    } = updates as any;
+
     const { data, error } = await supabase
       .from('couturiers')
       .update({
-        ...updates,
+        ...safeUpdates,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -405,6 +417,8 @@ export class SupabaseService {
         .from('notifications')
         .select('*')
         .eq('couturier_id', couturierId)
+        .is('dismissed_at', null)
+        .is('resolved_at', null)
         .order('created_at', { ascending: false })
         .limit(80);
 
@@ -423,9 +437,17 @@ export class SupabaseService {
         message: row.message,
         date: row.created_at,
         read: Boolean(row.read),
-        link: row.link || undefined,
+        link: row.action_url || row.link || undefined,
+        action_url: row.action_url || row.link || undefined,
         metadata: row.metadata || {},
-        orderId: row.metadata?.orderId || undefined,
+        data: row.data || {},
+        orderId: (row.data?.orderId || row.metadata?.orderId) as string | undefined,
+        dedupe_key: row.dedupe_key || undefined,
+        seen_at: row.seen_at,
+        read_at: row.read_at,
+        dismissed_at: row.dismissed_at,
+        resolved_at: row.resolved_at,
+        expires_at: row.expires_at,
       }));
     } catch (e) {
       console.error('Error fetching notifications:', e);
@@ -445,10 +467,16 @@ export class SupabaseService {
         priority: input.priority || 'medium',
         title: input.title,
         message: input.message,
-        link: input.link || null,
+        link: input.action_url || input.link || null,
+        action_url: input.action_url || input.link || null,
         read: input.read || false,
+        dedupe_key: input.dedupe_key || null,
         metadata: {
           ...(input.metadata || {}),
+          ...(input.orderId ? { orderId: input.orderId } : {}),
+        },
+        data: {
+          ...(input.data || {}),
           ...(input.orderId ? { orderId: input.orderId } : {}),
         },
       };
@@ -459,8 +487,43 @@ export class SupabaseService {
         .select()
         .single();
 
-      if (error || !data) {
-        console.error('Error adding notification:', error);
+      if (error) {
+        // En cas de doublon sur la contrainte unique dedupe_key (Postgres code 23505),
+        // on récupère paisiblement la notification existante sans générer d'erreur.
+        if (error.code === '23505' && input.dedupe_key) {
+          const { data: existing } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('couturier_id', input.couturier_id)
+            .eq('dedupe_key', input.dedupe_key)
+            .maybeSingle();
+
+          if (existing) {
+            return {
+              id: existing.id,
+              couturier_id: existing.couturier_id,
+              type: existing.type as any,
+              category: (existing.category || 'order') as any,
+              priority: (existing.priority || 'medium') as any,
+              title: existing.title,
+              message: existing.message,
+              date: existing.created_at,
+              read: Boolean(existing.read),
+              link: existing.action_url || existing.link || undefined,
+              action_url: existing.action_url || existing.link || undefined,
+              metadata: existing.metadata || {},
+              data: existing.data || {},
+              orderId: (existing.data?.orderId || existing.metadata?.orderId) as string | undefined,
+              dedupe_key: existing.dedupe_key || undefined,
+              seen_at: existing.seen_at,
+              read_at: existing.read_at,
+              dismissed_at: existing.dismissed_at,
+              resolved_at: existing.resolved_at,
+              expires_at: existing.expires_at,
+            };
+          }
+        }
+        console.warn('Notification addition skipped or failed:', error.message);
         return null;
       }
 
@@ -474,9 +537,17 @@ export class SupabaseService {
         message: data.message,
         date: data.created_at,
         read: data.read,
-        link: data.link || undefined,
+        link: data.action_url || data.link || undefined,
+        action_url: data.action_url || data.link || undefined,
         metadata: data.metadata || {},
-        orderId: data.metadata?.orderId || undefined,
+        data: data.data || {},
+        orderId: (data.data?.orderId || data.metadata?.orderId) as string | undefined,
+        dedupe_key: data.dedupe_key || undefined,
+        seen_at: data.seen_at,
+        read_at: data.read_at,
+        dismissed_at: data.dismissed_at,
+        resolved_at: data.resolved_at,
+        expires_at: data.expires_at,
       };
     } catch (e) {
       console.error('Error adding notification to Supabase:', e);
@@ -488,10 +559,11 @@ export class SupabaseService {
     const supabase = this.getClient();
     if (!supabase || !id) return false;
 
+    const now = new Date().toISOString();
     try {
       const { error } = await supabase
         .from('notifications')
-        .update({ read: true, updated_at: new Date().toISOString() })
+        .update({ read: true, read_at: now, updated_at: now })
         .eq('id', id);
 
       return !error;
@@ -505,16 +577,76 @@ export class SupabaseService {
     const supabase = this.getClient();
     if (!supabase || !couturierId) return false;
 
+    const now = new Date().toISOString();
     try {
       const { error } = await supabase
         .from('notifications')
-        .update({ read: true, updated_at: new Date().toISOString() })
+        .update({ read: true, read_at: now, updated_at: now })
         .eq('couturier_id', couturierId)
         .eq('read', false);
 
       return !error;
     } catch (e) {
       console.error('Error marking all notifications as read:', e);
+      return false;
+    }
+  }
+
+  static async markNotificationsAsSeen(couturierId: string, ids?: string[]): Promise<boolean> {
+    const supabase = this.getClient();
+    if (!supabase || !couturierId) return false;
+
+    const now = new Date().toISOString();
+    try {
+      let query = supabase
+        .from('notifications')
+        .update({ seen_at: now })
+        .eq('couturier_id', couturierId)
+        .is('seen_at', null);
+
+      if (ids && ids.length > 0) {
+        query = query.in('id', ids);
+      }
+
+      const { error } = await query;
+      return !error;
+    } catch {
+      return false;
+    }
+  }
+
+  static async dismissNotification(id: string): Promise<boolean> {
+    const supabase = this.getClient();
+    if (!supabase || !id) return false;
+
+    const now = new Date().toISOString();
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ dismissed_at: now, updated_at: now })
+        .eq('id', id);
+
+      return !error;
+    } catch {
+      return false;
+    }
+  }
+
+  static async resolveOrderAlerts(couturierId: string, orderId: string): Promise<boolean> {
+    const supabase = this.getClient();
+    if (!supabase || !couturierId || !orderId) return false;
+
+    const now = new Date().toISOString();
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ resolved_at: now, updated_at: now })
+        .eq('couturier_id', couturierId)
+        .or(`dedupe_key.like.order_overdue:${orderId}:%,dedupe_key.like.order_due_soon:${orderId}:%`)
+        .is('resolved_at', null);
+
+      return !error;
+    } catch {
       return false;
     }
   }

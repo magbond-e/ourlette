@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Scissors, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import { useLanguage } from '@/lib/i18n';
+import { SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
 
 interface LandingHeaderProps {
   activeTab?: string;
@@ -13,19 +16,24 @@ interface LandingHeaderProps {
 export const LandingHeader: React.FC<LandingHeaderProps> = ({ activeTab }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { dict } = useLanguage();
 
   const navItems = [
-    { label: 'Accueil', href: '/#hero' },
-    { label: 'Comment ça marche ?', href: '/comment-ca-marche' },
-    { label: 'Tarifs', href: '/#tarifs' },
-    { label: 'FAQ', href: '/faq' },
-    { label: 'Contact', href: '/#contact' },
+    { label: dict.nav.home, href: '/#hero', key: 'home' },
+    { label: dict.nav.howItWorks, href: '/comment-ca-marche', key: 'how' },
+    ...(SHOW_ACCOUNT_PLANS ? [{ label: dict.nav.pricing, href: '/#tarifs', key: 'pricing' }] : []),
+    { label: dict.nav.faq, href: '/faq', key: 'faq' },
+    { label: dict.nav.contact, href: '/#contact', key: 'contact' },
   ];
 
-  const isTabActive = (itemLabel: string, itemHref: string) => {
-    const labelLower = itemLabel.toLowerCase();
+  const isTabActive = (itemKey: string, itemHref: string) => {
     if (activeTab) {
-      return activeTab.toLowerCase() === labelLower;
+      const activeLower = activeTab.toLowerCase();
+      if (itemKey === 'home' && (activeLower === 'accueil' || activeLower === 'home')) return true;
+      if (itemKey === 'how' && (activeLower.includes('comment') || activeLower.includes('how'))) return true;
+      if (itemKey === 'pricing' && (activeLower.includes('tarif') || activeLower.includes('pricing'))) return true;
+      if (itemKey === 'faq' && activeLower.includes('faq')) return true;
+      if (itemKey === 'contact' && activeLower.includes('contact')) return true;
     }
     if (itemHref === '/comment-ca-marche') {
       return pathname === '/comment-ca-marche';
@@ -54,12 +62,12 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ activeTab }) => {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-7">
             {navItems.map((item) => {
-              const active = isTabActive(item.label, item.href);
+              const active = isTabActive(item.key, item.href);
               return (
                 <Link
-                  key={item.label}
+                  key={item.key}
                   href={item.href}
                   className={`text-sm sm:text-base font-bold transition-colors ${
                     active
@@ -73,23 +81,27 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ activeTab }) => {
             })}
           </nav>
 
-          {/* Right CTA Button */}
+          {/* Right CTA Button & Language Switcher */}
           <div className="hidden md:flex items-center gap-3">
+            <LanguageSwitcher />
             <Link href="/login">
-              <Button variant="accent" size="sm" className="rounded-full px-6 text-sm font-bold shadow-md">
-                Connexion
+              <Button variant="accent" size="sm" className="rounded-full px-5 text-sm font-bold shadow-md">
+                {dict.nav.login}
               </Button>
             </Link>
           </div>
 
           {/* Mobile Hamburger Button */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl bg-clair text-sombre hover:text-accent transition-colors touch-target flex items-center justify-center"
-            aria-label="Toggle Menu"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          <div className="flex md:hidden items-center gap-2">
+            <LanguageSwitcher variant="pill" />
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-xl bg-clair text-sombre hover:text-accent transition-colors touch-target flex items-center justify-center"
+              aria-label="Toggle Menu"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Collapsible Navigation Menu */}
@@ -97,10 +109,10 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ activeTab }) => {
           <div className="md:hidden bg-white border-b border-sable/60 px-4 pt-3 pb-6 space-y-3 shadow-xl animate-in slide-in-from-top duration-200">
             <nav className="flex flex-col space-y-2">
               {navItems.map((item) => {
-                const active = isTabActive(item.label, item.href);
+                const active = isTabActive(item.key, item.href);
                 return (
                   <Link
-                    key={item.label}
+                    key={item.key}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`px-4 py-2.5 rounded-2xl text-base font-bold transition-colors ${
@@ -117,12 +129,12 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ activeTab }) => {
             <div className="pt-2 border-t border-sable/40 flex flex-col gap-2">
               <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
                 <Button variant="accent" fullWidth size="md" className="rounded-full font-bold shadow-md">
-                  Connexion
+                  {dict.nav.login}
                 </Button>
               </Link>
               <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
                 <Button variant="outline" fullWidth size="md" className="rounded-full font-bold border-accent text-accent">
-                  Créer un compte atelier
+                  {dict.nav.signup}
                 </Button>
               </Link>
             </div>
@@ -134,4 +146,3 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ activeTab }) => {
     </>
   );
 };
-

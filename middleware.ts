@@ -16,8 +16,17 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  const ONE_YEAR_IN_SECONDS = 365 * 24 * 60 * 60; // 365 jours (Section 11.1)
+  const isProd = process.env.NODE_ENV === 'production';
+
   try {
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookieOptions: {
+        maxAge: ONE_YEAR_IN_SECONDS,
+        sameSite: 'lax',
+        path: '/',
+        secure: isProd,
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -28,15 +37,56 @@ export async function middleware(request: NextRequest) {
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            response.cookies.set(name, value, {
+              ...options,
+              maxAge: ONE_YEAR_IN_SECONDS, // Expiration glissante (Rolling Session)
+              sameSite: 'lax',
+              path: '/',
+              httpOnly: true,
+              secure: isProd,
+            })
           );
         },
       },
     });
 
-    const { data: { user } } = await supabase.auth.getUser();
-    const pathname = request.nextUrl.pathname;
+    let user = null;
+    let isNetworkError = false;
 
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (!error && data?.user) {
+        user = data.user;
+      } else if (
+        error &&
+        (error.message?.toLowerCase().includes('fetch') ||
+          error.message?.toLowerCase().includes('network') ||
+          error.message?.toLowerCase().includes('timeout') ||
+          error.message?.toLowerCase().includes('enotfound') ||
+          error.status === 504 ||
+          error.status === 502)
+      ) {
+        isNetworkError = true;
+      }
+    } catch (e: any) {
+      if (
+        e?.message?.toLowerCase().includes('fetch') ||
+        e?.message?.toLowerCase().includes('network') ||
+        e?.name === 'FetchError'
+      ) {
+        isNetworkError = true;
+      }
+    }
+
+    // Détection de la présence de cookies de session Supabase
+    const allCookies = request.cookies.getAll();
+    const hasAuthCookie = allCookies.some(
+      (c) =>
+        (c.name.startsWith('sb-') && c.name.includes('-auth-token')) ||
+        c.name === 'supabase-auth-token'
+    );
+
+    const pathname = request.nextUrl.pathname;
     const protectedRoutes = ['/commandes', '/clients', '/parametres', '/vitrine/gerer', '/pro'];
     const authRoutes = ['/login', '/signup'];
     const isAdminRoute = pathname.startsWith('/admin');
@@ -44,7 +94,11 @@ export async function middleware(request: NextRequest) {
     const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
     const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
-    if (!user && (isProtectedRoute || isAdminRoute)) {
+    // Section 11.4 : En mode hors ligne ou incident réseau temporaire,
+    // si un cookie de session existe, on ne déconnecte JAMAIS l'utilisateur vers /login.
+    const isConsideredLoggedIn = Boolean(user || (isNetworkError && hasAuthCookie));
+
+    if (!isConsideredLoggedIn && (isProtectedRoute || isAdminRoute)) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/login';
       return NextResponse.redirect(redirectUrl);
@@ -57,7 +111,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (user && isAdminRoute) {
-      // Best-effort auto-register logged-in user as admin
+      // Vérification stricte du rôle administrateur dans la table `admins`
       const { data: adminRecord } = await supabase
         .from('admins')
         .select('id')
@@ -65,13 +119,10 @@ export async function middleware(request: NextRequest) {
         .maybeSingle();
 
       if (!adminRecord) {
-        await supabase
-          .from('admins')
-          .insert({
-            user_id: user.id,
-            email: user.email || '',
-            nom: user.user_metadata?.nom || user.email?.split('@')[0] || 'Admin',
-          });
+        // Utilisateur connecté mais NON administrateur : accès interdit, redirection vers l'espace couturier
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = '/commandes';
+        return NextResponse.redirect(redirectUrl);
       }
     }
   } catch (err) {

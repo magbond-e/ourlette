@@ -5,7 +5,14 @@ import { cookies } from 'next/headers';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/commandes';
+  const rawNext = searchParams.get('next') ?? '/commandes';
+  // Validation stricte anti-Open Redirect : chemin relatif interne uniquement
+  const isSafeInternalPath =
+    rawNext.startsWith('/') &&
+    !rawNext.startsWith('//') &&
+    !rawNext.startsWith('/\\') &&
+    !rawNext.includes(':');
+  const safeNext = isSafeInternalPath ? rawNext : '/commandes';
 
   if (code) {
     const cookieStore = cookies();
@@ -29,7 +36,7 @@ export async function GET(request: Request) {
 
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (!error) {
-        return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`${origin}${safeNext}`);
       }
     }
   }

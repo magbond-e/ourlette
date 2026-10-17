@@ -31,14 +31,21 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [couturier, setCouturier] = useState<Couturier | null>(null);
+  const [couturier, setCouturier] = useState<Couturier | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const cached = localStorage.getItem('ourlette_cached_couturier');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return MockStorageService.getCouturier();
+  });
   const [loading, setLoading] = useState<boolean>(true);
 
   const fetchCouturierProfile = async (authUser: User) => {
     try {
       let profile = await SupabaseService.getCouturier(authUser.id);
       if (!profile) {
-        // Ensure profile is created if it doesn't exist yet
+        // S'assurer que le profil est créé s'il n'existe pas encore
         profile = await SupabaseService.createOrEnsureCouturier(authUser.id, {
           nom: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Couturier',
           email: authUser.email || '',
@@ -49,16 +56,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (profile) {
         setCouturier(profile);
+        try {
+          localStorage.setItem('ourlette_cached_couturier', JSON.stringify(profile));
+        } catch {}
         await DataService.updateCouturier(authUser.id, profile);
       } else {
         const local = await DataService.getCouturier(authUser.id);
-        setCouturier(local);
+        if (local) setCouturier(local);
       }
     } catch (err) {
-      console.error('Error loading user profile:', err);
+      console.warn('Chargement du profil distant différé (mode rapide / offline):', err);
       if (authUser?.id) {
         const local = await DataService.getCouturier(authUser.id);
-        setCouturier(local);
+        if (local) setCouturier(local);
       }
     }
   };
@@ -70,25 +80,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Get initial session
+    // Récupérer la session locale instantanément
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+
       if (session?.user) {
-        fetchCouturierProfile(session.user).finally(() => setLoading(false));
+        // Si le profil est déjà en cache, libérer l'UI immédiatement sans attendre le réseau
+        const hasCached = !!couturier || !!localStorage.getItem('ourlette_cached_couturier');
+        if (hasCached) {
+          setLoading(false);
+          // Revalidation en tâche de fond (Stale-While-Revalidate)
+          fetchCouturierProfile(session.user);
+        } else {
+          fetchCouturierProfile(session.user).finally(() => setLoading(false));
+        }
       } else {
         setLoading(false);
       }
     });
 
-    // Listen to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+    // Écouter les changements d'authentification
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       if (currentSession?.user) {
-        await fetchCouturierProfile(currentSession.user);
+        fetchCouturierProfile(currentSession.user);
       } else {
         setCouturier(null);
+        try {
+          localStorage.removeItem('ourlette_cached_couturier');
+        } catch {}
       }
       setLoading(false);
     });
@@ -119,9 +141,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     const supabase = createClient();
+    const currentUserId = user?.id;
+
     if (supabase) {
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error('Erreur Supabase signOut:', err);
+      }
     }
+
+    // Hygiène de session (appareils partagés) : Nettoyage complet du cache et de SQLite local
+    if (typeof window !== 'undefined') {
+      try {
+        if (currentUserId) {
+          const keysToRemove = [
+            `ourlette_${currentUserId}_clients`,
+            `ourlette_${currentUserId}_commandes`,
+            `ourlette_${currentUserId}_mesures`,
+            `ourlette_${currentUserId}_realisations`,
+            `ourlette_${currentUserId}_couturier`,
+            `ourlette_${currentUserId}_notifications`,
+            `ourlette_${currentUserId}_sync_queue`,
+          ];
+          keysToRemove.forEach((k) => localStorage.removeItem(k));
+        }
+
+        // Effacement de la base locale PowerSync SQLite pour empêcher toute fuite entre comptes
+        const { getPowerSyncDb } = await import('@/lib/powersync/client');
+        const db = getPowerSyncDb();
+        if (db && typeof db.disconnectAndClear === 'function') {
+          await db.disconnectAndClear();
+        }
+
+        // Purge du Service Worker Cache (Invariant 9)
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_USER_CACHE' });
+        }
+      } catch (clearErr) {
+        console.warn('Erreur lors du nettoyage local de session:', clearErr);
+      }
+    }
+
     setUser(null);
     setSession(null);
     setCouturier(null);

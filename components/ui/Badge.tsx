@@ -1,6 +1,7 @@
 import React from 'react';
 import { StatutCommande } from '@/lib/types/database';
 import { getStatutDetails } from '@/lib/utils/formatters';
+import { useLanguage } from '@/lib/i18n';
 
 interface BadgeProps {
   children?: React.ReactNode;
@@ -15,8 +16,9 @@ export const Badge: React.FC<BadgeProps> = ({
   statut,
   className = '',
 }) => {
+  const { locale } = useLanguage();
   if (statut) {
-    const details = getStatutDetails(statut);
+    const details = getStatutDetails(statut, locale);
     return (
       <span
         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${details.bg} ${details.text} ${details.border} ${className}`}

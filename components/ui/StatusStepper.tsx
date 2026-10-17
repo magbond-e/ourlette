@@ -1,5 +1,6 @@
 import React from 'react';
 import { StatutCommande } from '@/lib/types/database';
+import { useLanguage } from '@/lib/i18n';
 
 interface StatusStepperProps {
   currentStatus: StatutCommande;
@@ -7,20 +8,22 @@ interface StatusStepperProps {
   interactive?: boolean;
 }
 
-const STATUTS_ORDER: { id: StatutCommande; label: string }[] = [
-  { id: 'recue', label: 'Reçue' },
-  { id: 'en_cours', label: 'En cours' },
-  { id: 'essayage', label: 'Essayage' },
-  { id: 'prete', label: 'Prête' },
-  { id: 'livree', label: 'Livrée' },
-];
-
 export const StatusStepper: React.FC<StatusStepperProps> = ({
   currentStatus,
   onStatusChange,
   interactive = true,
 }) => {
-  const currentIndex = STATUTS_ORDER.findIndex((s) => s.id === currentStatus);
+  const { dict } = useLanguage();
+
+  const statutsOrder: { id: StatutCommande; label: string }[] = [
+    { id: 'recue', label: dict.commandes.statusReceived },
+    { id: 'en_cours', label: dict.commandes.statusInProgress },
+    { id: 'essayage', label: dict.commandes.statusFitting },
+    { id: 'prete', label: dict.commandes.statusReady },
+    { id: 'livree', label: dict.commandes.statusDelivered },
+  ];
+
+  const currentIndex = statutsOrder.findIndex((s) => s.id === currentStatus);
 
   return (
     <div className="w-full py-1">
@@ -29,7 +32,7 @@ export const StatusStepper: React.FC<StatusStepperProps> = ({
         {/* Horizontal Basting Line background */}
         <div aria-hidden="true" className="absolute left-3 right-3 top-3.5 -z-0 border-b-2 border-dashed border-accent/40" />
 
-        {STATUTS_ORDER.map((step, index) => {
+        {statutsOrder.map((step, index) => {
           const isReached = index <= currentIndex;
           const isCurrent = index === currentIndex;
 

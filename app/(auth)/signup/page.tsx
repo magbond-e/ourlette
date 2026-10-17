@@ -1,16 +1,62 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Scissors, ArrowLeft, Mail, Lock, Check } from 'lucide-react';
+import { Scissors, ArrowLeft, Check, Store, MapPin, Phone, User, Mail, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/context/AuthContext';
-import { SupabaseService } from '@/lib/services/supabaseService';
-import { DataService } from '@/lib/services/dataService';
 import { MockStorageService } from '@/lib/services/mockStorage';
+import { useLanguage } from '@/lib/i18n';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+
+const COUNTRIES = [
+  { name: 'Bénin', dial: '+229', flag: '🇧🇯' },
+  { name: 'Côte d’Ivoire', dial: '+225', flag: '🇨🇮' },
+  { name: 'Sénégal', dial: '+221', flag: '🇸🇳' },
+  { name: 'Togo', dial: '+228', flag: '🇹🇬' },
+  { name: 'Cameroun', dial: '+237', flag: '🇨🇲' },
+  { name: 'Burkina Faso', dial: '+226', flag: '🇧🇫' },
+  { name: 'Mali', dial: '+223', flag: '🇲🇱' },
+  { name: 'Guinée', dial: '+224', flag: '🇬🇳' },
+  { name: 'Niger', dial: '+227', flag: '🇳🇪' },
+  { name: 'Gabon', dial: '+241', flag: '🇬🇦' },
+  { name: 'Congo', dial: '+242', flag: '🇨🇬' },
+  { name: 'RDC', dial: '+243', flag: '🇨🇩' },
+  { name: 'Tchad', dial: '+235', flag: '🇹🇩' },
+  { name: 'Ghana', dial: '+233', flag: '🇬🇭' },
+  { name: 'Nigéria', dial: '+234', flag: '🇳🇬' },
+  { name: 'France', dial: '+33', flag: '🇫🇷' },
+  { name: 'Belgique', dial: '+32', flag: '🇧🇪' },
+  { name: 'Canada', dial: '+1', flag: '🇨🇦' },
+  { name: 'États-Unis', dial: '+1', flag: '🇺🇸' },
+  { name: 'Autre', dial: '+', flag: '🌍' },
+];
+
+function detectClientDevice(): string {
+  if (typeof window === 'undefined') return 'Appareil inconnu';
+  const ua = navigator.userAgent;
+  let deviceType = 'Ordinateur';
+  if (/mobile/i.test(ua)) deviceType = 'Mobile';
+  else if (/tablet|ipad/i.test(ua)) deviceType = 'Tablette';
+
+  let os = '';
+  if (/android/i.test(ua)) os = 'Android';
+  else if (/iphone|ipad|ipod/i.test(ua)) os = 'iOS';
+  else if (/windows/i.test(ua)) os = 'Windows';
+  else if (/mac/i.test(ua)) os = 'macOS';
+  else if (/linux/i.test(ua)) os = 'Linux';
+
+  let browser = '';
+  if (/edg/i.test(ua)) browser = 'Edge';
+  else if (/chrome/i.test(ua)) browser = 'Chrome';
+  else if (/safari/i.test(ua)) browser = 'Safari';
+  else if (/firefox/i.test(ua)) browser = 'Firefox';
+
+  const details = [os, browser].filter(Boolean).join(' - ');
+  return `${deviceType}${details ? ` (${details})` : ''}`;
+}
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
@@ -36,6 +82,15 @@ const GoogleIcon = () => (
 export default function SignupPage() {
   const router = useRouter();
   const { signInWithGoogle } = useAuth();
+  const { dict, locale } = useLanguage();
+  const isEn = locale === 'en';
+
+  const [nom, setNom] = useState('');
+  const [nomAtelier, setNomAtelier] = useState('');
+  const [pays, setPays] = useState('Bénin');
+  const [indicatif, setIndicatif] = useState('+229');
+  const [phoneNumero, setPhoneNumero] = useState('');
+  const [ville, setVille] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -43,70 +98,109 @@ export default function SignupPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const handleCountryChange = (countryName: string) => {
+    setPays(countryName);
+    const found = COUNTRIES.find((c) => c.name === countryName);
+    if (found && found.dial !== '+') {
+      setIndicatif(found.dial);
+    }
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Veuillez remplir votre adresse email et mot de passe.');
+    if (!nom.trim() || !nomAtelier.trim() || !email.trim() || !password || !phoneNumero.trim() || !ville.trim()) {
+      setError(dict.auth.fillAllFieldsError || 'Veuillez remplir tous les champs obligatoires.');
       return;
     }
 
     if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères.');
+      setError(isEn ? 'Password must be at least 6 characters.' : 'Le mot de passe doit contenir au moins 6 caractères.');
       return;
     }
 
     setLoading(true);
     setError('');
 
-    const supabase = createClient();
-    if (!supabase) {
-      // Local fallback if Supabase client unavailable
-      MockStorageService.updateCouturier({
-        email: email.trim(),
-        nom: 'Artisan Couturier',
-        nom_atelier: 'Mon Atelier',
+    const fullPhone = `${indicatif} ${phoneNumero.trim()}`;
+    const detectedDevice = detectClientDevice();
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nom: nom.trim(),
+          nom_atelier: nomAtelier.trim(),
+          pays: pays.trim(),
+          telephone: fullPhone,
+          ville: ville.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+          device: detectedDevice,
+        }),
       });
-      setTimeout(() => {
-        setLoading(false);
-        router.push('/commandes');
-      }, 400);
-      return;
-    }
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const { data: authData, error: authErr } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        emailRedirectTo: `${origin}/auth/callback`,
-        data: {
-          email: email.trim(),
-        },
-      },
-    });
+      const resData = await response.json();
 
-    if (authErr) {
-      setError(
-        authErr.message.includes('User already registered')
-          ? 'Un compte existe déjà avec cette adresse email.'
-          : authErr.message
-      );
+      if (!response.ok) {
+        throw new Error(resData.error || "Une erreur est survenue lors de l'inscription.");
+      }
+
+      // Sync mock storage for local dev / offline preview
+      MockStorageService.updateCouturier({
+        nom: nom.trim(),
+        nom_atelier: nomAtelier.trim(),
+        email: email.trim().toLowerCase(),
+        telephone: fullPhone,
+        whatsapp_contact: fullPhone,
+        ville: ville.trim(),
+        pays: pays.trim(),
+        device: detectedDevice,
+        onboarding_emails_enabled: true,
+        cookie_consent_at: new Date().toISOString(),
+      });
+
+      // If Supabase client is available, also log in on the browser client
+      const supabase = createClient();
+      if (supabase) {
+        await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+      }
+
       setLoading(false);
-      return;
-    }
 
-    if (authData.user) {
-      const defaultProfile = {
-        email: email.trim(),
-        nom: 'Artisan Couturier',
-        nom_atelier: 'Mon Atelier',
-      };
-      await SupabaseService.createOrEnsureCouturier(authData.user.id, defaultProfile);
-      await DataService.updateCouturier(authData.user.id, defaultProfile);
-    }
+      if (resData.session) {
+        window.location.href = '/commandes';
+      } else {
+        // Confirmation email maybe required or direct login
+        window.location.href = '/commandes';
+      }
+    } catch (err: any) {
+      console.error('[Signup] Error:', err);
+      // Fallback local if Supabase is offline/unconfigured
+      const supabase = createClient();
+      if (!supabase) {
+        MockStorageService.updateCouturier({
+          nom: nom.trim(),
+          nom_atelier: nomAtelier.trim(),
+          email: email.trim().toLowerCase(),
+          telephone: fullPhone,
+          ville: ville.trim(),
+          pays: pays.trim(),
+          cookie_consent_at: new Date().toISOString(),
+        });
+        setTimeout(() => {
+          setLoading(false);
+          router.push('/commandes');
+        }, 300);
+        return;
+      }
 
-    setLoading(false);
-    router.push('/commandes');
+      setError(err?.message || "Une erreur inattendue est survenue.");
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignup = async () => {
@@ -115,70 +209,84 @@ export default function SignupPage() {
     try {
       await signInWithGoogle();
     } catch (err: any) {
-      setError(err.message || 'Échec de l’inscription via Google.');
+      setError(err.message || dict.auth.googleFailedError);
       setGoogleLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-2 border border-sable/60 min-h-[580px]">
-        {/* Left Side: Brand Banner */}
-        <div className="bg-sombre text-white p-8 sm:p-12 flex flex-col justify-between relative overflow-hidden">
+    <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-3 sm:p-8 relative">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-8 z-20">
+        <LanguageSwitcher />
+      </div>
+
+      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-sable/60 min-h-[640px] my-6">
+        {/* Left Side: Brand Banner (4 cols) */}
+        <div className="lg:col-span-4 bg-sombre text-white p-7 sm:p-10 flex flex-col justify-between relative overflow-hidden">
           <div className="space-y-6 z-10">
             <Link
               href="/"
               className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-clair/80 hover:text-gold transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Retour à l&apos;accueil</span>
+              <span>{isEn ? 'Back to Home' : "Retour à l'accueil"}</span>
             </Link>
 
-            <div className="space-y-3 pt-4">
+            <div className="space-y-3 pt-2">
               <div className="w-12 h-12 rounded-2xl bg-accent/20 border border-gold/40 flex items-center justify-center text-gold shadow-md">
                 <Scissors className="w-6 h-6 text-gold" />
               </div>
-              <h1 className="text-3xl sm:text-4xl font-display font-bold text-white leading-tight">
-                Créer un compte<span className="text-gold title-highlight font-normal">.</span>
+              <h1 className="text-2xl sm:text-3xl font-display font-bold text-white leading-tight">
+                {dict.auth.signupTitle}<span className="text-gold title-highlight font-normal">.</span>
               </h1>
-              <p className="text-sm sm:text-base text-clair/80 font-medium max-w-md leading-relaxed">
-                Crée ton compte rapidement avec ton adresse email. Tu pourras ensuite personnaliser les détails de ton atelier en 1 minute.
+              <p className="text-xs sm:text-sm text-clair/80 font-medium leading-relaxed">
+                {isEn
+                  ? 'Set up your workshop account once and manage orders, client measurements and public showcase with ease.'
+                  : 'Configurez votre atelier en une seule étape. Fini les formulaires répétés : démarrez immédiatement.'}
               </p>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15 space-y-3 pt-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-gold">Inclus gratuitement :</p>
-              <ul className="space-y-2 text-xs sm:text-sm font-medium text-clair/90">
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 space-y-2.5">
+              <p className="text-xs font-bold uppercase tracking-wider text-gold">
+                {isEn ? 'Everything included:' : 'Inclus immédiatement :'}
+              </p>
+              <ul className="space-y-2 text-xs font-medium text-clair/90">
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-gold shrink-0" />
-                  <span>Carnet de commandes d&apos;atelier digital</span>
+                  <span>{dict.landing.carnetFeatureTitle}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-gold shrink-0" />
-                  <span>Fiches de mesures numériques</span>
+                  <span>{dict.landing.mesuresFeatureTitle}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-gold shrink-0" />
-                  <span>Vitrine publique WhatsApp personnalisée</span>
+                  <span>{dict.landing.vitrineFeatureTitle}</span>
                 </li>
               </ul>
             </div>
           </div>
 
-          <div className="pt-8 text-xs text-clair/60 font-medium border-t border-white/10 z-10">
-            « Pour tous les couturiers & ateliers d&apos;Afrique et du monde. »
+          <div className="pt-6 text-xs text-clair/60 font-medium border-t border-white/10 z-10">
+            {isEn ? '« For tailoring artisans & fashion ateliers around the world. »' : "« Pour tous les couturiers & ateliers d'Afrique et du monde. »"}
           </div>
         </div>
 
-        {/* Right Side: Fast Signup Form */}
-        <div className="p-8 sm:p-12 flex flex-col justify-center space-y-5 bg-white">
+        {/* Right Side: Complete Profile Signup Form (8 cols) */}
+        <div className="lg:col-span-8 p-6 sm:p-10 flex flex-col justify-center space-y-5 bg-white">
           <div className="space-y-1">
-            <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">Inscription Rapide</h2>
-            <p className="text-sm text-sombre/70 font-medium">Entrez votre email et votre mot de passe</p>
+            <h2 className="text-2xl font-display font-bold text-sombre">
+              {isEn ? 'Create your Couturier Account' : 'Créer votre compte Couturier'}
+            </h2>
+            <p className="text-xs sm:text-sm text-sombre/70 font-medium">
+              {isEn
+                ? 'Fill in your atelier info once. Your dashboard is ready instantly.'
+                : 'Renseignez les détails de votre atelier. Votre espace sera directement prêt.'}
+            </p>
           </div>
 
           {error && (
-            <div className="p-4 bg-accent/10 border border-accent/30 rounded-2xl text-xs sm:text-sm text-accent font-bold">
+            <div className="p-3.5 bg-accent/10 border border-accent/30 rounded-2xl text-xs sm:text-sm text-accent font-bold">
               {error}
             </div>
           )}
@@ -188,37 +296,149 @@ export default function SignupPage() {
             type="button"
             onClick={handleGoogleSignup}
             disabled={googleLoading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white border-2 border-sable/80 hover:border-sombre rounded-2xl font-bold text-sm text-sombre shadow-xs hover:shadow-md transition-all active:scale-[0.99] disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border-2 border-sable/80 hover:border-sombre rounded-2xl font-bold text-xs sm:text-sm text-sombre shadow-xs hover:shadow-md transition-all active:scale-[0.99] disabled:opacity-50"
           >
             <GoogleIcon />
-            <span>{googleLoading ? 'Inscription avec Google…' : 'S’inscrire avec Google'}</span>
+            <span>{googleLoading ? dict.common.loading : dict.auth.googleLogin}</span>
           </button>
 
-          <div className="flex items-center gap-3 my-1">
+          <div className="flex items-center gap-3 my-0.5">
             <div className="flex-1 border-b border-sable/60" />
-            <span className="text-xs font-bold uppercase text-sombre/40">Ou avec votre email</span>
+            <span className="text-[11px] font-bold uppercase text-sombre/40">{dict.auth.orContinueWith}</span>
             <div className="flex-1 border-b border-sable/60" />
           </div>
 
-          <form onSubmit={handleSignup} className="space-y-4">
-            <Input
-              label="Adresse Email"
-              type="email"
-              placeholder="ex: monatelier@gmail.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-            />
+          <form onSubmit={handleSignup} className="space-y-3.5">
+            {/* Row 1: Nom couturier & Nom atelier */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-accent" />
+                  <span>{isEn ? 'Full Name *' : 'Votre Nom & Prénom *'}</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder={isEn ? 'e.g. Moussa Traoré' : 'ex. Moussa Traoré'}
+                  value={nom}
+                  onChange={(e) => setNom(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                />
+              </div>
 
-            <Input
-              label="Mot de passe"
-              type="password"
-              placeholder="Minimum 6 caractères"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
+                  <Store className="w-3.5 h-3.5 text-accent" />
+                  <span>{isEn ? 'Workshop Name *' : "Nom de l'Atelier *"}</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder={isEn ? 'e.g. Élégance Couture' : 'ex. Élégance Couture'}
+                  value={nomAtelier}
+                  onChange={(e) => setNomAtelier(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                />
+              </div>
+            </div>
+
+            {/* Row 2: Pays + Ville */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-accent" />
+                  <span>{isEn ? 'Country *' : 'Pays *'}</span>
+                </label>
+                <select
+                  value={pays}
+                  onChange={(e) => handleCountryChange(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-medium cursor-pointer"
+                >
+                  {COUNTRIES.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.flag} {c.name} ({c.dial})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-accent" />
+                  <span>{isEn ? 'City *' : 'Ville *'}</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder={isEn ? 'e.g. Cotonou, Abidjan, Dakar' : 'ex. Cotonou, Abidjan, Dakar'}
+                  value={ville}
+                  onChange={(e) => setVille(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                />
+              </div>
+            </div>
+
+            {/* Row 3: Phone with Dial Code Selector */}
+            <div>
+              <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-accent" />
+                <span>{isEn ? 'Phone / WhatsApp Number *' : 'Numéro Téléphone / WhatsApp *'}</span>
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={indicatif}
+                  onChange={(e) => setIndicatif(e.target.value)}
+                  className="w-28 shrink-0 px-2.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre font-bold focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
+                >
+                  {COUNTRIES.map((c) => (
+                    <option key={`${c.name}-${c.dial}`} value={c.dial}>
+                      {c.flag} {c.dial}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  placeholder={isEn ? 'e.g. 97 00 11 22' : 'ex. 97 00 11 22'}
+                  value={phoneNumero}
+                  onChange={(e) => setPhoneNumero(e.target.value)}
+                  required
+                  className="flex-1 px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                />
+              </div>
+            </div>
+
+            {/* Row 4: Email & Mot de passe */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-accent" />
+                  <span>{dict.auth.emailLabel} *</span>
+                </label>
+                <input
+                  type="email"
+                  placeholder={dict.auth.emailPlaceholder}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-accent" />
+                  <span>{dict.auth.passwordLabel} (min. 6) *</span>
+                </label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                />
+              </div>
+            </div>
 
             <Button
               type="submit"
@@ -226,16 +446,16 @@ export default function SignupPage() {
               fullWidth
               size="lg"
               disabled={loading}
-              className="mt-2 shadow-lg shadow-accent/20 font-bold rounded-full py-3.5 text-base"
+              className="mt-3 shadow-lg shadow-accent/20 font-bold rounded-full py-3.5 text-sm sm:text-base cursor-pointer"
             >
-              {loading ? 'Création de votre compte…' : 'Créer mon compte'}
+              {loading ? (isEn ? 'Creating workshop…' : 'Création de votre atelier…') : (isEn ? 'Start using Ourlette' : 'Démarrer avec Ourlette')}
             </Button>
           </form>
 
-          <div className="pt-2 text-center text-sm text-sombre/70 font-medium">
-            Vous avez déjà un compte ?{' '}
+          <div className="pt-2 text-center text-xs sm:text-sm text-sombre/70 font-medium">
+            {dict.auth.haveAccountPrompt}{' '}
             <Link href="/login" className="font-bold text-accent underline hover:no-underline">
-              Se connecter
+              {dict.auth.loginLink}
             </Link>
           </div>
         </div>

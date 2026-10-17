@@ -7,9 +7,12 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/lib/context/AuthContext';
 import { DataService } from '@/lib/services/dataService';
+import { useLanguage } from '@/lib/i18n';
 
 export const MandatoryOnboardingModal: React.FC = () => {
   const { user, couturier, refreshProfile } = useAuth();
+  const { dict, locale } = useLanguage();
+  const isEn = locale === 'en';
 
   const [nom, setNom] = useState('');
   const [nomAtelier, setNomAtelier] = useState('');
@@ -36,23 +39,23 @@ export const MandatoryOnboardingModal: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nom.trim()) {
-      setError("Veuillez renseigner votre nom et prénom.");
+      setError(isEn ? 'Please enter your full name.' : 'Veuillez renseigner votre nom et prénom.');
       return;
     }
     if (!nomAtelier.trim()) {
-      setError("Veuillez renseigner le nom de votre atelier.");
+      setError(isEn ? 'Please enter your workshop name.' : 'Veuillez renseigner le nom de votre atelier.');
       return;
     }
     if (!telephone.trim()) {
-      setError("Veuillez renseigner un numéro de téléphone/WhatsApp valide.");
+      setError(isEn ? 'Please enter a valid phone or WhatsApp number.' : 'Veuillez renseigner un numéro de téléphone/WhatsApp valide.');
       return;
     }
     if (!ville.trim() || !pays.trim()) {
-      setError("La ville et le pays de votre atelier sont obligatoires.");
+      setError(isEn ? 'City and country are required.' : 'La ville et le pays de votre atelier sont obligatoires.');
       return;
     }
     if (!acceptTerms) {
-      setError("Vous devez accepter les conditions d'utilisation et la politique de confidentialité pour continuer.");
+      setError(isEn ? 'You must accept the terms to continue.' : "Vous devez accepter les conditions d'utilisation et la politique de confidentialité pour continuer.");
       return;
     }
 
@@ -79,44 +82,45 @@ export const MandatoryOnboardingModal: React.FC = () => {
       whatsapp_contact: telephone.trim(),
       ville: ville.trim(),
       pays: pays.trim(),
-      slug_vitrine: finalSlug,
       cookie_consent_at: nowIso,
-      vitrine_active: couturier?.vitrine_active ?? true,
+      slug_vitrine: finalSlug,
     });
 
     if (updated) {
       await refreshProfile();
+    } else {
+      setError(isEn ? 'Error updating workshop. Please try again.' : 'Une erreur est survenue lors de l’enregistrement. Veuillez réessayer.');
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
-    <div className="fixed inset-0 z-[999] bg-sombre text-sombre flex items-center justify-center p-4 overflow-y-auto font-sans">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border-2 border-gold space-y-5 my-auto animate-in zoom-in-95 duration-200">
-        {/* Modal Header */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-sombre/85 backdrop-blur-md p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl shadow-2xl border-2 border-gold/40 p-6 sm:p-8 max-w-lg w-full space-y-5 my-8 animate-fade-in-up">
+        {/* Top Header Badge */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-accent/10 text-accent flex items-center justify-center mx-auto shadow-xs border border-accent/20">
-            <Store className="w-7 h-7" />
+          <div className="w-12 h-12 rounded-2xl bg-accent/10 border border-accent/20 text-accent flex items-center justify-center mx-auto shadow-sm">
+            <Store className="w-6 h-6" />
           </div>
-          <h3 className="text-2xl sm:text-3xl font-display font-bold text-sombre pt-1">
-            Bienvenue sur Ourlette !
-          </h3>
+          <h2 className="text-2xl font-display font-bold text-sombre tracking-tight">
+            {dict.onboarding.modalTitle}
+          </h2>
           <p className="text-xs sm:text-sm text-sombre/70 font-medium leading-relaxed">
-            Pour accéder à ton carnet de commandes et à ta vitrine, complète les informations obligatoires de ton atelier.
+            {dict.onboarding.welcomeMsg}
           </p>
         </div>
 
         {error && (
-          <div className="p-3 bg-accent/10 border border-accent/30 rounded-2xl text-xs text-accent font-bold">
+          <div className="p-3 bg-accent/10 border border-accent/30 rounded-2xl text-xs sm:text-sm text-accent font-bold">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 font-sans text-left">
+        <form onSubmit={handleSubmit} className="space-y-4 text-left">
           <Input
-            label="Votre Nom & Prénom (Titulaire du compte)"
+            label={dict.onboarding.fullNameLabel}
             type="text"
-            placeholder="ex: Adia Sylla"
+            placeholder={isEn ? 'e.g. Adia Traoré' : 'ex: Adia Traoré'}
             value={nom}
             onChange={(e) => setNom(e.target.value)}
             required
@@ -124,38 +128,38 @@ export const MandatoryOnboardingModal: React.FC = () => {
           />
 
           <Input
-            label="Nom de votre Atelier de Couture"
+            label={dict.onboarding.workshopNameLabel}
             type="text"
-            placeholder="ex: Maison Adia Couture"
+            placeholder={isEn ? 'e.g. Maison Adia Couture' : 'ex: Maison Adia Couture'}
             value={nomAtelier}
             onChange={(e) => setNomAtelier(e.target.value)}
             required
           />
 
           <Input
-            label="Numéro Téléphone / WhatsApp de l'Atelier"
+            label={dict.onboarding.phoneLabel}
             type="tel"
-            placeholder="ex: +221 77 123 45 67"
+            placeholder={isEn ? 'e.g. +221 77 123 45 67' : 'ex: +221 77 123 45 67'}
             value={telephone}
             onChange={(e) => setTelephone(e.target.value)}
-            helperText="Affiché sur votre vitrine publique pour recevoir les commandes directes sur WhatsApp."
+            helperText={isEn ? 'Displayed on your public showcase to receive WhatsApp orders.' : 'Affiché sur votre vitrine publique pour recevoir les commandes directes sur WhatsApp.'}
             required
           />
 
           <div className="grid grid-cols-2 gap-3">
             <Input
-              label="Ville"
+              label={dict.onboarding.cityLabel}
               type="text"
-              placeholder="ex: Dakar"
+              placeholder={isEn ? 'e.g. Dakar' : 'ex: Dakar'}
               value={ville}
               onChange={(e) => setVille(e.target.value)}
               required
             />
 
             <Input
-              label="Pays"
+              label={dict.onboarding.countryLabel}
               type="text"
-              placeholder="ex: Sénégal"
+              placeholder={isEn ? 'e.g. Senegal' : 'ex: Sénégal'}
               value={pays}
               onChange={(e) => setPays(e.target.value)}
               required
@@ -172,15 +176,31 @@ export const MandatoryOnboardingModal: React.FC = () => {
               required
             />
             <span className="text-xs text-sombre/80 font-medium leading-tight">
-              J'accepte les{' '}
-              <Link href="/cgu" target="_blank" className="font-bold text-accent underline hover:no-underline">
-                Conditions Générales d'Utilisation (CGU)
-              </Link>{' '}
-              et la{' '}
-              <Link href="/politique-confidentialite" target="_blank" className="font-bold text-accent underline hover:no-underline">
-                Politique de Confidentialité
-              </Link>{' '}
-              d'Ourlette, ainsi que le stockage des cookies essentiels.
+              {isEn ? (
+                <>
+                  I accept the{' '}
+                  <Link href="/cgu" target="_blank" className="font-bold text-accent underline hover:no-underline">
+                    Terms of Service (CGU)
+                  </Link>{' '}
+                  and the{' '}
+                  <Link href="/politique-confidentialite" target="_blank" className="font-bold text-accent underline hover:no-underline">
+                    Privacy Policy
+                  </Link>{' '}
+                  of Ourlette, as well as essential cookie storage.
+                </>
+              ) : (
+                <>
+                  J&apos;accepte les{' '}
+                  <Link href="/cgu" target="_blank" className="font-bold text-accent underline hover:no-underline">
+                    Conditions Générales d&apos;Utilisation (CGU)
+                  </Link>{' '}
+                  et la{' '}
+                  <Link href="/politique-confidentialite" target="_blank" className="font-bold text-accent underline hover:no-underline">
+                    Politique de Confidentialité
+                  </Link>{' '}
+                  d&apos;Ourlette, ainsi que le stockage des cookies essentiels.
+                </>
+              )}
             </span>
           </label>
 
@@ -194,14 +214,14 @@ export const MandatoryOnboardingModal: React.FC = () => {
               className="rounded-full font-extrabold text-base py-4 shadow-xl gap-2 hover:scale-105 active:scale-95 transition-all"
             >
               <Check className="w-5 h-5" />
-              <span>{saving ? 'Enregistrement de votre atelier…' : 'Accéder à mon carnet d’atelier'}</span>
+              <span>{saving ? dict.onboarding.saving : dict.onboarding.submitButton}</span>
             </Button>
           </div>
         </form>
 
         <p className="text-[11px] text-sombre/50 font-semibold text-center flex items-center justify-center gap-1 pt-1">
           <Lock className="w-3.5 h-3.5 text-gold" />
-          <span>Vos données d'atelier sont strictement confidentielles</span>
+          <span>{isEn ? 'Your atelier records are strictly private and confidential' : "Vos données d'atelier sont strictement confidentielles"}</span>
         </p>
       </div>
     </div>
