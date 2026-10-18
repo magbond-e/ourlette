@@ -4,7 +4,7 @@ import { Couturier } from '../types/database';
  * Feature flag: Controls visibility of account plans, tiers, badges, and limits.
  * Set to false to hide Free/Pro distinctions, pricing tables, and limits when showcasing to users.
  */
-export const SHOW_ACCOUNT_PLANS = false;
+export const SHOW_ACCOUNT_PLANS = true;
 
 export const FREE_PLAN_LIMITS = {
   maxActiveCommandes: 10,

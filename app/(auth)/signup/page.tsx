@@ -1,62 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Scissors, ArrowLeft, Check, Store, MapPin, Phone, User, Mail, Lock } from 'lucide-react';
+import { Scissors, ArrowLeft, Eye, EyeOff, Check, Mail, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/context/AuthContext';
-import { MockStorageService } from '@/lib/services/mockStorage';
 import { useLanguage } from '@/lib/i18n';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
-
-const COUNTRIES = [
-  { name: 'Bénin', dial: '+229', flag: '🇧🇯' },
-  { name: 'Côte d’Ivoire', dial: '+225', flag: '🇨🇮' },
-  { name: 'Sénégal', dial: '+221', flag: '🇸🇳' },
-  { name: 'Togo', dial: '+228', flag: '🇹🇬' },
-  { name: 'Cameroun', dial: '+237', flag: '🇨🇲' },
-  { name: 'Burkina Faso', dial: '+226', flag: '🇧🇫' },
-  { name: 'Mali', dial: '+223', flag: '🇲🇱' },
-  { name: 'Guinée', dial: '+224', flag: '🇬🇳' },
-  { name: 'Niger', dial: '+227', flag: '🇳🇪' },
-  { name: 'Gabon', dial: '+241', flag: '🇬🇦' },
-  { name: 'Congo', dial: '+242', flag: '🇨🇬' },
-  { name: 'RDC', dial: '+243', flag: '🇨🇩' },
-  { name: 'Tchad', dial: '+235', flag: '🇹🇩' },
-  { name: 'Ghana', dial: '+233', flag: '🇬🇭' },
-  { name: 'Nigéria', dial: '+234', flag: '🇳🇬' },
-  { name: 'France', dial: '+33', flag: '🇫🇷' },
-  { name: 'Belgique', dial: '+32', flag: '🇧🇪' },
-  { name: 'Canada', dial: '+1', flag: '🇨🇦' },
-  { name: 'États-Unis', dial: '+1', flag: '🇺🇸' },
-  { name: 'Autre', dial: '+', flag: '🌍' },
-];
-
-function detectClientDevice(): string {
-  if (typeof window === 'undefined') return 'Appareil inconnu';
-  const ua = navigator.userAgent;
-  let deviceType = 'Ordinateur';
-  if (/mobile/i.test(ua)) deviceType = 'Mobile';
-  else if (/tablet|ipad/i.test(ua)) deviceType = 'Tablette';
-
-  let os = '';
-  if (/android/i.test(ua)) os = 'Android';
-  else if (/iphone|ipad|ipod/i.test(ua)) os = 'iOS';
-  else if (/windows/i.test(ua)) os = 'Windows';
-  else if (/mac/i.test(ua)) os = 'macOS';
-  else if (/linux/i.test(ua)) os = 'Linux';
-
-  let browser = '';
-  if (/edg/i.test(ua)) browser = 'Edge';
-  else if (/chrome/i.test(ua)) browser = 'Chrome';
-  else if (/safari/i.test(ua)) browser = 'Safari';
-  else if (/firefox/i.test(ua)) browser = 'Firefox';
-
-  const details = [os, browser].filter(Boolean).join(' - ');
-  return `${deviceType}${details ? ` (${details})` : ''}`;
-}
+import { createClient } from '@/lib/supabase/client';
 
 const GoogleIcon = () => (
   <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
@@ -85,58 +37,45 @@ export default function SignupPage() {
   const { dict, locale } = useLanguage();
   const isEn = locale === 'en';
 
-  const [nom, setNom] = useState('');
-  const [nomAtelier, setNomAtelier] = useState('');
-  const [pays, setPays] = useState('Bénin');
-  const [indicatif, setIndicatif] = useState('+229');
-  const [phoneNumero, setPhoneNumero] = useState('');
-  const [ville, setVille] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleCountryChange = (countryName: string) => {
-    setPays(countryName);
-    const found = COUNTRIES.find((c) => c.name === countryName);
-    if (found && found.dial !== '+') {
-      setIndicatif(found.dial);
-    }
-  };
+  // Confirmation email sent state
+  const [emailSent, setEmailSent] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nom.trim() || !nomAtelier.trim() || !email.trim() || !password || !phoneNumero.trim() || !ville.trim()) {
-      setError(dict.auth.fillAllFieldsError || 'Veuillez remplir tous les champs obligatoires.');
+    if (!email.trim() || !password) {
+      setError(dict.auth.fillAllFieldsError || 'Veuillez renseigner un email et un mot de passe.');
       return;
     }
 
-    if (password.length < 6) {
-      setError(isEn ? 'Password must be at least 6 characters.' : 'Le mot de passe doit contenir au moins 6 caractères.');
+    if (password.length < 8) {
+      setError(
+        isEn
+          ? 'Password must be at least 8 characters.'
+          : 'Le mot de passe doit contenir au moins 8 caractères.'
+      );
       return;
     }
 
     setLoading(true);
     setError('');
 
-    const fullPhone = `${indicatif} ${phoneNumero.trim()}`;
-    const detectedDevice = detectClientDevice();
-
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nom: nom.trim(),
-          nom_atelier: nomAtelier.trim(),
-          pays: pays.trim(),
-          telephone: fullPhone,
-          ville: ville.trim(),
           email: email.trim().toLowerCase(),
           password,
-          device: detectedDevice,
         }),
       });
 
@@ -146,21 +85,14 @@ export default function SignupPage() {
         throw new Error(resData.error || "Une erreur est survenue lors de l'inscription.");
       }
 
-      // Sync mock storage for local dev / offline preview
-      MockStorageService.updateCouturier({
-        nom: nom.trim(),
-        nom_atelier: nomAtelier.trim(),
-        email: email.trim().toLowerCase(),
-        telephone: fullPhone,
-        whatsapp_contact: fullPhone,
-        ville: ville.trim(),
-        pays: pays.trim(),
-        device: detectedDevice,
-        onboarding_emails_enabled: true,
-        cookie_consent_at: new Date().toISOString(),
-      });
+      // Si Supabase requiert confirmation d'email
+      if (resData.user && !resData.session) {
+        setEmailSent(true);
+        setLoading(false);
+        return;
+      }
 
-      // If Supabase client is available, also log in on the browser client
+      // Connexion directe
       const supabase = createClient();
       if (supabase) {
         await supabase.auth.signInWithPassword({
@@ -169,36 +101,18 @@ export default function SignupPage() {
         });
       }
 
-      setLoading(false);
-
-      if (resData.session) {
-        window.location.href = '/commandes';
-      } else {
-        // Confirmation email maybe required or direct login
-        window.location.href = '/commandes';
-      }
+      router.push('/commandes');
     } catch (err: any) {
-      console.error('[Signup] Error:', err);
-      // Fallback local if Supabase is offline/unconfigured
-      const supabase = createClient();
-      if (!supabase) {
-        MockStorageService.updateCouturier({
-          nom: nom.trim(),
-          nom_atelier: nomAtelier.trim(),
-          email: email.trim().toLowerCase(),
-          telephone: fullPhone,
-          ville: ville.trim(),
-          pays: pays.trim(),
-          cookie_consent_at: new Date().toISOString(),
-        });
-        setTimeout(() => {
-          setLoading(false);
-          router.push('/commandes');
-        }, 300);
-        return;
+      const msg = err?.message || 'Une erreur inattendue est survenue.';
+      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('déjà')) {
+        setError(
+          isEn
+            ? 'An account already exists with this email. Please log in.'
+            : 'Un compte existe déjà avec cet email.'
+        );
+      } else {
+        setError(msg);
       }
-
-      setError(err?.message || "Une erreur inattendue est survenue.");
       setLoading(false);
     }
   };
@@ -214,250 +128,268 @@ export default function SignupPage() {
     }
   };
 
+  const handleResendEmail = async () => {
+    if (resendCooldown > 0 || !email.trim()) return;
+    setResending(true);
+    const supabase = createClient();
+    if (supabase) {
+      await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+      });
+    }
+    setResending(false);
+    setResendCooldown(60);
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
   return (
-    <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-3 sm:p-8 relative">
+    <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-4 sm:p-8 relative">
       <div className="absolute top-4 right-4 sm:top-6 sm:right-8 z-20">
         <LanguageSwitcher />
       </div>
 
-      <div className="w-full max-w-5xl bg-white rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-sable/60 min-h-[640px] my-6">
-        {/* Left Side: Brand Banner (4 cols) */}
-        <div className="lg:col-span-4 bg-sombre text-white p-7 sm:p-10 flex flex-col justify-between relative overflow-hidden">
+      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-sable/60 min-h-[520px] my-6">
+        {/* Left Side: Brand Banner (Desktop only - 3 bullet points max) */}
+        <div className="hidden lg:flex lg:col-span-5 bg-sombre text-white p-10 flex-col justify-between relative overflow-hidden">
           <div className="space-y-6 z-10">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-clair/80 hover:text-gold transition-colors"
+              className="inline-flex items-center gap-2 text-xs font-bold text-sable hover:text-gold transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>{isEn ? 'Back to Home' : "Retour à l'accueil"}</span>
             </Link>
 
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-4">
               <div className="w-12 h-12 rounded-2xl bg-accent/20 border border-gold/40 flex items-center justify-center text-gold shadow-md">
                 <Scissors className="w-6 h-6 text-gold" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-display font-bold text-white leading-tight">
-                {dict.auth.signupTitle}<span className="text-gold title-highlight font-normal">.</span>
+              <h1 className="text-3xl font-display font-bold text-white leading-tight">
+                Ourlette<span className="text-gold title-highlight font-normal">.</span>
               </h1>
-              <p className="text-xs sm:text-sm text-clair/80 font-medium leading-relaxed">
+              <p className="text-sm text-sable/90 font-medium leading-relaxed">
                 {isEn
-                  ? 'Set up your workshop account once and manage orders, client measurements and public showcase with ease.'
-                  : 'Configurez votre atelier en une seule étape. Fini les formulaires répétés : démarrez immédiatement.'}
+                  ? 'The digital notebook tailored for fashion workshops.'
+                  : "Le carnet de commandes et mesures conçu pour les ateliers de couture."}
               </p>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 space-y-2.5">
-              <p className="text-xs font-bold uppercase tracking-wider text-gold">
-                {isEn ? 'Everything included:' : 'Inclus immédiatement :'}
-              </p>
-              <ul className="space-y-2 text-xs font-medium text-clair/90">
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-gold shrink-0" />
-                  <span>{dict.landing.carnetFeatureTitle}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-gold shrink-0" />
-                  <span>{dict.landing.mesuresFeatureTitle}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-gold shrink-0" />
-                  <span>{dict.landing.vitrineFeatureTitle}</span>
-                </li>
-              </ul>
-            </div>
+            <ul className="space-y-3 text-xs font-medium text-white/90 pt-2">
+              <li className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-gold shrink-0 stroke-[3]" />
+                <span>{isEn ? 'Order tracking & delivery alerts' : 'Suivi de commandes & alertes livraison'}</span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-gold shrink-0 stroke-[3]" />
+                <span>{isEn ? 'Client measurement sheets for life' : 'Fiches mesures client à vie'}</span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Check className="w-4 h-4 text-gold shrink-0 stroke-[3]" />
+                <span>{isEn ? 'Works seamlessly offline (3G)' : '100% fonctionnel hors ligne'}</span>
+              </li>
+            </ul>
           </div>
 
-          <div className="pt-6 text-xs text-clair/60 font-medium border-t border-white/10 z-10">
-            {isEn ? '« For tailoring artisans & fashion ateliers around the world. »' : "« Pour tous les couturiers & ateliers d'Afrique et du monde. »"}
+          <div className="pt-6 text-xs text-sable/60 font-medium border-t border-white/10 z-10">
+            {isEn ? 'Free Starter • No credit card required' : 'Gratuit • Aucune carte bancaire requise'}
           </div>
         </div>
 
-        {/* Right Side: Complete Profile Signup Form (8 cols) */}
-        <div className="lg:col-span-8 p-6 sm:p-10 flex flex-col justify-center space-y-5 bg-white">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-display font-bold text-sombre">
-              {isEn ? 'Create your Couturier Account' : 'Créer votre compte Couturier'}
-            </h2>
-            <p className="text-xs sm:text-sm text-sombre/70 font-medium">
-              {isEn
-                ? 'Fill in your atelier info once. Your dashboard is ready instantly.'
-                : 'Renseignez les détails de votre atelier. Votre espace sera directement prêt.'}
-            </p>
-          </div>
+        {/* Right Side: Simple 2-Field Signup Form (7 cols) */}
+        <div className="lg:col-span-7 p-6 sm:p-12 flex flex-col justify-center space-y-6 bg-white">
+          {emailSent ? (
+            /* État : Vérifie ta boîte mail */
+            <div className="space-y-5 text-center py-4">
+              <div className="w-16 h-16 rounded-3xl bg-accent/10 text-accent flex items-center justify-center mx-auto shadow-xs border border-accent/20">
+                <Mail className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-display font-bold text-sombre">
+                  {isEn ? 'Check your mailbox' : 'Vérifie ta boîte mail'}
+                </h2>
+                <p className="text-sm text-sombre/70 font-medium max-w-sm mx-auto leading-relaxed">
+                  {isEn ? 'We sent a confirmation link to' : 'Nous avons envoyé un lien de confirmation à'}{' '}
+                  <strong className="text-sombre font-bold">{email}</strong>.
+                </p>
+              </div>
 
-          {error && (
-            <div className="p-3.5 bg-accent/10 border border-accent/30 rounded-2xl text-xs sm:text-sm text-accent font-bold">
-              {error}
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={handleResendEmail}
+                  disabled={resending || resendCooldown > 0}
+                  className="rounded-full text-xs font-bold gap-2"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`} />
+                  <span>
+                    {resendCooldown > 0
+                      ? isEn
+                        ? `Resend in ${resendCooldown}s`
+                        : `Renvoyer dans ${resendCooldown}s`
+                      : isEn
+                      ? 'Resend email'
+                      : "Renvoyer l'email"}
+                  </span>
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => setEmailSent(false)}
+                  className="text-xs font-bold text-accent hover:underline py-2"
+                >
+                  {isEn ? 'Change email address' : "Changer d'adresse"}
+                </button>
+              </div>
             </div>
+          ) : (
+            /* Formulaire standard 2 champs */
+            <>
+              <div className="space-y-1">
+                <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">
+                  {dict.auth.signupTitle}
+                </h2>
+                <p className="text-xs sm:text-sm text-sombre/70 font-medium">
+                  {isEn ? 'Start free in less than 30 seconds.' : 'Démarre gratuitement en moins de 30 secondes.'}
+                </p>
+              </div>
+
+              {error && (
+                <div className="p-3.5 bg-accent/10 border border-accent/30 rounded-2xl text-xs sm:text-sm text-accent font-bold flex items-center justify-between gap-2">
+                  <span>{error}</span>
+                  {error.toLowerCase().includes('existe') && (
+                    <Link href="/login" className="underline whitespace-nowrap">
+                      {dict.auth.loginButton}
+                    </Link>
+                  )}
+                </div>
+              )}
+
+              {/* 1. Bouton Google EN PREMIER */}
+              <button
+                type="button"
+                onClick={handleGoogleSignup}
+                disabled={googleLoading}
+                className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white border-2 border-sable/80 hover:border-sombre rounded-2xl font-bold text-sm text-sombre shadow-2xs hover:shadow-xs transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+              >
+                <GoogleIcon />
+                <span>{googleLoading ? dict.common.loading : dict.auth.googleLogin}</span>
+              </button>
+
+              {/* 2. Séparateur « ou » */}
+              <div className="flex items-center gap-3 my-0.5">
+                <div className="flex-1 border-b border-sable/60" />
+                <span className="text-[11px] font-bold uppercase text-sombre/40">{dict.common.or}</span>
+                <div className="flex-1 border-b border-sable/60" />
+              </div>
+
+              {/* 3. Formulaire 2 Champs : Email + Mot de passe */}
+              <form onSubmit={handleSignup} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-sombre mb-1.5">
+                    {dict.auth.emailLabel}
+                  </label>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    placeholder={dict.auth.emailPlaceholder}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 bg-[#FAF9F6] border border-sable/80 rounded-2xl text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-sombre mb-1.5">
+                    {dict.auth.passwordLabel}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      placeholder={dict.auth.passwordPlaceholder}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 pr-11 bg-[#FAF9F6] border border-sable/80 rounded-2xl text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-sans"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-3.5 text-sombre/50 hover:text-sombre transition-colors cursor-pointer"
+                      aria-label="Afficher ou masquer le mot de passe"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {password.length > 0 && password.length < 8 && (
+                    <p className="text-[11px] text-accent font-semibold mt-1">
+                      {isEn ? '8 characters minimum required.' : '8 caractères minimum requis.'}
+                    </p>
+                  )}
+                </div>
+
+                {/* Bouton Créer mon compte */}
+                <Button
+                  type="submit"
+                  variant="accent"
+                  fullWidth
+                  size="lg"
+                  disabled={loading}
+                  className="rounded-full font-bold shadow-lg shadow-accent/20 text-sm sm:text-base py-3.5 cursor-pointer mt-1"
+                >
+                  {loading ? dict.auth.signingUp : dict.auth.signupButton}
+                </Button>
+              </form>
+
+              {/* Une seule ligne d'acceptation CGU & Confidentialité */}
+              <p className="text-center text-[11px] text-sombre/60 font-medium leading-relaxed">
+                {isEn ? (
+                  <>
+                    By creating an account, you accept the{' '}
+                    <Link href="/cgu" className="text-accent font-bold underline hover:no-underline">
+                      Terms of Service
+                    </Link>{' '}
+                    and the{' '}
+                    <Link href="/politique-confidentialite" className="text-accent font-bold underline hover:no-underline">
+                      Privacy Policy
+                    </Link>.
+                  </>
+                ) : (
+                  <>
+                    En créant un compte, tu acceptes les{' '}
+                    <Link href="/cgu" className="text-accent font-bold underline hover:no-underline">
+                      CGU
+                    </Link>{' '}
+                    et la{' '}
+                    <Link href="/politique-confidentialite" className="text-accent font-bold underline hover:no-underline">
+                      politique de confidentialité
+                    </Link>.
+                  </>
+                )}
+              </p>
+
+              {/* Lien J'ai déjà un compte */}
+              <div className="pt-2 text-center text-xs sm:text-sm text-sombre/70 border-t border-sable/40">
+                <p>
+                  {dict.auth.haveAccountPrompt}{' '}
+                  <Link href="/login" className="font-bold text-accent underline hover:no-underline">
+                    {dict.auth.loginLink}
+                  </Link>
+                </p>
+              </div>
+            </>
           )}
-
-          {/* Google OAuth Button */}
-          <button
-            type="button"
-            onClick={handleGoogleSignup}
-            disabled={googleLoading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border-2 border-sable/80 hover:border-sombre rounded-2xl font-bold text-xs sm:text-sm text-sombre shadow-xs hover:shadow-md transition-all active:scale-[0.99] disabled:opacity-50"
-          >
-            <GoogleIcon />
-            <span>{googleLoading ? dict.common.loading : dict.auth.googleLogin}</span>
-          </button>
-
-          <div className="flex items-center gap-3 my-0.5">
-            <div className="flex-1 border-b border-sable/60" />
-            <span className="text-[11px] font-bold uppercase text-sombre/40">{dict.auth.orContinueWith}</span>
-            <div className="flex-1 border-b border-sable/60" />
-          </div>
-
-          <form onSubmit={handleSignup} className="space-y-3.5">
-            {/* Row 1: Nom couturier & Nom atelier */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-accent" />
-                  <span>{isEn ? 'Full Name *' : 'Votre Nom & Prénom *'}</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder={isEn ? 'e.g. Moussa Traoré' : 'ex. Moussa Traoré'}
-                  value={nom}
-                  onChange={(e) => setNom(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
-                  <Store className="w-3.5 h-3.5 text-accent" />
-                  <span>{isEn ? 'Workshop Name *' : "Nom de l'Atelier *"}</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder={isEn ? 'e.g. Élégance Couture' : 'ex. Élégance Couture'}
-                  value={nomAtelier}
-                  onChange={(e) => setNomAtelier(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
-                />
-              </div>
-            </div>
-
-            {/* Row 2: Pays + Ville */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-accent" />
-                  <span>{isEn ? 'Country *' : 'Pays *'}</span>
-                </label>
-                <select
-                  value={pays}
-                  onChange={(e) => handleCountryChange(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-medium cursor-pointer"
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={c.name} value={c.name}>
-                      {c.flag} {c.name} ({c.dial})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-accent" />
-                  <span>{isEn ? 'City *' : 'Ville *'}</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder={isEn ? 'e.g. Cotonou, Abidjan, Dakar' : 'ex. Cotonou, Abidjan, Dakar'}
-                  value={ville}
-                  onChange={(e) => setVille(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
-                />
-              </div>
-            </div>
-
-            {/* Row 3: Phone with Dial Code Selector */}
-            <div>
-              <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-accent" />
-                <span>{isEn ? 'Phone / WhatsApp Number *' : 'Numéro Téléphone / WhatsApp *'}</span>
-              </label>
-              <div className="flex gap-2">
-                <select
-                  value={indicatif}
-                  onChange={(e) => setIndicatif(e.target.value)}
-                  className="w-28 shrink-0 px-2.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre font-bold focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={`${c.name}-${c.dial}`} value={c.dial}>
-                      {c.flag} {c.dial}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="tel"
-                  placeholder={isEn ? 'e.g. 97 00 11 22' : 'ex. 97 00 11 22'}
-                  value={phoneNumero}
-                  onChange={(e) => setPhoneNumero(e.target.value)}
-                  required
-                  className="flex-1 px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
-                />
-              </div>
-            </div>
-
-            {/* Row 4: Email & Mot de passe */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-accent" />
-                  <span>{dict.auth.emailLabel} *</span>
-                </label>
-                <input
-                  type="email"
-                  placeholder={dict.auth.emailPlaceholder}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-sombre mb-1 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-accent" />
-                  <span>{dict.auth.passwordLabel} (min. 6) *</span>
-                </label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs sm:text-sm text-sombre placeholder:text-sombre/40 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              variant="accent"
-              fullWidth
-              size="lg"
-              disabled={loading}
-              className="mt-3 shadow-lg shadow-accent/20 font-bold rounded-full py-3.5 text-sm sm:text-base cursor-pointer"
-            >
-              {loading ? (isEn ? 'Creating workshop…' : 'Création de votre atelier…') : (isEn ? 'Start using Ourlette' : 'Démarrer avec Ourlette')}
-            </Button>
-          </form>
-
-          <div className="pt-2 text-center text-xs sm:text-sm text-sombre/70 font-medium">
-            {dict.auth.haveAccountPrompt}{' '}
-            <Link href="/login" className="font-bold text-accent underline hover:no-underline">
-              {dict.auth.loginLink}
-            </Link>
-          </div>
         </div>
       </div>
     </div>

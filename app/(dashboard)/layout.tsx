@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Header } from '@/components/ui/Header';
-import { CookieBanner } from '@/components/ui/CookieBanner';
 import { NotificationProvider } from '@/lib/context/NotificationContext';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -31,9 +30,6 @@ export default function DashboardLayout({
       <NotificationProvider>
         {/* Header fixe — monté une seule fois pour tout le dashboard */}
         <Header />
-
-        {/* Mandatory Cookie Acceptance Modal on Dashboard if not accepted yet */}
-        <CookieBanner isDashboard />
 
         {/* Contenu : offset pour header fixe 64px */}
         <div className="pt-[64px]">

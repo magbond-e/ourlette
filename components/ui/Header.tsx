@@ -128,8 +128,10 @@ export const Header: React.FC = () => {
               <span className="leading-none">{isOnline ? dict.common.online : dict.common.offline}</span>
             </div>
 
-            {/* Language Switcher */}
-            <LanguageSwitcher />
+            {/* Language Switcher (Desktop only, mobile has it in Paramètres) */}
+            <div className="hidden md:inline-flex">
+              <LanguageSwitcher />
+            </div>
 
             {/* Notification Dropdown Icon */}
             <NotificationDropdown />

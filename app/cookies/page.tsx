@@ -30,6 +30,7 @@ export default function CookiesPage() {
             Politique de cookies
           </h1>
           <p className="text-sm text-gold font-semibold">Respect de vos données de navigation</p>
+          <p className="text-xs text-white/60 pt-1">Dernière mise à jour : 1er octobre 2026</p>
         </div>
       </section>
 

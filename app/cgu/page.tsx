@@ -30,6 +30,7 @@ export default function CguPage() {
             Conditions Générales d'Utilisation
           </h1>
           <p className="text-sm text-gold font-semibold">Ourlette — Plateforme Couture SaaS</p>
+          <p className="text-xs text-white/60 pt-1">Dernière mise à jour : 1er octobre 2026</p>
         </div>
       </section>
 
@@ -66,9 +67,9 @@ export default function CguPage() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-xl font-display font-bold text-sombre border-b border-sable/40 pb-2">5. Évolution du service</h2>
+            <h2 className="text-xl font-display font-bold text-sombre border-b border-sable/40 pb-2">5. Formules et Abonnements</h2>
             <p className="text-sombre/80">
-              Ourlette se réserve le droit de faire évoluer les fonctionnalités de la plateforme. L'introduction future éventuelle d'une offre premium (Plan Pro) ne retirera pas les fonctionnalités gratuites existantes.
+              Ourlette propose un Plan Gratuit (Starter) incluant jusqu'à 10 commandes actives simultanées et 8 photos de vitrine, ainsi qu'un Plan Pro sans engagement à 1 999 FCFA / mois débloquant les commandes illimitées, les photos illimitées et la personnalisation du lien d'atelier. Les fonctionnalités du plan gratuit restent accessibles sans obligation de passage en formule payante.
             </p>
           </section>
 

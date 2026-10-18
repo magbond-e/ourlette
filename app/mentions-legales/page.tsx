@@ -30,6 +30,7 @@ export default function MentionsLegalesPage() {
             Mentions légales
           </h1>
           <p className="text-sm text-gold font-semibold">Ourlette — Plateforme Couture SaaS</p>
+          <p className="text-xs text-white/60 pt-1">Dernière mise à jour : 1er octobre 2026</p>
         </div>
       </section>
 

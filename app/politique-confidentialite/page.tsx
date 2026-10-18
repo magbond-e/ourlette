@@ -30,6 +30,7 @@ export default function PolitiqueConfidentialitePage() {
             Politique de confidentialité
           </h1>
           <p className="text-sm text-gold font-semibold">Protection de vos données & Respect de la vie privée</p>
+          <p className="text-xs text-white/60 pt-1">Dernière mise à jour : 1er octobre 2026</p>
         </div>
       </section>
 
@@ -38,25 +39,26 @@ export default function PolitiqueConfidentialitePage() {
           <section className="space-y-2">
             <h2 className="text-xl font-display font-bold text-sombre border-b border-sable/40 pb-2">1. Données collectées</h2>
             <ul className="list-disc pl-5 space-y-1 text-sombre/80">
-              <li><strong>Compte couturier :</strong> Nom, nom de l'atelier, adresse email ou numéro de téléphone, ville, pays.</li>
+              <li><strong>Compte couturier :</strong> Nom, nom de l'atelier, adresse email, numéro WhatsApp, pays.</li>
               <li><strong>Fiches clients :</strong> Nom, prénom, numéro de téléphone, notes de confection saisies par le couturier.</li>
-              <li><strong>Mesures textiles :</strong> Données de mensurations enregistrées par le couturier pour son usage professionnel.</li>
+              <li><strong>Mesures textiles :</strong> Données de mensurations enregistrées par le couturier pour son usage professionnel exclusif.</li>
               <li><strong>Commandes :</strong> Description du modèle, type de tissu, statut d'avancement, prix et versements d'acomptes.</li>
               <li><strong>Vitrine :</strong> Photographies de réalisations publiées volontairement par l'atelier sur sa vitrine publique.</li>
+              <li><strong>Stockage local (Hors-ligne) :</strong> Afin de permettre le fonctionnement hors connexion (3G/sans réseau), les fiches clients, mesures et commandes sont temporairement persistées dans une base de données locale sécurisée (PowerSync SQLite) sur l'appareil du couturier.</li>
             </ul>
           </section>
 
           <section className="space-y-2">
             <h2 className="text-xl font-display font-bold text-sombre border-b border-sable/40 pb-2">2. Finalité du traitement</h2>
             <p className="text-sombre/80">
-              Ces informations servent exclusivement au fonctionnement technique de la plateforme (gestion du carnet d'atelier, calcul des soldes, affichage de la vitrine WhatsApp). <strong>Aucune donnée n'est vendue ni cédée à des tiers.</strong>
+              Ces informations servent exclusivement au fonctionnement technique de la plateforme (gestion du carnet d'atelier, calcul des soldes, alertes de livraison et vitrine WhatsApp). <strong>Aucune donnée n'est vendue ni cédée à des tiers.</strong>
             </p>
           </section>
 
           <section className="space-y-2">
             <h2 className="text-xl font-display font-bold text-sombre border-b border-sable/40 pb-2">3. Sous-traitants techniques</h2>
             <p className="text-sombre/80">
-              Ourlette s'appuie sur des infrastructures certifiées pour garantir la confidentialité : Supabase (base de données et stockage sécurisé des images) et Vercel (hébergement haute performance).
+              Ourlette s'appuie sur des partenaires techniques certifiés pour garantir la confidentialité et la sécurité : Supabase (base de données cloud et stockage sécurisé des images), Vercel (hébergement de l'application web) et SasPay (prestataire de paiement agréé pour les abonnements Pro par Mobile Money et cartes bancaires).
             </p>
           </section>
 

@@ -1132,5 +1132,23 @@ export class DataService {
 
     return this.getNotifications(userId);
   }
+
+  static async purgeLocalUserStore(userId: string | undefined): Promise<void> {
+    if (!userId || !isBrowser) return;
+    try {
+      localStorage.removeItem(`ourlette_${userId}_couturier`);
+      localStorage.removeItem(`ourlette_${userId}_clients`);
+      localStorage.removeItem(`ourlette_${userId}_mesures`);
+      localStorage.removeItem(`ourlette_${userId}_commandes`);
+      localStorage.removeItem(`ourlette_${userId}_realisations`);
+      localStorage.removeItem(`ourlette_${userId}_notifications`);
+      localStorage.removeItem(`ourlette_${userId}_sync_queue`);
+      await safeDbExecute(`DELETE FROM clients WHERE couturier_id = ?`, [userId]);
+      await safeDbExecute(`DELETE FROM mesures WHERE couturier_id = ?`, [userId]);
+      await safeDbExecute(`DELETE FROM commandes WHERE couturier_id = ?`, [userId]);
+    } catch (e) {
+      console.warn('Error purging local store:', e);
+    }
+  }
 }
 

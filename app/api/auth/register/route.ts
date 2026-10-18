@@ -17,19 +17,22 @@ export async function POST(request: NextRequest) {
       device,
     } = body;
 
-    if (!email || !password || !nom || !nom_atelier) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: 'Veuillez remplir tous les champs obligatoires.' },
+        { error: 'Veuillez renseigner un email et un mot de passe.' },
         { status: 400 }
       );
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       return NextResponse.json(
-        { error: 'Le mot de passe doit contenir au moins 6 caractères.' },
+        { error: 'Le mot de passe doit contenir au moins 8 caractères.' },
         { status: 400 }
       );
     }
+
+    const defaultNom = nom?.trim() || 'Artisan Couturier';
+    const defaultAtelier = nom_atelier?.trim() || 'Mon Atelier';
 
     // Extraction IP et Device
     const forwardedFor = request.headers.get('x-forwarded-for');
@@ -49,8 +52,8 @@ export async function POST(request: NextRequest) {
       password,
       options: {
         data: {
-          nom: nom.trim(),
-          nom_atelier: nom_atelier.trim(),
+          nom: defaultNom,
+          nom_atelier: defaultAtelier,
           telephone: telephone?.trim() || '',
           pays: pays?.trim() || 'Bénin',
           ville: ville?.trim() || '',
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
     const unsubscribeToken = crypto.randomBytes(20).toString('hex');
 
     // Générer slug vitrine unique
-    const baseSlug = nom_atelier
+    const baseSlug = defaultAtelier
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, '-')
@@ -85,8 +88,8 @@ export async function POST(request: NextRequest) {
     // Profil couturier complet
     const profilePayload = {
       id: userId,
-      nom: nom.trim(),
-      nom_atelier: nom_atelier.trim(),
+      nom: defaultNom,
+      nom_atelier: defaultAtelier,
       email: email.trim().toLowerCase(),
       telephone: telephone?.trim() || '',
       whatsapp_contact: telephone?.trim() || '',
@@ -114,24 +117,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Déclenchement asynchrone sécurisé des notifications de bienvenue
-    const notifPayload = {
-      email: email.trim().toLowerCase(),
-      nom: nom.trim(),
-      nom_atelier: nom_atelier.trim(),
-      telephone: telephone?.trim() || '',
-      pays: pays?.trim() || 'Bénin',
-      ville: ville?.trim() || '',
-      device: detectedDevice,
-      ip: clientIp,
-      unsubscribeToken,
-    };
+    // Déclenchement sécurisé des notifications de bienvenue (Email & Telegram)
+    // Non bloquant : capturé par try/catch, loggé, et ne fait JAMAIS échouer l'inscription.
+    // Sur Vercel, await Promise.allSettled garantit que les requêtes asynchrones se terminent avant la coupure de la fonction serverless.
+    try {
+      const notifPayload = {
+        email: email.trim().toLowerCase(),
+        nom: defaultNom,
+        nom_atelier: defaultAtelier,
+        telephone: telephone?.trim() || '',
+        pays: pays?.trim() || 'Bénin',
+        ville: ville?.trim() || '',
+        device: detectedDevice,
+        ip: clientIp,
+        unsubscribeToken,
+      };
 
-    // Vercel attend bien la fin des promesses via Promise.allSettled
-    await Promise.allSettled([
-      sendWelcomeEmail(notifPayload),
-      notifyTelegramNewSignup(notifPayload),
-    ]);
+      await Promise.allSettled([
+        sendWelcomeEmail(notifPayload),
+        notifyTelegramNewSignup(notifPayload),
+      ]);
+    } catch (notifErr: any) {
+      console.error('[Register] Erreur silencieuse notifications:', notifErr?.message || notifErr);
+    }
 
     return NextResponse.json({
       success: true,

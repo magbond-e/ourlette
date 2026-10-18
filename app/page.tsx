@@ -111,7 +111,7 @@ export default function LandingPage() {
             {/* Hero Left Content */}
             <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 border border-white/20 rounded-full text-xs sm:text-sm font-bold text-white shadow-sm hover:scale-105 transition-transform">
-                <span className="animate-spin duration-3000">🧵</span>
+                <Scissors className="w-3.5 h-3.5 text-gold shrink-0" />
                 <span>{dict.landing.badge}</span>
               </div>
 
@@ -125,7 +125,7 @@ export default function LandingPage() {
               </p>
 
               <div className="pt-3 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-                <Link href="/login" className="w-full sm:w-auto">
+                <Link href="/signup" className="w-full sm:w-auto">
                   <Button variant="accent" size="lg" className="w-full sm:w-auto rounded-full font-extrabold px-8 py-4 shadow-xl text-base hover:scale-105 active:scale-95 transition-all">
                     {dict.landing.startFree}
                   </Button>
@@ -501,7 +501,7 @@ export default function LandingPage() {
               {/* Pro Plan */}
               <div className="bg-white rounded-3xl border-2 border-accent p-8 sm:p-10 shadow-2xl space-y-6 flex flex-col justify-between relative hover:shadow-2xl transition-all scale-102">
                 <div className="absolute -top-3.5 right-8 bg-accent text-white text-xs font-extrabold px-4 py-1 rounded-full shadow-md tracking-wide">
-                  👑 {isEn ? 'POPULAR & UNLIMITED' : 'POPULAIRE & ILLIMITÉ'}
+                  {isEn ? 'POPULAR & UNLIMITED' : 'POPULAIRE & ILLIMITÉ'}
                 </div>
 
                 <div className="space-y-6">
@@ -545,7 +545,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="pt-4">
-                  <Link href="/login">
+                  <Link href="/signup">
                     <Button variant="accent" fullWidth size="lg" className="rounded-full font-extrabold shadow-lg hover:scale-102 transition-transform">
                       {dict.landing.proPlanCta}
                     </Button>
@@ -572,7 +572,7 @@ export default function LandingPage() {
               : 'Ourlette est développé au plus proche du quotidien des ateliers de couture. Nous mettons un point d’honneur à la transparence : aucun avis préfabriqué. Vous pouvez nous soumettre vos retours directement depuis votre espace d’atelier.'}
           </p>
           <div className="pt-2">
-            <Link href="/login">
+            <Link href="/signup">
               <Button variant="outline" size="md" className="rounded-full border-accent text-accent font-bold">
                 {isEn ? 'Join Pioneer Ateliers →' : 'Rejoindre les ateliers pionniers →'}
               </Button>
@@ -596,6 +596,31 @@ export default function LandingPage() {
             <Link href="/faq">
               <Button variant="outline" size="md" className="rounded-full border-accent text-accent font-bold hover:bg-accent/10">
                 {dict.landing.seeAllFaq}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 12. Final CTA Banner */}
+      <section className="py-14 sm:py-20 bg-sombre text-white border-b border-gold/30 relative overflow-hidden">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-5 relative z-10">
+          <h2 className="text-2xl sm:text-4xl font-display font-bold text-white leading-tight">
+            {isEn ? 'Say goodbye to notebooks. Welcome Ourlette.' : 'Fini le cahier. Place à Ourlette.'}
+          </h2>
+          <p className="text-sm sm:text-base text-white/80 max-w-xl mx-auto font-medium">
+            {isEn
+              ? 'Open your free atelier in 2 minutes. No credit card required.'
+              : 'Ouvrez votre atelier gratuit en 2 minutes. Sans carte bancaire.'}
+          </p>
+          <div className="pt-2">
+            <Link href="/signup">
+              <Button
+                variant="accent"
+                size="lg"
+                className="rounded-full font-extrabold px-8 py-4 shadow-xl text-sm sm:text-base hover:scale-105 active:scale-95 transition-all"
+              >
+                {dict.landing.startFree}
               </Button>
             </Link>
           </div>

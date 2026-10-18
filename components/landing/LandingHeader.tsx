@@ -7,6 +7,7 @@ import { Scissors, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { useLanguage } from '@/lib/i18n';
+import { useAuth } from '@/lib/context/AuthContext';
 import { SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
 
 interface LandingHeaderProps {
@@ -16,7 +17,9 @@ interface LandingHeaderProps {
 export const LandingHeader: React.FC<LandingHeaderProps> = ({ activeTab }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  const { dict } = useLanguage();
+  const { dict, locale } = useLanguage();
+  const { user } = useAuth();
+  const isEn = locale === 'en';
 
   const navItems = [
     { label: dict.nav.home, href: '/#hero', key: 'home' },
@@ -84,11 +87,19 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ activeTab }) => {
           {/* Right CTA Button & Language Switcher */}
           <div className="hidden md:flex items-center gap-3">
             <LanguageSwitcher />
-            <Link href="/login">
-              <Button variant="accent" size="sm" className="rounded-full px-5 text-sm font-bold shadow-md">
-                {dict.nav.login}
-              </Button>
-            </Link>
+            {user ? (
+              <Link href="/commandes">
+                <Button variant="accent" size="sm" className="rounded-full px-5 text-sm font-bold shadow-md">
+                  {isEn ? 'My Workshop' : 'Mon atelier'}
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <Button variant="accent" size="sm" className="rounded-full px-5 text-sm font-bold shadow-md">
+                  {dict.nav.login}
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Hamburger Button */}
@@ -127,16 +138,26 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({ activeTab }) => {
               })}
             </nav>
             <div className="pt-2 border-t border-sable/40 flex flex-col gap-2">
-              <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="accent" fullWidth size="md" className="rounded-full font-bold shadow-md">
-                  {dict.nav.login}
-                </Button>
-              </Link>
-              <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="outline" fullWidth size="md" className="rounded-full font-bold border-accent text-accent">
-                  {dict.nav.signup}
-                </Button>
-              </Link>
+              {user ? (
+                <Link href="/commandes" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="accent" fullWidth size="md" className="rounded-full font-bold shadow-md">
+                    {isEn ? 'My Workshop' : 'Mon atelier'}
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="accent" fullWidth size="md" className="rounded-full font-bold shadow-md">
+                      {dict.nav.login}
+                    </Button>
+                  </Link>
+                  <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="outline" fullWidth size="md" className="rounded-full font-bold border-accent text-accent">
+                      {dict.nav.signup}
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -53,12 +53,9 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode; initialLoca
         return;
       }
 
-      // Fallback to browser language
-      if (typeof navigator !== 'undefined' && navigator.language) {
-        const browserLang = navigator.language.toLowerCase().startsWith('en') ? 'en' : 'fr';
-        setLocaleState(browserLang);
-        document.documentElement.lang = browserLang;
-      }
+      // Par défaut, Ourlette privilégie toujours le Français (fr) pour les ateliers
+      setLocaleState('fr');
+      document.documentElement.lang = 'fr';
     } catch {
       // Ignore storage errors in restricted contexts
     }

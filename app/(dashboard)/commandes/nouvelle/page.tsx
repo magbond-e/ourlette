@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, UserPlus, Scissors, Check, Sparkles, Ruler } from 'lucide-react';
+import { ArrowLeft, UserPlus, Scissors, Check, Sparkles, Ruler, Search, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { DataService } from '@/lib/services/dataService';
 import { Client, TypeCommande, Mesure } from '@/lib/types/database';
-import { calculSolde, formatFCFA } from '@/lib/utils/formatters';
+import { calculSolde, formatFCFA, formatDateFR } from '@/lib/utils/formatters';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useNotifications } from '@/lib/context/NotificationContext';
 import { checkCommandeLimit, SHOW_ACCOUNT_PLANS } from '@/lib/utils/planLimits';
@@ -30,35 +30,38 @@ function NouvelleCommandeContent() {
   const [activeCommandesCount, setActiveCommandesCount] = useState<number>(0);
   const [limitReached, setLimitReached] = useState<boolean>(false);
 
-  // Form State
+  // Client Selection State & Search
   const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [clientSearch, setClientSearch] = useState<string>('');
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [newClientNom, setNewClientNom] = useState('');
   const [newClientTelephone, setNewClientTelephone] = useState('');
 
   // Client Measurements State
   const [clientMesure, setClientMesure] = useState<Mesure | null>(null);
-  const [showMesuresForm, setShowMesuresForm] = useState<boolean>(false);
+  const [showMesuresAccordion, setShowMesuresAccordion] = useState<boolean>(false);
   const [mesuresModified, setMesuresModified] = useState<boolean>(false);
 
-  const [tourPoitrine, setTourPoitrine] = useState<number | ''>('');
-  const [tourTaille, setTourTaille] = useState<number | ''>('');
-  const [tourHanches, setTourHanches] = useState<number | ''>('');
-  const [longueurManche, setLongueurManche] = useState<number | ''>('');
-  const [longueurRobe, setLongueurRobe] = useState<number | ''>('');
-  const [tourCou, setTourCou] = useState<number | ''>('');
-  const [largeurEpaules, setLargeurEpaules] = useState<number | ''>('');
+  const [tourPoitrine, setTourPoitrine] = useState<string>('');
+  const [tourTaille, setTourTaille] = useState<string>('');
+  const [tourHanches, setTourHanches] = useState<string>('');
+  const [largeurEpaules, setLargeurEpaules] = useState<string>('');
+  const [longueurManche, setLongueurManche] = useState<string>('');
+  const [longueurRobe, setLongueurRobe] = useState<string>('');
+  const [tourCou, setTourCou] = useState<string>('');
 
+  // Order Details
   const [typeCommande, setTypeCommande] = useState<TypeCommande>('couture_complete');
   const [description, setDescription] = useState('');
   const [tissu, setTissu] = useState('');
-  const [prixTotal, setPrixTotal] = useState<number | ''>('');
-  const [acompte, setAcompte] = useState<number | ''>('');
+  const [prixTotal, setPrixTotal] = useState<string>('');
+  const [acompte, setAcompte] = useState<string>('');
   const [dateLivraison, setDateLivraison] = useState('');
   const [responsable, setResponsable] = useState('');
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [generalError, setGeneralError] = useState('');
 
   useEffect(() => {
     if (couturier?.nom) {
@@ -98,27 +101,32 @@ function NouvelleCommandeContent() {
   const loadClientMesures = useCallback(async (cId: string) => {
     if (!user?.id || !cId) {
       setClientMesure(null);
+      setShowMesuresAccordion(true);
       return;
     }
     const m = await DataService.getMesureByClientId(user.id, cId);
     if (m) {
       setClientMesure(m);
-      setTourPoitrine(m.tour_poitrine ?? '');
-      setTourTaille(m.tour_taille ?? '');
-      setTourHanches(m.tour_hanches ?? '');
-      setLongueurManche(m.longueur_manche ?? '');
-      setLongueurRobe(m.longueur_robe ?? '');
-      setTourCou(m.tour_cou ?? '');
-      setLargeurEpaules(m.largeur_epaules ?? '');
+      setTourPoitrine(m.tour_poitrine != null ? String(m.tour_poitrine) : '');
+      setTourTaille(m.tour_taille != null ? String(m.tour_taille) : '');
+      setTourHanches(m.tour_hanches != null ? String(m.tour_hanches) : '');
+      setLargeurEpaules(m.largeur_epaules != null ? String(m.largeur_epaules) : '');
+      setLongueurManche(m.longueur_manche != null ? String(m.longueur_manche) : '');
+      setLongueurRobe(m.longueur_robe != null ? String(m.longueur_robe) : '');
+      setTourCou(m.tour_cou != null ? String(m.tour_cou) : '');
+      // Replié par défaut si le client a déjà des mesures
+      setShowMesuresAccordion(false);
     } else {
       setClientMesure(null);
       setTourPoitrine('');
       setTourTaille('');
       setTourHanches('');
+      setLargeurEpaules('');
       setLongueurManche('');
       setLongueurRobe('');
       setTourCou('');
-      setLargeurEpaules('');
+      // Ouvert s'il n'en a pas
+      setShowMesuresAccordion(true);
     }
     setMesuresModified(false);
   }, [user?.id]);
@@ -128,6 +136,21 @@ function NouvelleCommandeContent() {
       loadClientMesures(selectedClientId);
     }
   }, [selectedClientId, loadClientMesures]);
+
+  // Clients filtrés par recherche
+  const filteredClients = useMemo(() => {
+    const q = clientSearch.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter(
+      (c) =>
+        c.nom.toLowerCase().includes(q) ||
+        (c.telephone && c.telephone.toLowerCase().includes(q))
+    );
+  }, [clients, clientSearch]);
+
+  const selectedClientObj = useMemo(() => {
+    return clients.find((c) => c.id === selectedClientId);
+  }, [clients, selectedClientId]);
 
   const handleCreateClientOnTheFly = async () => {
     if (!newClientNom.trim() || !user?.id) return;
@@ -139,77 +162,96 @@ function NouvelleCommandeContent() {
       setClients((prev) => [added, ...prev]);
       setSelectedClientId(added.id);
       setShowNewClientForm(false);
-      setShowMesuresForm(true); // Ouvrir automatiquement la prise de mesure pour ce nouveau client
+      setShowMesuresAccordion(true); // Ouvert pour le nouveau client sans mesures
       setNewClientNom('');
       setNewClientTelephone('');
     }
   };
+
+  // Parsing des nombres avec support virgule
+  const parseDecimal = (val: string): number | null => {
+    if (!val || !val.trim()) return null;
+    const cleaned = val.replace(',', '.').trim();
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  };
+
+  const numPrixTotal = parseDecimal(prixTotal) ?? 0;
+  const numAcompte = parseDecimal(acompte) ?? 0;
+  const currentSolde = calculSolde(numPrixTotal, numAcompte);
+
+  // Erreurs de validation
+  const acompteExceedsPrice = numPrixTotal > 0 && numAcompte > numPrixTotal;
+
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    return d.toISOString().split('T')[0];
+  }, []);
+  const isPastDeliveryDate = dateLivraison && dateLivraison < todayStr;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.id) return;
 
     if (!selectedClientId) {
-      setError(isEn ? 'Please choose or create a client.' : 'Veuillez sélectionner ou créer un client.');
+      setGeneralError(isEn ? 'Please choose or create a client.' : 'Veuillez sélectionner ou créer un client.');
       return;
     }
 
     if (!description.trim()) {
-      setError(dict.nouvelleCommande.validationError);
-      return;
-    }
-
-    if (!prixTotal || Number(prixTotal) <= 0) {
-      setError(isEn ? 'Please specify a valid total price.' : 'Veuillez spécifier un prix total valide.');
+      setGeneralError(isEn ? 'Please describe the garment or alteration.' : 'Veuillez décrire le modèle ou la retouche.');
       return;
     }
 
     if (!dateLivraison) {
-      setError(isEn ? 'Please choose a promised delivery date.' : 'Veuillez spécifier une date de livraison promise.');
+      setGeneralError(isEn ? 'Please choose a delivery date.' : 'Veuillez indiquer la date de livraison promise.');
+      return;
+    }
+
+    if (acompteExceedsPrice) {
+      setGeneralError(isEn ? 'Deposit cannot be greater than total price.' : 'L’acompte ne peut pas être supérieur au prix total.');
       return;
     }
 
     setLoading(true);
-    setError('');
+    setGeneralError('');
 
-    const clientObj = clients.find((c) => c.id === selectedClientId);
-
-    // 1. Enregistrer ou mettre à jour les mesures si saisies/modifiées
+    // 1. Sauvegarde des mesures si modifiées ou renseignées
     if (
       mesuresModified ||
-      tourPoitrine !== '' ||
-      tourTaille !== '' ||
-      tourHanches !== '' ||
-      longueurManche !== '' ||
-      longueurRobe !== '' ||
-      largeurEpaules !== '' ||
-      tourCou !== ''
+      tourPoitrine ||
+      tourTaille ||
+      tourHanches ||
+      largeurEpaules ||
+      longueurManche ||
+      longueurRobe ||
+      tourCou
     ) {
       try {
         await DataService.saveMesure(user.id, selectedClientId, {
-          tour_poitrine: tourPoitrine === '' ? null : Number(tourPoitrine),
-          tour_taille: tourTaille === '' ? null : Number(tourTaille),
-          tour_hanches: tourHanches === '' ? null : Number(tourHanches),
-          longueur_manche: longueurManche === '' ? null : Number(longueurManche),
-          longueur_robe: longueurRobe === '' ? null : Number(longueurRobe),
-          tour_cou: tourCou === '' ? null : Number(tourCou),
-          largeur_epaules: largeurEpaules === '' ? null : Number(largeurEpaules),
-          prise_par: responsable.trim() || (couturier?.nom || ''),
+          tour_poitrine: parseDecimal(tourPoitrine),
+          tour_taille: parseDecimal(tourTaille),
+          tour_hanches: parseDecimal(tourHanches),
+          largeur_epaules: parseDecimal(largeurEpaules),
+          longueur_manche: parseDecimal(longueurManche),
+          longueur_robe: parseDecimal(longueurRobe),
+          tour_cou: parseDecimal(tourCou),
+          prise_par: responsable.trim() || couturier?.nom || '',
         });
       } catch (err) {
-        console.warn('Erreur enregistrement mesures sur commande:', err);
+        console.warn('Erreur sauvegarde mesures:', err);
       }
     }
 
-    // 2. Enregistrer la commande
+    // 2. Création de la commande
     const newCmd = await DataService.addCommande(user.id, {
       client_id: selectedClientId,
       type_commande: typeCommande,
       description: description.trim(),
-      tissu: tissu.trim(),
-      responsable: responsable.trim(),
-      prix_total: Number(prixTotal),
-      acompte: Number(acompte) || 0,
+      tissu: typeCommande === 'couture_complete' ? tissu.trim() : undefined,
+      responsable: responsable.trim() || undefined,
+      prix_total: numPrixTotal,
+      acompte: numAcompte,
       date_livraison_prevue: dateLivraison,
     });
 
@@ -220,458 +262,441 @@ function NouvelleCommandeContent() {
         priority: 'medium',
         title: isEn ? '✨ New order logged' : '✨ Nouvelle commande enregistrée',
         message: isEn
-          ? `Order "${newCmd.description}" saved for ${clientObj?.nom || 'client'} (${formatFCFA(newCmd.prix_total)}).`
-          : `Commande "${newCmd.description}" enregistrée pour ${clientObj?.nom || 'un client'} (${formatFCFA(newCmd.prix_total)}).`,
+          ? `Order "${newCmd.description}" saved for ${selectedClientObj?.nom || 'client'}.`
+          : `Commande "${newCmd.description}" enregistrée pour ${selectedClientObj?.nom || 'un client'}.`,
         link: `/commandes/${newCmd.id}`,
         orderId: newCmd.id,
         metadata: { orderId: newCmd.id, clientId: selectedClientId },
       });
-    }
-
-    setLoading(false);
-    if (newCmd && newCmd.id) {
       router.push(`/commandes/${newCmd.id}`);
     } else {
+      setLoading(false);
       router.push('/commandes');
     }
   };
 
-  const currentSolde = calculSolde(Number(prixTotal) || 0, Number(acompte) || 0);
-  const selectedClientObj = clients.find((c) => c.id === selectedClientId);
-
   return (
-    <div className="min-h-screen bg-clair pb-24 font-sans">
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 space-y-5">
+    <div className="min-h-screen bg-[#FAFAF8] pb-32 font-sans text-sombre">
+      <main className="max-w-2xl mx-auto px-4 pt-3 space-y-4">
+        {/* En-tête */}
         <div className="flex items-center justify-between gap-3">
           <Link
             href="/commandes"
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-sombre/70 hover:text-accent bg-white px-3.5 py-1.5 rounded-full border border-sable/70 shadow-xs"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-sombre/70 hover:text-fonce bg-white px-3 py-1.5 rounded-full border border-sable/70 shadow-2xs"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5" />
             <span>{dict.nouvelleCommande.backButton}</span>
           </Link>
-          <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-accent bg-accent/10 px-3 py-1 rounded-full border border-accent/20">
-            {dict.commandes.newOrderButton}
+          <span className="text-[11px] font-bold text-fonce bg-sable/30 px-3 py-1 rounded-full">
+            {locale === 'fr' ? 'Nouvelle commande' : 'New order'}
           </span>
         </div>
 
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-display font-bold text-sombre">
-            {dict.nouvelleCommande.title}
-          </h2>
-          <p className="text-xs sm:text-sm text-sombre/70 font-semibold mt-1">
-            {dict.commandes.subtitle}
-          </p>
-        </div>
-
-        {/* Free Plan Threshold Warning */}
+        {/* Bloc d'avertissement limite */}
         {limitReached && SHOW_ACCOUNT_PLANS && (
-          <Card className="bg-gradient-to-br from-sombre via-fonce to-[#3B1117] text-white border border-gold/40 shadow-xl p-5 sm:p-6 space-y-3.5 rounded-3xl">
+          <Card className="bg-sombre text-white border border-gold/40 shadow-sm p-4 space-y-3 rounded-3xl">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gold/20 text-gold flex items-center justify-center shrink-0 border border-gold/40">
-                <Sparkles className="w-5 h-5 text-gold" />
+              <div className="w-9 h-9 rounded-2xl bg-gold/20 text-gold flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5" />
               </div>
               <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-gold block">
+                <h3 className="text-sm font-display font-bold text-gold">
                   {dict.nouvelleCommande.limitBlockedTitle}
-                </span>
-                <h3 className="text-xl font-display font-bold text-white">
-                  {dict.nouvelleCommande.upgradeButton}
                 </h3>
-                <p className="text-xs sm:text-sm text-clair/80 font-medium leading-relaxed">
+                <p className="text-xs text-white/80 leading-relaxed">
                   {dict.nouvelleCommande.limitBlockedDesc}
                 </p>
               </div>
             </div>
-
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-white/10">
-              <Link href="/parametres" className="w-full sm:w-auto">
-                <Button variant="gold" size="md" className="w-full sm:w-auto rounded-full font-bold text-xs sm:text-sm shadow-md">
-                  {dict.landing.proPlanCta}
+            <div className="pt-1 flex justify-end">
+              <Link href="/pro">
+                <Button className="rounded-full bg-gold text-sombre hover:bg-gold/90 font-bold text-xs h-9 px-4">
+                  {locale === 'fr' ? 'Passer en Pro' : 'Upgrade to Pro'}
                 </Button>
               </Link>
             </div>
           </Card>
         )}
 
-        {error && !limitReached && (
-          <div className="p-4 bg-accent/10 border border-accent/30 rounded-2xl text-xs sm:text-sm text-accent font-bold">
-            {error}
+        {generalError && !limitReached && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 font-bold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            <span>{generalError}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* SECTION 1: Client Selection */}
-          <Card className="space-y-4 p-5 sm:p-6 rounded-3xl bg-white border-sable/60 shadow-xs">
-            <div className="flex items-center justify-between gap-2">
-              <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">
-                {dict.nouvelleCommande.clientSectionTitle}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          
+          {/* ── 1. SECTION : CLIENT ───────────────────────────────────── */}
+          <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-fonce">
+                1. {locale === 'fr' ? 'Client' : 'Client'} *
               </label>
               {!showNewClientForm && (
                 <button
                   type="button"
                   onClick={() => setShowNewClientForm(true)}
-                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-accent hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-accent hover:underline cursor-pointer"
                 >
-                  <UserPlus className="w-4 h-4" />
-                  <span>{dict.nouvelleCommande.orAddNewClient}</span>
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>+ {locale === 'fr' ? 'Nouveau client' : 'New client'}</span>
                 </button>
               )}
             </div>
 
             {showNewClientForm ? (
-              <div className="p-4 bg-[#FAFAF8] rounded-2xl border border-sable/80 space-y-4">
-                <p className="text-xs sm:text-sm font-bold text-sombre">{isEn ? 'Create client profile' : 'Créer un client à la volée'}</p>
+              <div className="p-3 bg-[#FAFAF8] rounded-2xl border border-sable/80 space-y-3">
+                <p className="text-xs font-bold text-sombre">
+                  {locale === 'fr' ? 'Créer un nouveau client' : 'Create new client'}
+                </p>
                 <Input
                   label={dict.nouvelleCommande.newClientNameLabel}
                   type="text"
-                  placeholder={isEn ? 'e.g. Mariama Sow' : 'ex: Mariama Sow'}
+                  placeholder="Ex : Mariama Sow"
                   value={newClientNom}
                   onChange={(e) => setNewClientNom(e.target.value)}
                   autoFocus
+                  className="h-10 text-xs rounded-xl"
                 />
                 <Input
                   label={dict.nouvelleCommande.newClientPhoneLabel}
                   type="tel"
-                  placeholder={isEn ? 'e.g. +229 01 40 87 28 36' : 'ex: +229 01 40 87 28 36'}
+                  placeholder="Ex : +229 97 00 00 00"
                   value={newClientTelephone}
                   onChange={(e) => setNewClientTelephone(e.target.value)}
+                  className="h-10 text-xs rounded-xl"
                 />
-                <div className="flex items-center justify-end gap-3 pt-1">
+                <div className="flex items-center justify-end gap-2 pt-1">
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="sm"
+                    variant="outline"
                     onClick={() => setShowNewClientForm(false)}
+                    className="rounded-xl h-9 text-xs px-3 border-sable text-sombre/70"
                   >
-                    {dict.common.cancel}
+                    {locale === 'fr' ? 'Annuler' : 'Cancel'}
                   </Button>
                   <Button
                     type="button"
-                    variant="accent"
-                    size="sm"
                     onClick={handleCreateClientOnTheFly}
+                    className="rounded-xl h-9 text-xs px-4 bg-accent hover:bg-accent/90 text-white font-bold"
                   >
-                    {dict.clients.saveClientButton}
+                    {locale === 'fr' ? 'Enregistrer le client' : 'Save client'}
                   </Button>
                 </div>
               </div>
             ) : clients.length === 0 ? (
-              <div className="p-4 bg-[#FAFAF8] rounded-2xl border border-dashed border-sable/80 text-center space-y-2">
-                <p className="text-xs sm:text-sm text-sombre/70 font-semibold">{dict.clients.emptyTitle}</p>
+              <div className="p-4 bg-[#FAFAF8] rounded-2xl border border-dashed border-sable text-center space-y-2">
+                <p className="text-xs text-sombre/70 font-semibold">
+                  {locale === 'fr' ? 'Aucun client enregistré' : 'No clients found'}
+                </p>
                 <Button
                   type="button"
-                  variant="accent"
-                  size="sm"
                   onClick={() => setShowNewClientForm(true)}
-                  className="rounded-full"
+                  className="rounded-full bg-sombre text-white text-xs font-bold h-9 px-4"
                 >
-                  + {dict.clients.createFirstClient}
+                  + {locale === 'fr' ? 'Ajouter un premier client' : 'Add first client'}
                 </Button>
               </div>
             ) : (
-              <select
-                value={selectedClientId}
-                onChange={(e) => setSelectedClientId(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-sable/80 rounded-2xl text-sm sm:text-base text-sombre font-bold focus:outline-none focus:ring-4 focus:ring-accent/10 focus:border-accent min-h-[48px] shadow-xs cursor-pointer"
-              >
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nom} {c.telephone ? `(${c.telephone})` : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-2">
+                {/* Sélecteur de client avec recherche rapide intégrée */}
+                <div className="relative">
+                  <select
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-white border border-sable/80 rounded-2xl text-xs sm:text-sm text-sombre font-bold focus:outline-hidden focus:border-fonce shadow-2xs cursor-pointer"
+                  >
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nom} {c.telephone ? `(${c.telephone})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedClientObj && (
+                  <p className="text-[11px] text-sombre/60 pl-1">
+                    {selectedClientObj.telephone ? `📞 ${selectedClientObj.telephone}` : (locale === 'fr' ? 'Aucun numéro' : 'No phone')}
+                  </p>
+                )}
+              </div>
             )}
           </Card>
 
-          {/* SECTION 1.5: Fiche Mesures du Client (Directive 6 point 1) */}
-          {selectedClientId && (
-            <Card className="space-y-4 p-5 sm:p-6 rounded-3xl bg-white border-sable/60 shadow-xs">
-              <div className="flex items-center justify-between gap-2 border-b border-sable/40 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0">
-                    <Ruler className="w-4 h-4 text-accent" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">
-                      {isEn ? 'Client Measurements' : 'Fiche Mesures du Client'}
-                    </h3>
-                    <p className="text-[11px] text-sombre/60 font-semibold">
-                      {selectedClientObj ? selectedClientObj.nom : ''}
-                    </p>
-                  </div>
+          {/* ── 2. SECTION : MESURES (Accordéon) ──────────────────────── */}
+          {selectedClientId && (typeCommande === 'couture_complete' || showMesuresAccordion) && (
+            <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
+              <div
+                className="flex items-center justify-between cursor-pointer select-none"
+                onClick={() => setShowMesuresAccordion(!showMesuresAccordion)}
+              >
+                <div className="flex items-center gap-2">
+                  <Ruler className="w-4 h-4 text-fonce" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-fonce">
+                    2. {locale === 'fr' ? 'Mesures du client' : 'Measurements'}
+                  </span>
+                  {clientMesure && !showMesuresAccordion && (
+                    <span className="text-[11px] text-vertbouton font-semibold bg-vertbouton/10 px-2 py-0.5 rounded-full">
+                      {clientMesure.date_maj ? `Du ${formatDateFR(clientMesure.date_maj, locale)}` : 'Renseignées'}
+                    </span>
+                  )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowMesuresForm(!showMesuresForm)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-sable/80 text-xs font-bold text-sombre bg-[#FAFAF8] hover:bg-white transition-all cursor-pointer shadow-2xs"
-                >
-                  <Ruler className="w-3.5 h-3.5 text-accent" />
-                  <span>
-                    {showMesuresForm
-                      ? (isEn ? 'Collapse' : 'Masquer')
-                      : clientMesure
-                      ? (isEn ? 'Edit measurements' : 'Modifier les mesures')
-                      : (isEn ? '+ Take measurements' : '+ Saisir les mesures')}
-                  </span>
-                </button>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-sombre/70">
+                  <span>{showMesuresAccordion ? (locale === 'fr' ? 'Replier' : 'Collapse') : (locale === 'fr' ? 'Modifier' : 'Edit')}</span>
+                  {showMesuresAccordion ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </div>
               </div>
 
-              {/* Aperçu rapide si replié */}
-              {!showMesuresForm && (
-                clientMesure ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              {/* Contenu de l'accordéon */}
+              {showMesuresAccordion ? (
+                <div className="pt-2 space-y-3 border-t border-sable/30">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {[
-                      { label: dict.mesures.chest, val: tourPoitrine },
-                      { label: dict.mesures.waist, val: tourTaille },
-                      { label: dict.mesures.hips, val: tourHanches },
-                      { label: dict.mesures.sleeveLength, val: longueurManche },
-                    ].map(
-                      (item) =>
-                        item.val !== '' &&
-                        item.val != null && (
-                          <div key={item.label} className="p-2.5 bg-[#FAFAF8] rounded-xl flex justify-between items-center border border-sable/40">
-                            <span className="text-sombre/60 text-[10px] font-semibold">{item.label}</span>
-                            <strong className="font-bold text-sombre text-xs">{item.val} cm</strong>
-                          </div>
-                        )
-                    )}
+                      { label: dict.mesures.chest, val: tourPoitrine, setter: setTourPoitrine, placeholder: '92' },
+                      { label: dict.mesures.waist, val: tourTaille, setter: setTourTaille, placeholder: '74' },
+                      { label: dict.mesures.hips, val: tourHanches, setter: setTourHanches, placeholder: '102' },
+                      { label: dict.mesures.shoulders, val: largeurEpaules, setter: setLargeurEpaules, placeholder: '40' },
+                      { label: dict.mesures.sleeveLength, val: longueurManche, setter: setLongueurManche, placeholder: '60' },
+                      { label: dict.mesures.dressLength, val: longueurRobe, setter: setLongueurRobe, placeholder: '140' },
+                      { label: dict.mesures.neck, val: tourCou, setter: setTourCou, placeholder: '38' },
+                    ].map((m) => (
+                      <div key={m.label} className="space-y-1">
+                        <label className="block text-[11px] font-bold text-sombre/80 truncate">
+                          {m.label}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={m.val}
+                            placeholder={m.placeholder}
+                            onChange={(e) => {
+                              m.setter(e.target.value);
+                              setMesuresModified(true);
+                            }}
+                            className="w-full h-10 px-2.5 pr-7 bg-[#FAFAF8] border border-sable/80 rounded-xl text-xs font-semibold text-sombre focus:outline-hidden focus:border-fonce"
+                          />
+                          <span className="absolute right-2 top-2.5 text-[10px] font-bold text-sombre/40">
+                            cm
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <div className="flex items-center justify-between p-3.5 bg-[#FAFAF8] rounded-2xl border border-dashed border-sable/70 text-xs">
-                    <span className="text-sombre/60 font-semibold italic">
-                      {isEn ? 'No measurements recorded for this client yet.' : 'Aucune mesure enregistrée pour ce client.'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowMesuresForm(true)}
-                      className="text-xs font-extrabold text-accent hover:underline cursor-pointer"
-                    >
-                      + {isEn ? 'Take now' : 'Prendre maintenant'}
-                    </button>
-                  </div>
-                )
-              )}
-
-              {/* Formulaire complet de mesures */}
-              {showMesuresForm && (
-                <div className="space-y-4 pt-1">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <Input
-                      label={`${dict.mesures.chest} (cm)`}
-                      type="number"
-                      step="any"
-                      inputMode="decimal"
-                      placeholder="ex: 92"
-                      value={tourPoitrine}
-                      onChange={(e) => {
-                        setTourPoitrine(e.target.value === '' ? '' : Number(e.target.value));
-                        setMesuresModified(true);
-                      }}
-                    />
-                    <Input
-                      label={`${dict.mesures.waist} (cm)`}
-                      type="number"
-                      step="any"
-                      inputMode="decimal"
-                      placeholder="ex: 74"
-                      value={tourTaille}
-                      onChange={(e) => {
-                        setTourTaille(e.target.value === '' ? '' : Number(e.target.value));
-                        setMesuresModified(true);
-                      }}
-                    />
-                    <Input
-                      label={`${dict.mesures.hips} (cm)`}
-                      type="number"
-                      step="any"
-                      inputMode="decimal"
-                      placeholder="ex: 102"
-                      value={tourHanches}
-                      onChange={(e) => {
-                        setTourHanches(e.target.value === '' ? '' : Number(e.target.value));
-                        setMesuresModified(true);
-                      }}
-                    />
-                    <Input
-                      label={`${dict.mesures.shoulders} (cm)`}
-                      type="number"
-                      step="any"
-                      inputMode="decimal"
-                      placeholder="ex: 40"
-                      value={largeurEpaules}
-                      onChange={(e) => {
-                        setLargeurEpaules(e.target.value === '' ? '' : Number(e.target.value));
-                        setMesuresModified(true);
-                      }}
-                    />
-                    <Input
-                      label={`${dict.mesures.sleeveLength} (cm)`}
-                      type="number"
-                      step="any"
-                      inputMode="decimal"
-                      placeholder="ex: 60"
-                      value={longueurManche}
-                      onChange={(e) => {
-                        setLongueurManche(e.target.value === '' ? '' : Number(e.target.value));
-                        setMesuresModified(true);
-                      }}
-                    />
-                    <Input
-                      label={`${dict.mesures.dressLength} (cm)`}
-                      type="number"
-                      step="any"
-                      inputMode="decimal"
-                      placeholder="ex: 140"
-                      value={longueurRobe}
-                      onChange={(e) => {
-                        setLongueurRobe(e.target.value === '' ? '' : Number(e.target.value));
-                        setMesuresModified(true);
-                      }}
-                    />
-                    <Input
-                      label={`${dict.mesures.neck} (cm)`}
-                      type="number"
-                      step="any"
-                      inputMode="decimal"
-                      placeholder="ex: 38"
-                      value={tourCou}
-                      onChange={(e) => {
-                        setTourCou(e.target.value === '' ? '' : Number(e.target.value));
-                        setMesuresModified(true);
-                      }}
-                    />
-                  </div>
-                  <p className="text-[11px] text-sombre/50 italic font-medium">
-                    {isEn
-                      ? '💡 Measurements entered here will be saved to the client profile upon order validation.'
-                      : '💡 Les mesures saisies ici seront automatiquement enregistrées dans la fiche du client lors de la validation.'}
+                  <p className="text-[10px] text-sombre/50 italic">
+                    {locale === 'fr'
+                      ? 'Les modifications de mesures seront enregistrées sur la fiche du client.'
+                      : 'Changes will be saved directly to the client’s profile.'}
                   </p>
                 </div>
+              ) : (
+                /* Résumé compact quand replié */
+                clientMesure && (
+                  <div className="flex items-center gap-3 overflow-x-auto py-1 text-xs text-sombre/70 font-semibold no-scrollbar">
+                    {tourPoitrine && <span>Poitrine : <strong>{tourPoitrine} cm</strong></span>}
+                    {tourTaille && <span>Taille : <strong>{tourTaille} cm</strong></span>}
+                    {tourHanches && <span>Bassin : <strong>{tourHanches} cm</strong></span>}
+                    {longueurRobe && <span>Longueur : <strong>{longueurRobe} cm</strong></span>}
+                  </div>
+                )
               )}
             </Card>
           )}
 
-          {/* SECTION 2: Type de commande */}
-          <Card className="space-y-4 p-5 sm:p-6 rounded-3xl bg-white border-sable/60 shadow-xs">
-            <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">
-              {dict.nouvelleCommande.orderDetailsTitle}
+          {/* ── 3. SECTION : TYPE DE COMMANDE ─────────────────────────── */}
+          <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
+            <label className="text-xs font-bold uppercase tracking-wider text-fonce">
+              3. {locale === 'fr' ? 'Type de prestation' : 'Order Type'} *
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setTypeCommande('couture_complete')}
-                className={`p-4 rounded-2xl text-xs sm:text-sm font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all min-h-[70px] cursor-pointer ${
+                className={`p-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border-2 transition-all h-12 cursor-pointer ${
                   typeCommande === 'couture_complete'
-                    ? 'bg-accent text-white border-accent shadow-md'
-                    : 'bg-white text-sombre border-sable/80 hover:border-accent'
+                    ? 'bg-accent text-white border-accent shadow-2xs'
+                    : 'bg-white text-sombre border-sable/70 hover:border-sombre'
                 }`}
               >
-                <Scissors className="w-5 h-5 text-current" />
-                <span>{dict.nouvelleCommande.typeComplete}</span>
+                <Scissors className="w-4 h-4 shrink-0" />
+                <span>{locale === 'fr' ? 'Couture complète' : 'Bespoke tailoring'}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setTypeCommande('retouche')}
-                className={`p-4 rounded-2xl text-xs sm:text-sm font-bold flex flex-col items-center justify-center gap-2 border-2 transition-all min-h-[70px] cursor-pointer ${
+                className={`p-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border-2 transition-all h-12 cursor-pointer ${
                   typeCommande === 'retouche'
-                    ? 'bg-sombre text-white border-sombre shadow-md'
-                    : 'bg-white text-sombre border-sable/80 hover:border-accent'
+                    ? 'bg-sombre text-white border-sombre shadow-2xs'
+                    : 'bg-white text-sombre border-sable/70 hover:border-sombre'
                 }`}
               >
-                <Sparkles className="w-5 h-5 text-current" />
-                <span>{dict.nouvelleCommande.typeAlteration}</span>
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>{locale === 'fr' ? 'Retouche' : 'Alteration'}</span>
               </button>
-            </div>
-
-            <div className="space-y-4 pt-2">
-              <Input
-                label={dict.nouvelleCommande.descriptionLabel}
-                type="text"
-                placeholder={dict.nouvelleCommande.descriptionPlaceholder}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                required
-              />
-
-              <Input
-                label={`${dict.nouvelleCommande.fabricLabel} (${dict.common.optional})`}
-                type="text"
-                placeholder={dict.nouvelleCommande.fabricPlaceholder}
-                value={tissu}
-                onChange={(e) => setTissu(e.target.value)}
-              />
             </div>
           </Card>
 
-          {/* SECTION 3: Prix & Acompte */}
-          <Card className="space-y-4 p-5 sm:p-6 rounded-3xl bg-white border-sable/60 shadow-xs">
-            <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">
-              {dict.nouvelleCommande.pricingTitle}
+          {/* ── 4. SECTION : DÉTAILS ───────────────────────────────────── */}
+          <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
+            <label className="text-xs font-bold uppercase tracking-wider text-fonce">
+              4. {locale === 'fr' ? 'Détails du modèle' : 'Details'} *
             </label>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-sombre mb-1">
+                {typeCommande === 'couture_complete'
+                  ? (locale === 'fr' ? 'Quel modèle ?' : 'What design / garment?')
+                  : (locale === 'fr' ? 'Quelle retouche ?' : 'What alteration?')} *
+              </label>
               <Input
-                label={dict.nouvelleCommande.priceLabel}
-                type="number"
-                step="any"
-                inputMode="decimal"
-                placeholder="ex: 50000"
-                value={prixTotal}
-                onChange={(e) => setPrixTotal(e.target.value === '' ? '' : Number(e.target.value))}
                 required
-              />
-
-              <Input
-                label={dict.nouvelleCommande.depositLabel}
-                type="number"
-                step="any"
-                inputMode="decimal"
-                placeholder="ex: 25000"
-                value={acompte}
-                onChange={(e) => setAcompte(e.target.value === '' ? '' : Number(e.target.value))}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={
+                  typeCommande === 'couture_complete'
+                    ? (locale === 'fr' ? 'Ex : Robe sirène avec manches ballon' : 'Ex: Mermaid dress with puff sleeves')
+                    : (locale === 'fr' ? 'Ex : Reprendre la taille de 4 cm et ourlet' : 'Ex: Take in waist by 4cm and hem')
+                }
+                className="rounded-2xl h-11 text-xs"
               />
             </div>
 
-            <div className="p-4 bg-[#FAFAF8] rounded-2xl flex items-center justify-between text-xs sm:text-sm border border-sable/60">
-              <span className="font-bold text-sombre">{dict.nouvelleCommande.balanceLabel} :</span>
-              <span className={`font-extrabold text-sm sm:text-base ${currentSolde > 0 ? 'text-accent' : 'text-vertbouton'}`}>
-                {formatFCFA(currentSolde)}
+            {/* Tissu : Affiché UNIQUEMENT pour une couture complète */}
+            {typeCommande === 'couture_complete' && (
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1">
+                  {locale === 'fr' ? 'Tissu fourni' : 'Fabric'} ({locale === 'fr' ? 'facultatif' : 'optional'})
+                </label>
+                <Input
+                  value={tissu}
+                  onChange={(e) => setTissu(e.target.value)}
+                  placeholder="Ex : Wax Hollandais 3 pagnes, Bazin riche bleu ciel"
+                  className="rounded-2xl h-11 text-xs"
+                />
+              </div>
+            )}
+          </Card>
+
+          {/* ── 5. SECTION : ARGENT ────────────────────────────────────── */}
+          <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-fonce">
+                5. {locale === 'fr' ? 'Montant & Acompte' : 'Pricing'}
+              </label>
+              <span className="text-[10px] text-sombre/50 italic">
+                {locale === 'fr' ? 'Prix facultatif à la création' : 'Price optional initially'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1">
+                  {locale === 'fr' ? 'Prix total' : 'Total price'} (FCFA)
+                </label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={prixTotal}
+                  onChange={(e) => setPrixTotal(e.target.value)}
+                  placeholder="Ex : 25 000"
+                  className="rounded-2xl h-11 text-xs font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1">
+                  {locale === 'fr' ? 'Acompte versé' : 'Deposit paid'} (FCFA)
+                </label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={acompte}
+                  onChange={(e) => setAcompte(e.target.value)}
+                  placeholder="Ex : 10 000"
+                  className="rounded-2xl h-11 text-xs font-semibold"
+                />
+              </div>
+            </div>
+
+            {/* Erreur sous le champ acompte si supérieur au prix */}
+            {acompteExceedsPrice && (
+              <p className="text-xs font-bold text-rose-600">
+                ⚠️ {locale === 'fr' ? 'L’acompte ne peut pas dépasser le prix total.' : 'Deposit cannot exceed total price.'}
+              </p>
+            )}
+
+            {/* Solde calculé en direct */}
+            <div className="p-3 bg-[#FAFAF8] rounded-2xl flex items-center justify-between text-xs border border-sable/50">
+              <span className="font-bold text-sombre">
+                {locale === 'fr' ? 'Solde restant dû' : 'Remaining balance'} :
+              </span>
+              <span className={`font-extrabold text-sm ${currentSolde > 0 ? 'text-vertbouton' : 'text-sombre/60'}`}>
+                {formatFCFA(currentSolde)} <span className="text-[10px] uppercase">FCFA</span>
               </span>
             </div>
           </Card>
 
-          {/* SECTION 4: Livraison & Responsable */}
-          <Card className="space-y-4 p-5 sm:p-6 rounded-3xl bg-white border-sable/60 shadow-xs">
-            <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-accent">
-              {dict.nouvelleCommande.planningTitle}
+          {/* ── 6. SECTION : LIVRAISON ─────────────────────────────────── */}
+          <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
+            <label className="text-xs font-bold uppercase tracking-wider text-fonce">
+              6. {locale === 'fr' ? 'Date de livraison' : 'Delivery date'} *
             </label>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label={dict.nouvelleCommande.deliveryDateLabel}
-                type="date"
-                value={dateLivraison}
-                onChange={(e) => setDateLivraison(e.target.value)}
-                required
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1">
+                  {locale === 'fr' ? 'Livraison promise pour le' : 'Promised delivery date'} *
+                </label>
+                <Input
+                  type="date"
+                  required
+                  value={dateLivraison}
+                  onChange={(e) => setDateLivraison(e.target.value)}
+                  className="rounded-2xl h-11 text-xs font-semibold"
+                />
+                {/* Avertissement non bloquant si date passée */}
+                {isPastDeliveryDate && (
+                  <p className="text-[11px] font-bold text-amber-700 mt-1">
+                    ⚠️ {locale === 'fr' ? 'Cette date de livraison est antérieure à aujourd’hui.' : 'This date is in the past.'}
+                  </p>
+                )}
+              </div>
 
-              <Input
-                label={dict.nouvelleCommande.assignedToLabel}
-                type="text"
-                placeholder={dict.nouvelleCommande.assignedToPlaceholder}
-                value={responsable}
-                onChange={(e) => setResponsable(e.target.value)}
-              />
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1">
+                  {locale === 'fr' ? 'Responsable couture' : 'Assigned tailor'}
+                </label>
+                <Input
+                  value={responsable}
+                  onChange={(e) => setResponsable(e.target.value)}
+                  placeholder="Ex : Maître Adia"
+                  className="rounded-2xl h-11 text-xs"
+                />
+              </div>
             </div>
           </Card>
 
-          <Button type="submit" variant="accent" fullWidth size="lg" disabled={loading || limitReached} className="gap-2 shadow-lg shadow-accent/20 cursor-pointer">
-            <Check className="w-5 h-5" />
-            <span>{loading ? dict.nouvelleCommande.submitting : dict.nouvelleCommande.submitButton}</span>
-          </Button>
+          {/* ── Barre d'action fixée en bas ──────────────────────────── */}
+          <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-sable/50 p-4 z-30 shadow-lg">
+            <div className="max-w-2xl mx-auto">
+              <Button
+                type="submit"
+                disabled={loading || limitReached}
+                className="w-full rounded-2xl h-12 bg-accent hover:bg-fonce text-white text-xs sm:text-sm font-bold shadow-md flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <Check className="w-5 h-5" />
+                <span>
+                  {loading
+                    ? (locale === 'fr' ? 'Enregistrement de la commande…' : 'Saving order…')
+                    : (locale === 'fr' ? 'Enregistrer la commande' : 'Save order')}
+                </span>
+              </Button>
+            </div>
+          </div>
+
         </form>
       </main>
     </div>
@@ -680,7 +705,13 @@ function NouvelleCommandeContent() {
 
 export default function NouvelleCommandePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-clair flex items-center justify-center"><ThreadSpoolLoader size="lg" /></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center">
+          <ThreadSpoolLoader size="lg" />
+        </div>
+      }
+    >
       <NouvelleCommandeContent />
     </Suspense>
   );
