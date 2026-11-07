@@ -31,20 +31,46 @@ import { compressImage } from '@/lib/utils/imageCompression';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useLanguage } from '@/lib/i18n';
 
+const COUNTRIES_LIST = [
+  'Bénin',
+  'Côte d’Ivoire',
+  'Sénégal',
+  'Togo',
+  'Cameroun',
+  'Burkina Faso',
+  'Mali',
+  'Guinée',
+  'Niger',
+  'Gabon',
+  'Congo',
+  'RDC',
+  'Ghana',
+  'Nigéria',
+  'France',
+  'Autre',
+];
+
+const CURRENCIES = ['FCFA', 'GNF', 'USD', 'EUR', 'GHS', 'NGN'];
+
 export default function GererVitrinePage() {
   const { user, couturier: authCouturier, refreshProfile } = useAuth();
   const { locale } = useLanguage();
   const [couturier, setCouturier] = useState<Couturier | null>(null);
   const [realisations, setRealisations] = useState<Realisation[]>([]);
 
+  // Navigation par 2 onglets : Galerie · Identité
+  const [activeTab, setActiveTab] = useState<'galerie' | 'identite'>('galerie');
+
   // Vitrine active status
   const [vitrineActive, setVitrineActive] = useState<boolean>(true);
   const [togglingStatus, setTogglingStatus] = useState(false);
 
   // Profile Form Fields
+  const [nomArtisan, setNomArtisan] = useState('');
   const [nomAtelier, setNomAtelier] = useState('');
   const [ville, setVille] = useState('');
-  const [pays, setPays] = useState('');
+  const [pays, setPays] = useState('Bénin');
+  const [devise, setDevise] = useState('FCFA');
   const [telephone, setTelephone] = useState('');
   const [slug, setSlug] = useState('');
   const [bio, setBio] = useState('');
@@ -88,9 +114,11 @@ export default function GererVitrinePage() {
     if (activeC) {
       setCouturier(activeC);
       setVitrineActive(activeC.vitrine_active ?? true);
+      setNomArtisan(activeC.nom && activeC.nom !== 'Artisan Couturier' ? activeC.nom : '');
       setNomAtelier(activeC.nom_atelier && activeC.nom_atelier !== 'Mon Atelier' ? activeC.nom_atelier : '');
       setVille(activeC.ville || '');
-      setPays(activeC.pays || '');
+      setPays(activeC.pays || 'Bénin');
+      setDevise(activeC.devise || 'FCFA');
       setTelephone(activeC.telephone || activeC.whatsapp_contact || '');
       setSlug(activeC.slug_vitrine || '');
       setBio(activeC.bio || '');
@@ -148,9 +176,11 @@ export default function GererVitrinePage() {
     const slugified = slug ? slug.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') : '';
 
     const updatePayload: Partial<Couturier> = {
+      nom: nomArtisan.trim() || undefined,
       nom_atelier: nomAtelier.trim(),
       ville: ville.trim(),
       pays: pays.trim(),
+      devise: devise.trim(),
       telephone: telephone.trim(),
       whatsapp_contact: telephone.trim(),
       bio: bio.trim().slice(0, 160),
@@ -423,387 +453,451 @@ export default function GererVitrinePage() {
           </div>
         </Card>
 
-        {/* ── Bloc 2 : Galerie de réalisations ───────────────────────── */}
-        <Card className="p-4 sm:p-5 rounded-3xl border border-sable/50 bg-white space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-display font-bold text-sombre">
-                {locale === 'fr' ? 'Galerie de vos créations' : 'Creations Gallery'}
-              </h2>
-              {/* Compteur uniquement pour le plan gratuit */}
-              {!isPro ? (
-                <p className="text-xs text-sombre/60 font-medium">
-                  {realisations.length}/{maxPhotos} {locale === 'fr' ? 'photos (Plan Gratuit)' : 'photos (Free Plan)'}
-                </p>
+        {/* ── Sélecteur d'onglets : Galerie · Identité ──────────────── */}
+        <div className="flex items-center gap-1.5 p-1 bg-white border border-sable/60 rounded-2xl shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('galerie')}
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
+              activeTab === 'galerie'
+                ? 'bg-sombre text-white shadow-xs'
+                : 'text-sombre/70 hover:text-sombre hover:bg-sable/20'
+            }`}
+          >
+            {locale === 'fr' ? 'Galerie' : 'Gallery'} ({realisations.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('identite')}
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer ${
+              activeTab === 'identite'
+                ? 'bg-sombre text-white shadow-xs'
+                : 'text-sombre/70 hover:text-sombre hover:bg-sable/20'
+            }`}
+          >
+            {locale === 'fr' ? 'Identité de l’atelier' : 'Workshop Profile'}
+          </button>
+        </div>
+
+        {/* ── Onglet 1 : Galerie de réalisations ───────────────────────── */}
+        {activeTab === 'galerie' && (
+          <Card className="p-4 sm:p-5 rounded-3xl border border-sable/50 bg-white space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-display font-bold text-sombre">
+                  {locale === 'fr' ? 'Galerie de vos créations' : 'Creations Gallery'}
+                </h2>
+                {/* Compteur uniquement pour le plan gratuit */}
+                {!isPro ? (
+                  <p className="text-xs text-sombre/60 font-medium">
+                    {realisations.length}/{maxPhotos} {locale === 'fr' ? 'photos (Plan Gratuit)' : 'photos (Free Plan)'}
+                  </p>
+                ) : (
+                  <p className="text-xs text-vertbouton font-semibold flex items-center gap-1">
+                    <span>{realisations.length} {locale === 'fr' ? 'photos publiées' : 'photos published'}</span>
+                    <span className="text-[10px] bg-vertbouton/10 px-1.5 py-0.5 rounded-full font-bold">Pro Illimité</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Input file caché déclenché par le bouton */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+
+              {!atPhotoLimit ? (
+                <Button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-full bg-accent hover:bg-accent/90 text-white text-xs font-bold px-4 h-10 flex items-center gap-1.5 shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{locale === 'fr' ? 'Ajouter une photo' : 'Add photo'}</span>
+                </Button>
               ) : (
-                <p className="text-xs text-vertbouton font-semibold flex items-center gap-1">
-                  <span>{realisations.length} {locale === 'fr' ? 'photos publiées' : 'photos published'}</span>
-                  <span className="text-[10px] bg-vertbouton/10 px-1.5 py-0.5 rounded-full font-bold">Pro Illimité</span>
-                </p>
+                <Link
+                  href="/pro"
+                  className="rounded-full bg-gold/15 text-sombre border border-gold/40 text-xs font-bold px-3.5 h-10 flex items-center gap-1.5 hover:bg-gold/25 transition-colors"
+                >
+                  <Lock className="w-3.5 h-3.5 text-accent" />
+                  <span>{locale === 'fr' ? 'Passer Pro' : 'Go Pro'}</span>
+                </Link>
               )}
             </div>
 
-            {/* Input file caché déclenché par le bouton */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
+            {/* Formulaire modal ou en-place lors de la sélection d'une photo */}
+            {selectedFile && previewUrl && (
+              <div className="bg-[#FAFAF8] rounded-2xl p-4 border border-sable/80 space-y-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={previewUrl}
+                    alt="Aperçu"
+                    className="w-16 h-16 rounded-xl object-cover border border-sable shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-sombre truncate">{selectedFile.name}</p>
+                    <p className="text-[11px] text-sombre/60">
+                      {(selectedFile.size / 1024).toFixed(0)} Ko · {locale === 'fr' ? 'Sera optimisée automatiquement' : 'Will be optimized'}
+                    </p>
+                  </div>
+                </div>
 
-            {!atPhotoLimit ? (
-              <Button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="rounded-full bg-accent hover:bg-accent/90 text-white text-xs font-bold px-4 h-10 flex items-center gap-1.5 shadow-xs"
-              >
-                <Plus className="w-4 h-4" />
-                <span>{locale === 'fr' ? 'Ajouter une photo' : 'Add photo'}</span>
-              </Button>
-            ) : (
-              <Link
-                href="/pro"
-                className="rounded-full bg-gold/15 text-sombre border border-gold/40 text-xs font-bold px-3.5 h-10 flex items-center gap-1.5 hover:bg-gold/25 transition-colors"
-              >
-                <Lock className="w-3.5 h-3.5 text-accent" />
-                <span>{locale === 'fr' ? 'Passer Pro' : 'Go Pro'}</span>
-              </Link>
+                {/* Barre de progression pendant compression/upload */}
+                {uploadProgress !== null && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-semibold text-fonce">
+                      <span>
+                        {uploadProgress < 50
+                          ? (locale === 'fr' ? 'Optimisation de la photo…' : 'Optimizing photo…')
+                          : (locale === 'fr' ? 'Publication sur la vitrine…' : 'Publishing to showcase…')}
+                      </span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-sable/40 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-accent h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {uploadError && (
+                  <div className="flex items-center gap-2 p-2 bg-rose-50 text-rose-800 rounded-xl text-xs">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                    <span>{uploadError}</span>
+                  </div>
+                )}
+
+                {/* Champ description facultatif */}
+                <div>
+                  <label className="block text-xs font-semibold text-sombre/80 mb-1">
+                    {locale === 'fr' ? 'Description (facultative)' : 'Description (optional)'}
+                  </label>
+                  <Input
+                    value={photoDescription}
+                    onChange={(e) => setPhotoDescription(e.target.value)}
+                    placeholder={locale === 'fr' ? 'Ex : Robe de cocktail en pagne tissé' : 'Ex: Evening gown in woven fabric'}
+                    disabled={isSubmittingPhoto}
+                    className="rounded-xl h-10 text-xs bg-white"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelUpload}
+                    disabled={isSubmittingPhoto}
+                    className="rounded-xl h-9 text-xs px-3 border-sable text-sombre/70"
+                  >
+                    {locale === 'fr' ? 'Annuler' : 'Cancel'}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handlePublishPhoto}
+                    disabled={isSubmittingPhoto}
+                    className="rounded-xl h-9 text-xs px-4 bg-accent hover:bg-accent/90 text-white font-bold flex items-center gap-1.5"
+                  >
+                    {isSubmittingPhoto && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>{locale === 'fr' ? 'Publier' : 'Publish'}</span>
+                  </Button>
+                </div>
+              </div>
             )}
-          </div>
 
-          {/* Formulaire modal ou en-place lors de la sélection d'une photo */}
-          {selectedFile && previewUrl && (
-            <div className="bg-[#FAFAF8] rounded-2xl p-4 border border-sable/80 space-y-3">
-              <div className="flex items-center gap-3">
-                <img
-                  src={previewUrl}
-                  alt="Aperçu"
-                  className="w-16 h-16 rounded-xl object-cover border border-sable shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-sombre truncate">{selectedFile.name}</p>
-                  <p className="text-[11px] text-sombre/60">
-                    {(selectedFile.size / 1024).toFixed(0)} Ko · {locale === 'fr' ? 'Sera optimisée automatiquement' : 'Will be optimized'}
+            {/* Grille des photos publiées */}
+            {realisations.length === 0 && !selectedFile ? (
+              <div className="text-center py-10 px-4 bg-[#FAFAF8] rounded-2xl border border-dashed border-sable/70 space-y-3">
+                <div className="w-12 h-12 mx-auto rounded-full bg-sable/30 flex items-center justify-center text-sombre/50">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-sombre">
+                    {locale === 'fr' ? 'Aucune photo publiée' : 'No photos yet'}
                   </p>
+                  <p className="text-[11px] text-sombre/60 mt-0.5">
+                    {locale === 'fr' ? 'Montrez vos plus belles réalisations à vos futurs clients.' : 'Showcase your finest creations to future clients.'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-full bg-sombre text-white text-xs font-bold px-4 h-9 shadow-xs"
+                >
+                  {locale === 'fr' ? 'Ajouter une première photo' : 'Add first photo'}
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+                {realisations.map((real) => (
+                  <div
+                    key={real.id}
+                    className="group relative aspect-square rounded-2xl overflow-hidden bg-sable/20 border border-sable/50 shadow-2xs"
+                  >
+                    <img
+                      src={real.photo_url}
+                      alt={real.description || 'Création'}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    {real.description && (
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-sombre/80 via-sombre/40 to-transparent p-2 text-white text-[11px] truncate">
+                        {real.description}
+                      </div>
+                    )}
+                    {/* Bouton supprimer */}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRealisation(real.id)}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-sombre/80 hover:bg-accent text-white flex items-center justify-center shadow-xs transition-colors"
+                      aria-label="Supprimer la photo"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* ── Onglet 2 : Profil de l'atelier (Identité) ────────────────── */}
+        {activeTab === 'identite' && (
+          <Card className="p-4 sm:p-5 rounded-3xl border border-sable/50 bg-white space-y-4">
+            <div>
+              <h2 className="text-sm font-display font-bold text-sombre">
+                {locale === 'fr' ? 'Profil & Identité de l’atelier' : 'Atelier Profile'}
+              </h2>
+              <p className="text-xs text-sombre/60">
+                {locale === 'fr' ? 'Informations publiques de votre atelier et coordonnées de contact' : 'Public studio details and contact info'}
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              {/* Ton nom & Nom atelier */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-sombre mb-1">
+                    {locale === 'fr' ? 'Ton nom et prénom' : 'Your full name'}
+                  </label>
+                  <Input
+                    value={nomArtisan}
+                    onChange={(e) => setNomArtisan(e.target.value)}
+                    placeholder="Ex : Adia Traoré"
+                    className="rounded-2xl h-11 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-sombre mb-1">
+                    {locale === 'fr' ? 'Nom de l’atelier' : 'Workshop name'} *
+                  </label>
+                  <Input
+                    required
+                    value={nomAtelier}
+                    onChange={(e) => setNomAtelier(e.target.value)}
+                    placeholder="Ex : Maison Adia Couture"
+                    className="rounded-2xl h-11 text-xs"
+                  />
                 </div>
               </div>
 
-              {/* Barre de progression pendant compression/upload */}
-              {uploadProgress !== null && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] font-semibold text-fonce">
-                    <span>
-                      {uploadProgress < 50
-                        ? (locale === 'fr' ? 'Optimisation de la photo…' : 'Optimizing photo…')
-                        : (locale === 'fr' ? 'Publication sur la vitrine…' : 'Publishing to showcase…')}
-                    </span>
-                    <span>{uploadProgress}%</span>
+              {/* Ville, Pays & Devise */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-sombre mb-1">
+                    {locale === 'fr' ? 'Ville' : 'City'}
+                  </label>
+                  <Input
+                    value={ville}
+                    onChange={(e) => setVille(e.target.value)}
+                    placeholder="Ex : Cotonou"
+                    className="rounded-2xl h-11 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-sombre mb-1">
+                    {locale === 'fr' ? 'Pays' : 'Country'}
+                  </label>
+                  <select
+                    value={pays}
+                    onChange={(e) => setPays(e.target.value)}
+                    className="w-full h-11 px-3 bg-white border border-sable/80 rounded-2xl text-xs font-semibold text-sombre focus:outline-hidden focus:border-fonce"
+                  >
+                    {COUNTRIES_LIST.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-sombre mb-1">
+                    {locale === 'fr' ? 'Devise' : 'Currency'}
+                  </label>
+                  <select
+                    value={devise}
+                    onChange={(e) => setDevise(e.target.value)}
+                    className="w-full h-11 px-3 bg-white border border-sable/80 rounded-2xl text-xs font-semibold text-sombre focus:outline-hidden focus:border-fonce"
+                  >
+                    {CURRENCIES.map((cur) => (
+                      <option key={cur} value={cur}>
+                        {cur}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* WhatsApp contact */}
+              <div>
+                <label className="block text-xs font-bold text-sombre mb-1">
+                  {locale === 'fr' ? 'Numéro WhatsApp professionnel' : 'Professional WhatsApp'}
+                </label>
+                <Input
+                  type="tel"
+                  value={telephone}
+                  onChange={(e) => setTelephone(e.target.value)}
+                  placeholder="Ex : +229 97 00 00 00"
+                  className="rounded-2xl h-11 text-xs"
+                />
+                <p className="text-[11px] text-sombre/50 mt-1">
+                  {locale === 'fr' ? 'Utilisé pour le bouton « Contacter sur WhatsApp » de votre vitrine.' : 'Used for the “Contact on WhatsApp” button on your showcase.'}
+                </p>
+              </div>
+
+              {/* Bio (max 160 caractères) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-sombre">
+                    {locale === 'fr' ? 'Bio de présentation' : 'Presentation Bio'}
+                  </label>
+                  <span className={`text-[10px] font-mono ${bio.length > 150 ? 'text-accent font-bold' : 'text-sombre/50'}`}>
+                    {bio.length}/160
+                  </span>
+                </div>
+                <textarea
+                  value={bio}
+                  maxLength={160}
+                  onChange={(e) => setBio(e.target.value)}
+                  rows={3}
+                  placeholder={locale === 'fr' ? 'Présentez votre style, vos créations et vos spécialités couture…' : 'Share your style and tailor specialties…'}
+                  className="w-full rounded-2xl border border-sable/80 p-3 text-xs bg-white text-sombre focus:border-fonce focus:outline-hidden transition-colors"
+                />
+              </div>
+
+              {/* Logo & Bannière */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                {/* Logo */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-sombre">
+                    {locale === 'fr' ? 'Logo ou Photo de profil' : 'Logo or Profile Photo'}
+                  </label>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleMediaUpload(f, setLogoUrl);
+                    }}
+                  />
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-2xl bg-sable/30 border border-sable overflow-hidden flex items-center justify-center shrink-0">
+                      {logoUrl ? (
+                        <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera className="w-5 h-5 text-sombre/40" />
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => logoInputRef.current?.click()}
+                      className="rounded-xl h-9 text-xs px-3 border-sable text-sombre hover:bg-sable/20"
+                    >
+                      {logoUrl ? (locale === 'fr' ? 'Changer' : 'Change') : (locale === 'fr' ? 'Choisir un logo' : 'Choose logo')}
+                    </Button>
                   </div>
-                  <div className="w-full bg-sable/40 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-accent h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
+                </div>
+
+                {/* Bannière */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-sombre">
+                    {locale === 'fr' ? 'Photo de couverture' : 'Cover banner'}
+                  </label>
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleMediaUpload(f, setCoverUrl);
+                    }}
+                  />
+                  <div className="flex items-center gap-3">
+                    <div className="w-20 h-14 rounded-2xl bg-sable/30 border border-sable overflow-hidden flex items-center justify-center shrink-0">
+                      {coverUrl ? (
+                        <img src={coverUrl} alt="Bannière" className="w-full h-full object-cover" />
+                      ) : (
+                        <ImageIcon className="w-5 h-5 text-sombre/40" />
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => coverInputRef.current?.click()}
+                      className="rounded-xl h-9 text-xs px-3 border-sable text-sombre hover:bg-sable/20"
+                    >
+                      {coverUrl ? (locale === 'fr' ? 'Changer' : 'Change') : (locale === 'fr' ? 'Choisir une photo' : 'Choose photo')}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Slug modifiable seulement en Pro */}
+              {isPro && (
+                <div className="pt-2">
+                  <label className="block text-xs font-bold text-sombre mb-1">
+                    {locale === 'fr' ? 'Lien personnalisé (Avantage Pro)' : 'Custom URL Slug (Pro Perk)'}
+                  </label>
+                  <div className="flex items-center rounded-2xl border border-sable/80 bg-white px-3 h-11 text-xs">
+                    <span className="text-sombre/50 mr-1">ourlette.app/</span>
+                    <input
+                      value={slug}
+                      onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      placeholder="mon-atelier"
+                      className="flex-1 bg-transparent font-medium text-sombre focus:outline-hidden"
                     />
                   </div>
                 </div>
               )}
 
-              {uploadError && (
-                <div className="flex items-center gap-2 p-2 bg-rose-50 text-rose-800 rounded-xl text-xs">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                  <span>{uploadError}</span>
+              {savedSuccessMsg && (
+                <div className="p-3 bg-emerald-50 text-emerald-800 rounded-2xl text-xs font-medium flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{savedSuccessMsg}</span>
                 </div>
               )}
 
-              {/* Champ description facultatif */}
-              <div>
-                <label className="block text-xs font-semibold text-sombre/80 mb-1">
-                  {locale === 'fr' ? 'Description (facultative)' : 'Description (optional)'}
-                </label>
-                <Input
-                  value={photoDescription}
-                  onChange={(e) => setPhotoDescription(e.target.value)}
-                  placeholder={locale === 'fr' ? 'Ex : Robe de cocktail en pagne tissé' : 'Ex: Evening gown in woven fabric'}
-                  disabled={isSubmittingPhoto}
-                  className="rounded-xl h-10 text-xs bg-white"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCancelUpload}
-                  disabled={isSubmittingPhoto}
-                  className="rounded-xl h-9 text-xs px-3 border-sable text-sombre/70"
-                >
-                  {locale === 'fr' ? 'Annuler' : 'Cancel'}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handlePublishPhoto}
-                  disabled={isSubmittingPhoto}
-                  className="rounded-xl h-9 text-xs px-4 bg-accent hover:bg-accent/90 text-white font-bold flex items-center gap-1.5"
-                >
-                  {isSubmittingPhoto && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{locale === 'fr' ? 'Publier' : 'Publish'}</span>
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Grille des photos publiées */}
-          {realisations.length === 0 && !selectedFile ? (
-            <div className="text-center py-10 px-4 bg-[#FAFAF8] rounded-2xl border border-dashed border-sable/70 space-y-3">
-              <div className="w-12 h-12 mx-auto rounded-full bg-sable/30 flex items-center justify-center text-sombre/50">
-                <ImageIcon className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-sombre">
-                  {locale === 'fr' ? 'Aucune photo publiée' : 'No photos yet'}
-                </p>
-                <p className="text-[11px] text-sombre/60 mt-0.5">
-                  {locale === 'fr' ? 'Montrez vos plus belles réalisations à vos futurs clients.' : 'Showcase your finest creations to future clients.'}
-                </p>
-              </div>
               <Button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="rounded-full bg-sombre text-white text-xs font-bold px-4 h-9 shadow-xs"
+                type="submit"
+                disabled={savingProfile}
+                className="w-full rounded-2xl h-11 bg-sombre hover:bg-fonce text-white text-xs font-bold shadow-xs transition-colors"
               >
-                {locale === 'fr' ? 'Ajouter une première photo' : 'Add first photo'}
+                {savingProfile
+                  ? (locale === 'fr' ? 'Enregistrement…' : 'Saving…')
+                  : (locale === 'fr' ? 'Enregistrer les modifications' : 'Save atelier profile')}
               </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
-              {realisations.map((real) => (
-                <div
-                  key={real.id}
-                  className="group relative aspect-square rounded-2xl overflow-hidden bg-sable/20 border border-sable/50 shadow-2xs"
-                >
-                  <img
-                    src={real.photo_url}
-                    alt={real.description || 'Création'}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  {real.description && (
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-sombre/80 via-sombre/40 to-transparent p-2 text-white text-[11px] truncate">
-                      {real.description}
-                    </div>
-                  )}
-                  {/* Bouton supprimer */}
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteRealisation(real.id)}
-                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-sombre/80 hover:bg-accent text-white flex items-center justify-center shadow-xs transition-colors"
-                    aria-label="Supprimer la photo"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        {/* ── Bloc 3 : Profil de l'atelier ───────────────────────────── */}
-        <Card className="p-4 sm:p-5 rounded-3xl border border-sable/50 bg-white space-y-4">
-          <div>
-            <h2 className="text-sm font-display font-bold text-sombre">
-              {locale === 'fr' ? 'Profil de l’atelier' : 'Atelier Profile'}
-            </h2>
-            <p className="text-xs text-sombre/60">
-              {locale === 'fr' ? 'Informations publiques affichées sur votre vitrine' : 'Public information displayed on your showcase'}
-            </p>
-          </div>
-
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            {/* Nom atelier */}
-            <div>
-              <label className="block text-xs font-bold text-sombre mb-1">
-                {locale === 'fr' ? 'Nom de l’atelier' : 'Workshop name'} *
-              </label>
-              <Input
-                required
-                value={nomAtelier}
-                onChange={(e) => setNomAtelier(e.target.value)}
-                placeholder="Ex : Maison Adia Couture"
-                className="rounded-2xl h-11 text-xs"
-              />
-            </div>
-
-            {/* Ville & Pays */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-sombre mb-1">
-                  {locale === 'fr' ? 'Ville' : 'City'}
-                </label>
-                <Input
-                  value={ville}
-                  onChange={(e) => setVille(e.target.value)}
-                  placeholder="Ex : Cotonou"
-                  className="rounded-2xl h-11 text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-sombre mb-1">
-                  {locale === 'fr' ? 'Pays' : 'Country'}
-                </label>
-                <Input
-                  value={pays}
-                  onChange={(e) => setPays(e.target.value)}
-                  placeholder="Ex : Bénin"
-                  className="rounded-2xl h-11 text-xs"
-                />
-              </div>
-            </div>
-
-            {/* WhatsApp contact */}
-            <div>
-              <label className="block text-xs font-bold text-sombre mb-1">
-                {locale === 'fr' ? 'Numéro WhatsApp de contact' : 'WhatsApp Contact Number'}
-              </label>
-              <Input
-                type="tel"
-                value={telephone}
-                onChange={(e) => setTelephone(e.target.value)}
-                placeholder="Ex : +229 97 00 00 00"
-                className="rounded-2xl h-11 text-xs"
-              />
-              <p className="text-[11px] text-sombre/50 mt-1">
-                {locale === 'fr' ? 'Utilisé pour le bouton « Contacter sur WhatsApp » de votre vitrine.' : 'Used for the “Contact on WhatsApp” button on your showcase.'}
-              </p>
-            </div>
-
-            {/* Bio (max 160 caractères) */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-sombre">
-                  {locale === 'fr' ? 'Bio de présentation' : 'Presentation Bio'}
-                </label>
-                <span className={`text-[10px] font-mono ${bio.length > 150 ? 'text-accent font-bold' : 'text-sombre/50'}`}>
-                  {bio.length}/160
-                </span>
-              </div>
-              <textarea
-                value={bio}
-                maxLength={160}
-                onChange={(e) => setBio(e.target.value)}
-                rows={3}
-                placeholder={locale === 'fr' ? 'Présentez votre style, vos créations et vos spécialités couture…' : 'Share your style and tailor specialties…'}
-                className="w-full rounded-2xl border border-sable/80 p-3 text-xs bg-white text-sombre focus:border-fonce focus:outline-hidden transition-colors"
-              />
-            </div>
-
-            {/* Logo & Bannière */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-              {/* Logo */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-sombre">
-                  {locale === 'fr' ? 'Logo ou Photo de profil' : 'Logo or Profile Photo'}
-                </label>
-                <input
-                  ref={logoInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleMediaUpload(f, setLogoUrl);
-                  }}
-                />
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-sable/30 border border-sable overflow-hidden flex items-center justify-center shrink-0">
-                    {logoUrl ? (
-                      <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
-                    ) : (
-                      <Camera className="w-5 h-5 text-sombre/40" />
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => logoInputRef.current?.click()}
-                    className="rounded-xl h-9 text-xs px-3 border-sable text-sombre hover:bg-sable/20"
-                  >
-                    {logoUrl ? (locale === 'fr' ? 'Changer' : 'Change') : (locale === 'fr' ? 'Choisir un logo' : 'Choose logo')}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Bannière */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-sombre">
-                  {locale === 'fr' ? 'Photo de couverture' : 'Cover banner'}
-                </label>
-                <input
-                  ref={coverInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleMediaUpload(f, setCoverUrl);
-                  }}
-                />
-                <div className="flex items-center gap-3">
-                  <div className="w-20 h-14 rounded-2xl bg-sable/30 border border-sable overflow-hidden flex items-center justify-center shrink-0">
-                    {coverUrl ? (
-                      <img src={coverUrl} alt="Bannière" className="w-full h-full object-cover" />
-                    ) : (
-                      <ImageIcon className="w-5 h-5 text-sombre/40" />
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => coverInputRef.current?.click()}
-                    className="rounded-xl h-9 text-xs px-3 border-sable text-sombre hover:bg-sable/20"
-                  >
-                    {coverUrl ? (locale === 'fr' ? 'Changer' : 'Change') : (locale === 'fr' ? 'Choisir une photo' : 'Choose photo')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Slug modifiable seulement en Pro */}
-            {isPro && (
-              <div className="pt-2">
-                <label className="block text-xs font-bold text-sombre mb-1">
-                  {locale === 'fr' ? 'Lien personnalisé (Avantage Pro)' : 'Custom URL Slug (Pro Perk)'}
-                </label>
-                <div className="flex items-center rounded-2xl border border-sable/80 bg-white px-3 h-11 text-xs">
-                  <span className="text-sombre/50 mr-1">ourlette.app/</span>
-                  <input
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                    placeholder="mon-atelier"
-                    className="flex-1 bg-transparent font-medium text-sombre focus:outline-hidden"
-                  />
-                </div>
-              </div>
-            )}
-
-            {savedSuccessMsg && (
-              <div className="p-3 bg-emerald-50 text-emerald-800 rounded-2xl text-xs font-medium flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>{savedSuccessMsg}</span>
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              disabled={savingProfile}
-              className="w-full rounded-2xl h-11 bg-sombre hover:bg-fonce text-white text-xs font-bold shadow-xs transition-colors"
-            >
-              {savingProfile
-                ? (locale === 'fr' ? 'Enregistrement…' : 'Saving…')
-                : (locale === 'fr' ? 'Enregistrer les modifications' : 'Save atelier profile')}
-            </Button>
-          </form>
-        </Card>
+            </form>
+          </Card>
+        )}
 
       </main>
     </div>

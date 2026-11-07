@@ -538,7 +538,7 @@ export const en: Translations = {
     filterPayments: 'Payments',
     markAllRead: 'Mark all as read',
     clearAll: 'Clear history',
-    emptyTitle: 'No notifications',
+    emptyTitle: 'Nothing new',
     emptyDesc: 'Your workshop is all caught up. No pending alerts.',
     overdueWarningTitle: 'Garment delivery overdue!',
     fittingReminderTitle: 'Fitting or finishing reminder',

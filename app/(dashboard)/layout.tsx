@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Header } from '@/components/ui/Header';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { NotificationProvider } from '@/lib/context/NotificationContext';
 import { ThreadSpoolLoader } from '@/components/ui/ThreadSpoolLoader';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -30,6 +31,9 @@ export default function DashboardLayout({
       <NotificationProvider>
         {/* Header fixe — monté une seule fois pour tout le dashboard */}
         <Header />
+
+        {/* Bandeau hors ligne — visible uniquement lors des pertes de connexion */}
+        <OfflineBanner />
 
         {/* Contenu : offset pour header fixe 64px */}
         <div className="pt-[64px]">

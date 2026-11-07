@@ -538,7 +538,7 @@ export const fr: Translations = {
     filterPayments: 'Paiements',
     markAllRead: 'Tout marquer comme lu',
     clearAll: 'Effacer l’historique',
-    emptyTitle: 'Aucune notification',
+    emptyTitle: 'Rien de nouveau',
     emptyDesc: 'Votre atelier est à jour. Aucune alerte en attente.',
     overdueWarningTitle: 'Commande en retard de livraison !',
     fittingReminderTitle: 'Rappel d’essayage ou finition',

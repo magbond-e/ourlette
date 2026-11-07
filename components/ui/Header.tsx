@@ -9,7 +9,6 @@ import { MockStorageService } from '@/lib/services/mockStorage';
 import { Couturier } from '@/lib/types/database';
 import { Button } from '@/components/ui/Button';
 import { NotificationDropdown } from '@/components/ui/NotificationDropdown';
-import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { useLanguage } from '@/lib/i18n';
 
 export const Header: React.FC = () => {
@@ -107,42 +106,31 @@ export const Header: React.FC = () => {
             })}
           </nav>
 
-          {/* Right: Quick Action CTA & Atelier Status & Notifications & Language */}
+          {/* Right: Quick Action CTA & Notification Dropdown */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* Statut de connexion dynamique : En ligne (vert) / Hors ligne (rouge) */}
-            <div
-              className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
-                isOnline
-                  ? 'bg-emerald-50/90 border-emerald-200/80 text-emerald-800'
-                  : 'bg-rose-50/90 border-rose-300 text-rose-700 shadow-xs'
-              }`}
-              title={isOnline ? dict.common.online : dict.common.offline}
-            >
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  isOnline
-                    ? 'bg-emerald-500 animate-pulse'
-                    : 'bg-rose-500'
-                }`}
-              />
-              <span className="leading-none">{isOnline ? dict.common.online : dict.common.offline}</span>
-            </div>
-
-            {/* Language Switcher (Desktop only, mobile has it in Paramètres) */}
-            <div className="hidden md:inline-flex">
-              <LanguageSwitcher />
-            </div>
+            {/* Statut de connexion : Visible UNIQUEMENT si hors-ligne */}
+            {!isOnline && (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border bg-rose-50 border-rose-300 text-rose-700 shadow-xs"
+                title={dict.common.offline}
+              >
+                <span className="w-2 h-2 rounded-full shrink-0 bg-rose-500" />
+                <span className="leading-none">{dict.common.offline}</span>
+              </div>
+            )}
 
             {/* Notification Dropdown Icon */}
             <NotificationDropdown />
 
-            {/* Hidden on phone/mobile header, visible on desktop/PC */}
-            <Link href="/commandes/nouvelle" className="hidden md:inline-flex">
-              <Button variant="accent" size="sm" className="rounded-full text-xs font-bold px-4 py-1.5 shadow-sm gap-1.5">
-                <Plus className="w-3.5 h-3.5" />
-                <span>{dict.nav.newOrder}</span>
-              </Button>
-            </Link>
+            {/* Bouton Nouvelle commande desktop : Masqué si déjà sur /commandes/nouvelle */}
+            {pathname !== '/commandes/nouvelle' && (
+              <Link href="/commandes/nouvelle" className="hidden md:inline-flex">
+                <Button variant="accent" size="sm" className="rounded-full text-xs font-bold px-4 py-1.5 shadow-sm gap-1.5">
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{dict.nav.newOrder}</span>
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>

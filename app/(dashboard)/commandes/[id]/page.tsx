@@ -265,8 +265,8 @@ export default function CommandeDetailPage() {
     : `Bonjour ${commande.client_nom || ''}, votre commande "${commande.description}" est prête à l'atelier ! Vous pouvez passer la récupérer.`;
 
   const msgReminderBalance = isEn
-    ? `Hello ${commande.client_nom || ''}, regarding your order "${commande.description}", there is a remaining balance of ${formatFCFA(soldeRestant)} FCFA. Thank you!`
-    : `Bonjour ${commande.client_nom || ''}, concernant votre commande "${commande.description}", il reste un solde de ${formatFCFA(soldeRestant)} FCFA. Merci !`;
+    ? `Hello ${commande.client_nom || ''}, regarding your order "${commande.description}", there is a remaining balance of ${formatFCFA(soldeRestant)}. Thank you!`
+    : `Bonjour ${commande.client_nom || ''}, concernant votre commande "${commande.description}", il reste un solde de ${formatFCFA(soldeRestant)}. Merci !`;
 
   const waReadyUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgOrderReady)}`;
   const waReminderUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgReminderBalance)}`;
@@ -408,7 +408,7 @@ export default function CommandeDetailPage() {
               className="w-full h-11 rounded-2xl bg-sombre hover:bg-fonce text-gold text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
             >
               <DollarSign className="w-4 h-4 text-gold" />
-              <span>{locale === 'fr' ? `Relancer le solde (${formatFCFA(soldeRestant)} FCFA)` : `Remind balance (${formatFCFA(soldeRestant)} FCFA)`}</span>
+              <span>{locale === 'fr' ? `Relancer le solde (${formatFCFA(soldeRestant)})` : `Remind balance (${formatFCFA(soldeRestant)})`}</span>
             </a>
           )}
         </div>
@@ -554,7 +554,7 @@ export default function CommandeDetailPage() {
                   <div key={vers.id || idx} className="flex items-center justify-between p-2.5 bg-[#FAFAF8] rounded-xl text-xs border border-sable/40">
                     <div>
                       <span className="font-bold text-sombre">
-                        {formatFCFA(vers.montant)} FCFA
+                        {formatFCFA(vers.montant)}
                       </span>
                       {vers.note && <p className="text-[11px] text-sombre/60 italic">{vers.note}</p>}
                     </div>

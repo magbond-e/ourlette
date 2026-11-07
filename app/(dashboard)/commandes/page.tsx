@@ -130,12 +130,12 @@ export default function CommandesPage() {
 
   const filterTabs = [
     { id: 'actives', label: isEn ? 'Active' : 'Actives', count: totalActives },
-    ...(overdueCount > 0 ? [{ id: 'retard', label: isEn ? 'Overdue' : 'En retard', count: overdueCount }] : []),
     ...statutsOrder.map((s) => ({
       id: s.id,
       label: s.label,
       count: commandes.filter((c) => c.statut === s.id).length,
     })),
+    ...(overdueCount > 0 ? [{ id: 'retard', label: isEn ? 'Overdue' : 'En retard', count: overdueCount }] : []),
     { id: 'toutes', label: dict.commandes.tabAll, count: commandes.length },
   ];
 
@@ -196,7 +196,6 @@ export default function CommandesPage() {
                 >
                   {formatFCFA(montantTotalAEncaisser)}
                 </span>
-                <span className="text-[10px] sm:text-[11px] font-bold text-sombre/50 uppercase shrink-0 ml-1">FCFA</span>
               </div>
             </Card>
           </div>
@@ -242,13 +241,15 @@ export default function CommandesPage() {
                   }`}
                 >
                   <span>{tab.label}</span>
-                  <span
-                    className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-sombre/10 text-sombre/80'
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
+                  {tab.count > 0 && (
+                    <span
+                      className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-sombre/10 text-sombre/80'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
                 </button>
               );
             })}

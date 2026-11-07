@@ -287,9 +287,6 @@ function NouvelleCommandeContent() {
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>{dict.nouvelleCommande.backButton}</span>
           </Link>
-          <span className="text-[11px] font-bold text-fonce bg-sable/30 px-3 py-1 rounded-full">
-            {locale === 'fr' ? 'Nouvelle commande' : 'New order'}
-          </span>
         </div>
 
         {/* Bloc d'avertissement limite */}
@@ -331,9 +328,9 @@ function NouvelleCommandeContent() {
           <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold uppercase tracking-wider text-fonce">
-                1. {locale === 'fr' ? 'Client' : 'Client'} *
+                {locale === 'fr' ? 'Client' : 'Client'} *
               </label>
-              {!showNewClientForm && (
+              {!showNewClientForm && clients.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowNewClientForm(true)}
@@ -381,21 +378,21 @@ function NouvelleCommandeContent() {
                     onClick={handleCreateClientOnTheFly}
                     className="rounded-xl h-9 text-xs px-4 bg-accent hover:bg-accent/90 text-white font-bold"
                   >
-                    {locale === 'fr' ? 'Enregistrer le client' : 'Save client'}
+                    {locale === 'fr' ? 'Enregistrer' : 'Save'}
                   </Button>
                 </div>
               </div>
             ) : clients.length === 0 ? (
               <div className="p-4 bg-[#FAFAF8] rounded-2xl border border-dashed border-sable text-center space-y-2">
                 <p className="text-xs text-sombre/70 font-semibold">
-                  {locale === 'fr' ? 'Aucun client enregistré' : 'No clients found'}
+                  {locale === 'fr' ? 'Aucun client. Crée le premier.' : 'No clients yet. Create the first one.'}
                 </p>
                 <Button
                   type="button"
                   onClick={() => setShowNewClientForm(true)}
-                  className="rounded-full bg-sombre text-white text-xs font-bold h-9 px-4"
+                  className="rounded-full bg-accent hover:bg-accent/90 text-white text-xs font-bold h-9 px-4 shadow-xs"
                 >
-                  + {locale === 'fr' ? 'Ajouter un premier client' : 'Add first client'}
+                  + {locale === 'fr' ? 'Nouveau client' : 'New client'}
                 </Button>
               </div>
             ) : (
@@ -424,6 +421,20 @@ function NouvelleCommandeContent() {
             )}
           </Card>
 
+          {/* Demande explicite de mesures si retouche et replié */}
+          {selectedClientId && typeCommande === 'retouche' && !showMesuresAccordion && (
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => setShowMesuresAccordion(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-fonce/80 hover:text-accent cursor-pointer"
+              >
+                <Ruler className="w-3.5 h-3.5" />
+                <span>+ {locale === 'fr' ? 'Prendre des mesures pour cette retouche' : 'Add measurements for this alteration'}</span>
+              </button>
+            </div>
+          )}
+
           {/* ── 2. SECTION : MESURES (Accordéon) ──────────────────────── */}
           {selectedClientId && (typeCommande === 'couture_complete' || showMesuresAccordion) && (
             <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
@@ -434,7 +445,7 @@ function NouvelleCommandeContent() {
                 <div className="flex items-center gap-2">
                   <Ruler className="w-4 h-4 text-fonce" />
                   <span className="text-xs font-bold uppercase tracking-wider text-fonce">
-                    2. {locale === 'fr' ? 'Mesures du client' : 'Measurements'}
+                    {locale === 'fr' ? 'Mesures' : 'Measurements'}
                   </span>
                   {clientMesure && !showMesuresAccordion && (
                     <span className="text-[11px] text-vertbouton font-semibold bg-vertbouton/10 px-2 py-0.5 rounded-full">
@@ -508,7 +519,7 @@ function NouvelleCommandeContent() {
           {/* ── 3. SECTION : TYPE DE COMMANDE ─────────────────────────── */}
           <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
             <label className="text-xs font-bold uppercase tracking-wider text-fonce">
-              3. {locale === 'fr' ? 'Type de prestation' : 'Order Type'} *
+              {locale === 'fr' ? 'Type' : 'Type'} *
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -542,7 +553,7 @@ function NouvelleCommandeContent() {
           {/* ── 4. SECTION : DÉTAILS ───────────────────────────────────── */}
           <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
             <label className="text-xs font-bold uppercase tracking-wider text-fonce">
-              4. {locale === 'fr' ? 'Détails du modèle' : 'Details'} *
+              {locale === 'fr' ? 'Détails' : 'Details'} *
             </label>
 
             <div>
@@ -568,12 +579,12 @@ function NouvelleCommandeContent() {
             {typeCommande === 'couture_complete' && (
               <div>
                 <label className="block text-xs font-bold text-sombre mb-1">
-                  {locale === 'fr' ? 'Tissu fourni' : 'Fabric'} ({locale === 'fr' ? 'facultatif' : 'optional'})
+                  {locale === 'fr' ? 'Tissu' : 'Fabric'} ({locale === 'fr' ? 'facultatif' : 'optional'})
                 </label>
                 <Input
                   value={tissu}
                   onChange={(e) => setTissu(e.target.value)}
-                  placeholder="Ex : Wax Hollandais 3 pagnes, Bazin riche bleu ciel"
+                  placeholder="Ex : Wax Hollandais, Bazin riche"
                   className="rounded-2xl h-11 text-xs"
                 />
               </div>
@@ -584,7 +595,7 @@ function NouvelleCommandeContent() {
           <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold uppercase tracking-wider text-fonce">
-                5. {locale === 'fr' ? 'Montant & Acompte' : 'Pricing'}
+                {locale === 'fr' ? 'Argent' : 'Pricing'}
               </label>
               <span className="text-[10px] text-sombre/50 italic">
                 {locale === 'fr' ? 'Prix facultatif à la création' : 'Price optional initially'}
@@ -594,30 +605,38 @@ function NouvelleCommandeContent() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-sombre mb-1">
-                  {locale === 'fr' ? 'Prix total' : 'Total price'} (FCFA)
+                  {locale === 'fr' ? 'Prix total' : 'Total price'}
                 </label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={prixTotal}
-                  onChange={(e) => setPrixTotal(e.target.value)}
-                  placeholder="Ex : 25 000"
-                  className="rounded-2xl h-11 text-xs font-semibold"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={prixTotal}
+                    onChange={(e) => setPrixTotal(e.target.value)}
+                    className="w-full h-11 px-3 pr-12 bg-white border border-sable/80 rounded-2xl text-xs font-semibold text-sombre focus:outline-hidden focus:border-fonce"
+                  />
+                  <span className="absolute right-3 top-3 text-[11px] font-bold text-sombre/40 pointer-events-none">
+                    FCFA
+                  </span>
+                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-sombre mb-1">
-                  {locale === 'fr' ? 'Acompte versé' : 'Deposit paid'} (FCFA)
+                  {locale === 'fr' ? 'Acompte' : 'Deposit'}
                 </label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={acompte}
-                  onChange={(e) => setAcompte(e.target.value)}
-                  placeholder="Ex : 10 000"
-                  className="rounded-2xl h-11 text-xs font-semibold"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={acompte}
+                    onChange={(e) => setAcompte(e.target.value)}
+                    className="w-full h-11 px-3 pr-12 bg-white border border-sable/80 rounded-2xl text-xs font-semibold text-sombre focus:outline-hidden focus:border-fonce"
+                  />
+                  <span className="absolute right-3 top-3 text-[11px] font-bold text-sombre/40 pointer-events-none">
+                    FCFA
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -628,27 +647,29 @@ function NouvelleCommandeContent() {
               </p>
             )}
 
-            {/* Solde calculé en direct */}
-            <div className="p-3 bg-[#FAFAF8] rounded-2xl flex items-center justify-between text-xs border border-sable/50">
-              <span className="font-bold text-sombre">
-                {locale === 'fr' ? 'Solde restant dû' : 'Remaining balance'} :
-              </span>
-              <span className={`font-extrabold text-sm ${currentSolde > 0 ? 'text-vertbouton' : 'text-sombre/60'}`}>
-                {formatFCFA(currentSolde)} <span className="text-[10px] uppercase">FCFA</span>
-              </span>
-            </div>
+            {/* Solde calculé en direct — Affiché UNIQUEMENT quand un prix est saisi */}
+            {numPrixTotal > 0 && (
+              <div className="p-3 bg-[#FAFAF8] rounded-2xl flex items-center justify-between text-xs border border-sable/50">
+                <span className="font-bold text-sombre">
+                  {locale === 'fr' ? 'Solde restant dû' : 'Remaining balance'} :
+                </span>
+                <span className={`font-extrabold text-sm ${currentSolde > 0 ? 'text-vertbouton' : 'text-sombre/60'}`}>
+                  {formatFCFA(currentSolde)}
+                </span>
+              </div>
+            )}
           </Card>
 
           {/* ── 6. SECTION : LIVRAISON ─────────────────────────────────── */}
           <Card className="p-4 sm:p-5 rounded-3xl bg-white border border-sable/60 shadow-2xs space-y-3">
             <label className="text-xs font-bold uppercase tracking-wider text-fonce">
-              6. {locale === 'fr' ? 'Date de livraison' : 'Delivery date'} *
+              {locale === 'fr' ? 'Livraison' : 'Delivery'} *
             </label>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-sombre mb-1">
-                  {locale === 'fr' ? 'Livraison promise pour le' : 'Promised delivery date'} *
+                  {locale === 'fr' ? 'Livraison prévue' : 'Estimated delivery'} *
                 </label>
                 <Input
                   type="date"
@@ -667,7 +688,7 @@ function NouvelleCommandeContent() {
 
               <div>
                 <label className="block text-xs font-bold text-sombre mb-1">
-                  {locale === 'fr' ? 'Responsable couture' : 'Assigned tailor'}
+                  {locale === 'fr' ? 'Responsable' : 'Responsible'}
                 </label>
                 <Input
                   value={responsable}

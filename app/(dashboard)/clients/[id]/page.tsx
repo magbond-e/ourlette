@@ -156,7 +156,7 @@ export default function ClientDetailPage() {
   };
 
   const handleDeleteClient = async () => {
-    if (!user?.id || !client?.id) return;
+    if (!user?.id || !client?.id || activeCount > 0) return;
     setDeleting(true);
 
     const success = await DataService.deleteClient(user.id, client.id);

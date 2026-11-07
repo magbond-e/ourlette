@@ -266,9 +266,8 @@ export const NotificationDropdown: React.FC = () => {
                 <div className="w-12 h-12 mx-auto rounded-full bg-[#FAFAF8] border border-sable/50 flex items-center justify-center text-sombre/40">
                   <Bell className="w-6 h-6" />
                 </div>
-                <p className="text-xs font-bold text-sombre/70">{dict.notifications.emptyTitle}</p>
-                <p className="text-[11px] text-sombre/50">
-                  {dict.notifications.emptyDesc}
+                <p className="text-xs font-bold text-sombre/70">
+                  {locale === 'fr' ? 'Rien de nouveau' : 'Nothing new'}
                 </p>
               </div>
             ) : (

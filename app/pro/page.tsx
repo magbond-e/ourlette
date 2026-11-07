@@ -202,7 +202,7 @@ export default function ProUpgradePage() {
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-3xl sm:text-4xl font-display font-bold text-sombre">
-                {formatFCFA(PRO_PLAN_PRICE)} FCFA
+                {formatFCFA(PRO_PLAN_PRICE)}
               </span>
               <span className="text-xs text-sombre/60 font-semibold">
                 /{locale === 'fr' ? 'mois' : 'month'}
@@ -335,7 +335,7 @@ export default function ProUpgradePage() {
                 <span>
                   {processingPayment
                     ? (locale === 'fr' ? 'Ouverture du paiement SasPay…' : 'Opening checkout…')
-                    : (locale === 'fr' ? `Payer ${formatFCFA(PRO_PLAN_PRICE)} FCFA` : `Pay ${formatFCFA(PRO_PLAN_PRICE)} FCFA`)}
+                    : (locale === 'fr' ? `Payer ${formatFCFA(PRO_PLAN_PRICE)}` : `Pay ${formatFCFA(PRO_PLAN_PRICE)}`)}
                 </span>
                 <ArrowRight className="w-4 h-4 ml-auto" />
               </Button>

@@ -172,7 +172,7 @@ export default function ClientsPage() {
             <Card className="w-full max-w-md bg-white p-5 space-y-4 shadow-xl border border-sable rounded-3xl">
               <div className="flex items-center justify-between border-b border-sable/40 pb-2">
                 <h3 className="text-sm font-display font-bold text-sombre">
-                  {dict.clients.modalTitle}
+                  {locale === 'fr' ? 'Nouveau client' : 'New client'}
                 </h3>
                 <button
                   type="button"
@@ -217,7 +217,7 @@ export default function ClientsPage() {
                   </label>
                   <textarea
                     rows={2}
-                    placeholder={dict.clients.notesPlaceholder}
+                    placeholder={locale === 'fr' ? 'Ex : Aime les coupes cintrées, morphologie…' : 'E.g., Prefers tailored fit, body shape…'}
                     value={newNotes}
                     onChange={(e) => setNewNotes(e.target.value)}
                     className="w-full rounded-xl border border-sable/80 p-2 text-xs bg-white text-sombre focus:border-fonce focus:outline-hidden"
@@ -358,7 +358,7 @@ export default function ClientsPage() {
                   >
                     {savingClient
                       ? (locale === 'fr' ? 'Enregistrement…' : 'Saving…')
-                      : (locale === 'fr' ? 'Enregistrer le client' : 'Save client')}
+                      : (locale === 'fr' ? 'Enregistrer' : 'Save')}
                   </Button>
                 </div>
               </form>
@@ -376,14 +376,14 @@ export default function ClientsPage() {
               <p className="text-sm font-display font-bold text-sombre">
                 {searchQuery
                   ? (locale === 'fr' ? `Aucun client trouvé pour « ${searchQuery} »` : `No client found for "${searchQuery}"`)
-                  : (locale === 'fr' ? 'Aucun client enregistré' : 'No clients yet')}
+                  : (locale === 'fr' ? 'Aucun client. Crée le premier.' : 'No clients yet. Create the first one.')}
               </p>
             </div>
             <Button
               onClick={() => setShowAddModal(true)}
               className="rounded-full bg-accent hover:bg-accent/90 text-white text-xs font-bold px-4 h-9 shadow-xs"
             >
-              + {locale === 'fr' ? 'Ajouter un client' : 'Add client'}
+              + {locale === 'fr' ? 'Nouveau client' : 'New client'}
             </Button>
           </Card>
         ) : (
@@ -420,7 +420,7 @@ export default function ClientsPage() {
                         {/* Mention solde dû si > 0 */}
                         {soldeDu > 0 && (
                           <span className="font-bold text-vertbouton text-xs bg-vertbouton/10 px-2 py-0.5 rounded-md">
-                            {locale === 'fr' ? 'Solde dû' : 'Balance due'} : {formatFCFA(soldeDu)} FCFA
+                            {locale === 'fr' ? 'Solde dû' : 'Balance due'} : {formatFCFA(soldeDu)}
                           </span>
                         )}
                       </div>
